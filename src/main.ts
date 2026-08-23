@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {state} from './game/state';
+import {DesignScene} from './ui/DesignScene';
 import tokens from './tokens.json';
 
 /* Boot — הוכחת יכולת: רקע חי + mascot מגיב למגע (CANVAS כדי שהבדיקות יראו פיקסלים) */
@@ -8,6 +9,7 @@ class BootScene extends Phaser.Scene{
  private vx=0;private baseY=0;
  constructor(){super('boot');}
  create(){
+  if(new URLSearchParams(location.search).get('scene')==='design'){this.scene.start('design');return;}
   const w=this.scale.width,h=this.scale.height;
   this.baseY=h*0.62;
   this.mascot=this.add.circle(w/2,this.baseY,26,0xf2549a);
@@ -34,5 +36,5 @@ new Phaser.Game({
  parent:'game',
  backgroundColor:tokens.colors.night,
  scale:{mode:Phaser.Scale.RESIZE,width:'100%',height:'100%'},
- scene:[BootScene]
+ scene:[BootScene,DesignScene]
 });
