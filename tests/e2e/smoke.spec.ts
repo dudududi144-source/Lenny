@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-test('boot: מרנדר + מגע מזיז את לני', async ({page})=>{
+test('boot: מרנדר + קלט מזיז את לני', async ({page})=>{
  const errors:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/');
@@ -12,9 +12,12 @@ test('boot: מרנדר + מגע מזיז את לני', async ({page})=>{
   return s.size>0;});
  expect(rendered).toBe(true);
  const x0=await page.evaluate(()=>(window as any).__lennyX as number);
- await page.touchscreen.tap(375*0.8,300);
- await page.waitForTimeout(350);
+ // החזקת קלט בצד ימין (pointer events — אותו מסלול שמטפל במגע)
+ await page.mouse.move(300,300);
+ await page.mouse.down();
+ await page.waitForTimeout(300);
+ await page.mouse.up();
  const x1=await page.evaluate(()=>(window as any).__lennyX as number);
- expect(x1).not.toBe(x0);
+ expect(x1).toBeGreaterThan(x0);
  expect(errors).toEqual([]);
 });
