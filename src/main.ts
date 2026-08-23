@@ -25,7 +25,7 @@ class BootScene extends Phaser.Scene{
  }
  update(time:number){
   const dt=this.game.loop.delta/1000;
-  const w=this.scale.width;
+  const w=this.scale.width,h=this.scale.height;
   drawAurora(this.bg,w,h,time*0.001,state.lights);
   this.mascot.x=Phaser.Math.Clamp(this.mascot.x+this.vx*dt,30,w-30);
   this.mascot.y+= (this.baseY-this.mascot.y)*Math.min(1,dt*4);
