@@ -1,0 +1,1 @@
+# Lenny — גַּן שֶׁל אוֹרוֹת\nמשחק ילדים פרימיום (Phaser 3 + Vite + TS).\nראה `docs/GDD.md` — החוזה החתום.\n\n## פיתוח\n```\nnpm install\nnpm run dev\n```\n## בדיקות\n```\nnpm run build\nnpm run test:e2e\n```\n
