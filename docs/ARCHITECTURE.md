@@ -1,56 +1,51 @@
-# Lenny: Star Jump - Architecture
+# Lenny - Cognitive Portal Architecture
 
-## Overview
+## Principles
 
-A clean, simple vertical jumping game built with Phaser 3.
+- One scene, six states, zero cuts. The portal is a continuous flow, not screens.
+- Every subsystem is a pure, decoupled class in src/portal/.
+- All config (frequencies, colors, timings) lives in one place: src/data/portalConfig.ts.
+- Theta-band visual entrainment kept subtle and epilepsy-safe.
 
-## Files
+## Portal State Machine
 
-- src/main.ts - Game bootstrap, single scene
-- src/scenes/PlayScene.ts - The entire game (menu, play, game over)
+VOID - SPARK - BREATH - REVEAL - MANDALA - GALAXY
 
-## Game Architecture
+PortalScene owns the state machine and conducts the subsystems.
+Each state advances by elapsed time (see TIMING in portalConfig).
+Touch during VOID/SPARK skips ahead; touch in GALAXY selects a game.
 
-### Single Scene Design
-The game uses one PlayScene with three internal states:
-- menu: Title screen with animated character
-- play: Active gameplay
-- over: Game over screen with score
+## Subsystems
 
-### Physics (Custom, Improved)
-Instead of relying on arcade physics, the game uses clean custom physics:
-- Gravity pulls the player down (GRAV = 1500)
-- Jumping gives upward velocity (JUMP = -680)
-- Horizontal movement is direct (SPEED = 400)
-- Wrap-around at screen edges for smooth movement
+- ThetaPulse: precise sinusoidal oscillator in the theta band (default 6Hz).
+- BreathSystem: 4-2-4 box-breathing state machine; exposes scale and label.
+- FractalBackground: seeded parallax star field + drifting nebulae.
+- MandalaSystem: 9 category petals, each pulsing at its own frequency.
+- GalaxySystem: 144 stars in 9 counter-rotating orbit rings; hit-test for touch.
+- SubliminalSystem: flashes affirmations for ~90ms at random 12-17s gaps.
 
-### Collision
-Simple platform collision when falling:
-- Only checks collision when player is moving downward
-- Detects landing on top of platform
-- Resets player position and applies jump velocity
+## Data Flow
 
-### Camera
-- Camera follows the player upward only (never scrolls down)
-- Creates the sense of climbing higher
+portalConfig.ts + games.ts
+        |
+        v
+PortalScene (state machine)
+        |
+   +----+----+---------+----------+-----------+------------+
+   |         |         |          |           |            |
+ThetaPulse Breath  Background  Mandala     Galaxy      Subliminal
 
-### Rendering
-All graphics are drawn with Phaser Graphics (vector, no images):
-- Background: gradient sky with twinkling stars
-- Platforms: rounded rectangles with shadows and highlights
-- Player: cute star character with eyes and smile
-- Stars: collectible golden stars
+## Rendering
 
-## Content
+Phaser CANVAS with three graphics layers:
+bgG (background) - mainG (mandala/galaxy) - fxG (particles/overlay).
 
-- Worlds: N/A (endless vertical game)
-- Puzzles: N/A (pure movement game)
-- Score: height climbed + collected stars
-- Best score saved to localStorage
+## Game Linkage
 
-## Design Decisions
+GameDef.scene maps a game id to a Phaser scene key.
+Currently only game #0 (Lenny Star Jump) has scene='play'.
+Selecting an unlocked game calls this.scene.start(game.scene).
 
-- No audio: The game is designed as a silent, calm experience
-- No external assets: All graphics are code-generated
-- Single file scene: Keeps the game simple and maintainable
-- RTL Hebrew UI: Title and instructions in Hebrew with niqqud
+## Tests
+
+Playwright e2e smoke tests verify the portal canvas loads and survives the opening flow.
