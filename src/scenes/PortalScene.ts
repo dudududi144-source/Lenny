@@ -8,7 +8,6 @@
 
 import Phaser from 'phaser';
 import { PortalState, THETA, BREATH, TIMING, COLORS, LENNY, UI_TEXT } from '../data/portalConfig';
-import { CATEGORIES } from '../data/games';
 import { ThetaPulse } from '../portal/ThetaPulse';
 import { BreathSystem } from '../portal/BreathSystem';
 import { FractalBackground } from '../portal/FractalBackground';
@@ -141,7 +140,7 @@ export class PortalScene extends Phaser.Scene {
     }
   }
 
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     const dt = Math.min(delta / 1000, 0.033);
     this.globalT += dt;
     this.stateT += dt;
