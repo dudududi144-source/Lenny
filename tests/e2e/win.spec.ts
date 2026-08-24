@@ -10,7 +10,7 @@ test('שיא: אור עשירי -> מסך העולם המואר', async ({page})
  await page.waitForFunction(()=>(window as any).__puzzleOpen===true,null,{timeout:6000});
  const cx=await page.evaluate(()=>(window as any).__correctX as number);
  await page.touchscreen.tap(cx,667*0.45);
- await page.waitForTimeout(500);
- expect(await page.evaluate(()=>(window as any).__screen)).toBe('win');
+ await page.waitForFunction(()=>(window as any).__screen==='win',null,{timeout:4000});
+ expect(await page.evaluate(()=>(window as any).__lights)).toBe(10);
  expect(errors).toEqual([]);
 });
