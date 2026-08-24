@@ -5,7 +5,7 @@
    "world": 0,
    "type": "match",
    "target": "dog",
-   "prompt": "מִי הַכֶּלֶב?",
+   "prompt": "מִי הַכֶּלב?",
    "options": [
     "dog",
     "cat",
@@ -25,11 +25,47 @@
    ]
   },
   {
+   "id": "w6-color",
+   "world": 6,
+   "type": "color",
+   "target": "red",
+   "prompt": "אֵיזה צֶבַע אָדֹם?",
+   "options": [
+    "red",
+    "blue",
+    "yellow"
+   ]
+  },
+  {
+   "id": "w7-size",
+   "world": 7,
+   "type": "size",
+   "target": "big",
+   "prompt": "מִי הֲכִי גָּדוֹל?",
+   "options": [
+    "small",
+    "med",
+    "big"
+   ]
+  },
+  {
+   "id": "w1-odd",
+   "world": 1,
+   "type": "odd",
+   "target": "square",
+   "prompt": "מִי שוֹנֶה?",
+   "options": [
+    "circle",
+    "circle",
+    "square"
+   ]
+  },
+  {
    "id": "w0-match2",
    "world": 0,
    "type": "match",
    "target": "cat",
-   "prompt": "מִי הַחָתוּל?",
+   "prompt": "מִי הֶחָתוּל?",
    "options": [
     "bird",
     "dog",
