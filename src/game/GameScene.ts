@@ -19,7 +19,7 @@ export class GameScene extends Phaser.Scene{
  private puzzle:Puzzle|null=null;
  private qText!:Phaser.GameObjects.Text;private speech!:Phaser.GameObjects.Text;
  private optTexts:Phaser.GameObjects.Text[]=[];private xs:number[]=[];
- private onboard=false;private creatureCol=0x8d5a3b;
+ private onboard=false;private creatureCol=0x8d5a3b;private creatureShape='dog';
  private sub:Puzzle|null=null;private stepIdx=0;
  constructor(){super('game');}
  create(){
@@ -27,7 +27,10 @@ export class GameScene extends Phaser.Scene{
   this.onboard=!sv.onboarded;
   const w=this.scale.width,h=this.scale.height;this.baseY=h*0.62;
   const wd=(worldsData.worlds as any[])[state.world]??(worldsData.worlds as any[])[0];
-  this.creatureCol=(wd.creature as number)??0x8d5a3b;
+  const wantW=new URLSearchParams(location.search).get('world');
+  const wwd=wantW?((worldsData.worlds as any[])[+wantW]??wd):wd;
+  this.creatureCol=(wwd.creature as number)??0x8d5a3b;this.creatureShape=(wwd.shape as string)??'dog';
+  (window as any).__worldName=wwd.name;
   (window as any).__worldName=wd.name;
   this.bg=this.add.graphics();this.dio=this.add.graphics();this.mg=this.add.graphics();this.fg=this.add.graphics();this.pg=this.add.graphics();
   this.speech=this.add.text(w/2,h*0.14,String(wd.line),{fontFamily:'Heebo',fontSize:'16px',color:'#FFF6EC'}).setOrigin(0.5);
@@ -77,8 +80,7 @@ export class GameScene extends Phaser.Scene{
   drawMascot(this.mg,this.mx,this.my,1.2,t,state.emotion,this.vy,this.my>=this.baseY-1);
   this.fg.clear();
   const gx=w*0.85;
-  this.fg.fillStyle(this.creatureCol,1);this.fg.fillCircle(gx-40,h*0.56,14);
-  this.fg.fillStyle(0xffffff,1);this.fg.fillCircle(gx-44,h*0.54,3);this.fg.fillCircle(gx-36,h*0.54,3);
+  this.drawCreature(this.creatureShape,this.creatureCol,gx-40,h*0.56,1);
   if(!this.gateOpen){this.fg.fillStyle(0x7c4dff,1);this.fg.fillRect(gx-4,h*0.4,8,h*0.22);
    this.fg.fillStyle(0xffd76a,1);this.fg.fillCircle(gx,h*0.4,8);
    if(this.mx>gx-90&&!this.puzzleOpen)this.openPuzzle();}
@@ -103,6 +105,18 @@ export class GameScene extends Phaser.Scene{
   (window as any).__lights=state.lights;
   (window as any).__lennyX=this.mx;
  }
+ private drawCreature(sh:string,col:number,x:number,y:number,s:number){const g=this.fg;g.fillStyle(col,1);
+  if(sh==='dog'){g.fillCircle(x,y,12*s);g.fillCircle(x+9*s,y-7*s,7*s);g.fillCircle(x+5*s,y-13*s,3*s);}
+  else if(sh==='cat'){g.fillCircle(x,y,12*s);g.beginPath();g.moveTo(x-8*s,y-8*s);g.lineTo(x-4*s,y-16*s);g.lineTo(x-1*s,y-8*s);g.closePath();g.fillPath();g.beginPath();g.moveTo(x+8*s,y-8*s);g.lineTo(x+4*s,y-16*s);g.lineTo(x+1*s,y-8*s);g.closePath();g.fillPath();}
+  else if(sh==='bird'||sh==='owl'){g.fillCircle(x,y,11*s);if(sh==='owl'){g.fillStyle(0xffffff,1);g.fillCircle(x-4*s,y-3*s,3.5*s);g.fillCircle(x+4*s,y-3*s,3.5*s);}else{g.fillStyle(0xffd76a,1);g.beginPath();g.moveTo(x+10*s,y-2*s);g.lineTo(x+16*s,y);g.lineTo(x+10*s,y+2*s);g.closePath();g.fillPath();}}
+  else if(sh==='fish'){g.fillEllipse(x,y,22*s,12*s);g.beginPath();g.moveTo(x-10*s,y);g.lineTo(x-18*s,y-6*s);g.lineTo(x-18*s,y+6*s);g.closePath();g.fillPath();}
+  else if(sh==='frog'){g.fillCircle(x,y,12*s);g.fillCircle(x-6*s,y-12*s,4*s);g.fillCircle(x+6*s,y-12*s,4*s);}
+  else if(sh==='bee'){g.fillEllipse(x,y,20*s,12*s);g.fillStyle(0x2a2140,1);g.fillRect(x-4*s,y-6*s,3*s,12*s);g.fillRect(x+2*s,y-6*s,3*s,12*s);g.fillStyle(0xffffff,0.7);g.fillCircle(x-2*s,y-10*s,5*s);}
+  else if(sh==='bear'){g.fillCircle(x,y,12*s);g.fillCircle(x-8*s,y-9*s,4*s);g.fillCircle(x+8*s,y-9*s,4*s);}
+  else if(sh==='rabbit'){g.fillCircle(x,y,11*s);g.fillEllipse(x-4*s,y-14*s,4*s,12*s);g.fillEllipse(x+4*s,y-14*s,4*s,12*s);}
+  else if(sh==='shadow'){g.fillCircle(x,y,13*s);g.fillStyle(0xffd76a,1);g.fillCircle(x-4*s,y-2*s,2.5*s);g.fillCircle(x+4*s,y-2*s,2.5*s);}
+  else{g.fillCircle(x,y,12*s);}
+  g.fillStyle(0xffffff,1);g.fillCircle(x-4*s,y-3*s,2.5*s);g.fillCircle(x+4*s,y-3*s,2.5*s);}
  private drawClock(x:number,y:number,hour:number){const g=this.fg;
   g.fillStyle(0xfff6ec,1);g.fillCircle(x,y,26);g.lineStyle(3,0x2a2140,1);g.strokeCircle(x,y,26);
   const a=(hour%12)/12*Math.PI*2-Math.PI/2;g.lineBetween(x,y,x+Math.cos(a)*14,y+Math.sin(a)*14);g.lineBetween(x,y,x,y-12);}
