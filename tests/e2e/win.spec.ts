@@ -8,8 +8,16 @@ test('שיא: אור עשירי -> מסך העולם המואר', async ({page})
  await page.waitForTimeout(1600);
  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  await page.waitForFunction(()=>(window as any).__puzzleOpen===true,null,{timeout:6000});
- const cx=await page.evaluate(()=>(window as any).__correctX as number);
- await page.touchscreen.tap(cx,667*0.45);
+ // פתרון עד ניצחון (תומך גם בוס רב-שלבי)
+ for(let k=0;k<5;k++){
+  const scr=await page.evaluate(()=>(window as any).__screen);
+  if(scr==='win')break;
+  const open=await page.evaluate(()=>(window as any).__puzzleOpen);
+  if(!open)break;
+  const cx=await page.evaluate(()=>(window as any).__correctX as number);
+  await page.touchscreen.tap(cx,667*0.45);
+  await page.waitForTimeout(300);
+ }
  await page.waitForFunction(()=>(window as any).__screen==='win',null,{timeout:4000});
  expect(await page.evaluate(()=>(window as any).__lights)).toBe(10);
  expect(errors).toEqual([]);
