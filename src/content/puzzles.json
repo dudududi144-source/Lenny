@@ -1,7 +1,7 @@
 {
  "puzzles": [
   {
-   "id": "w0",
+   "id": "w0-match",
    "world": 0,
    "type": "match",
    "target": "dog",
@@ -13,7 +13,31 @@
    ]
   },
   {
-   "id": "w5",
+   "id": "w2-letter",
+   "world": 2,
+   "type": "letter",
+   "target": "א",
+   "prompt": "אֵיזו אוֹת א?",
+   "options": [
+    "א",
+    "ב",
+    "ג"
+   ]
+  },
+  {
+   "id": "w4-emotion",
+   "world": 4,
+   "type": "emotion",
+   "target": "happy",
+   "prompt": "מִי שְׂמֵחָה?",
+   "options": [
+    "happy",
+    "sad",
+    "angry"
+   ]
+  },
+  {
+   "id": "w5-count",
    "world": 5,
    "type": "count",
    "target": 3,
@@ -25,7 +49,7 @@
    ]
   },
   {
-   "id": "w6",
+   "id": "w6-color",
    "world": 6,
    "type": "color",
    "target": "red",
@@ -37,7 +61,7 @@
    ]
   },
   {
-   "id": "w7",
+   "id": "w7-size",
    "world": 7,
    "type": "size",
    "target": "big",
@@ -49,7 +73,7 @@
    ]
   },
   {
-   "id": "w1",
+   "id": "w1-odd",
    "world": 1,
    "type": "odd",
    "target": "square",
@@ -58,66 +82,6 @@
     "circle",
     "circle",
     "square"
-   ]
-  },
-  {
-   "id": "w2",
-   "world": 2,
-   "type": "letter",
-   "target": "א",
-   "prompt": "אֵיזוֹ אוֹת הִיא א?",
-   "options": [
-    "א",
-    "ב",
-    "ג"
-   ]
-  },
-  {
-   "id": "w4",
-   "world": 4,
-   "type": "emotion",
-   "target": "happy",
-   "prompt": "מִי שָׂמֵחַ?",
-   "options": [
-    "sad",
-    "happy",
-    "angry"
-   ]
-  },
-  {
-   "id": "w0b",
-   "world": 0,
-   "type": "match",
-   "target": "cat",
-   "prompt": "מִי הֶחָתוּל?",
-   "options": [
-    "bird",
-    "dog",
-    "cat"
-   ]
-  },
-  {
-   "id": "w5b",
-   "world": 5,
-   "type": "count",
-   "target": 2,
-   "prompt": "כַּמָּה פְּרָחִים?",
-   "options": [
-    2,
-    5,
-    3
-   ]
-  },
-  {
-   "id": "w6b",
-   "world": 6,
-   "type": "color",
-   "target": "blue",
-   "prompt": "אֵיזה צֶבַע כָּחוֹל?",
-   "options": [
-    "yellow",
-    "red",
-    "blue"
    ]
   }
  ]
