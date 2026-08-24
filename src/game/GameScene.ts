@@ -45,8 +45,8 @@ export class GameScene extends Phaser.Scene{
  }
  private openPuzzle(){this.puzzle=pickPuzzle(state.lights);this.fails=0;this.puzzleOpen=true;speak(this.puzzle.prompt);
   this.qText.setText(this.puzzle.prompt);this.qText.setVisible(true);
-  const isCount=this.puzzle.type==='count';
-  this.optTexts.forEach((t,i)=>{if(isCount){t.setText(String(this.puzzle!.options[i]));t.setVisible(true);}else t.setVisible(false);});}
+  const showText=this.puzzle.type==='count'||this.puzzle.type==='letter';
+  this.optTexts.forEach((t,i)=>{if(showText){t.setText(String(this.puzzle!.options[i]));t.setVisible(true);}else t.setVisible(false);});}
  private win(){this.puzzleOpen=false;this.gateOpen=true;this.won=this.time.now;
   setLights(state.lights+1);storeSave({lights:state.lights,name:loadSave().name});state.emotion='joy';speak('כָּבוֹד!');
   this.qText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));}
@@ -66,7 +66,7 @@ export class GameScene extends Phaser.Scene{
    const P=this.puzzle;
    if(P.type==='match')(P.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
    else if(P.type==='count'){const n=P.target as number;for(let i=0;i<n;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);}
-   else P.options.forEach((o,i)=>this.drawOpt(this.xs[i],h*0.45,P.type,o as string));
+   else if(P.type!=='letter')P.options.forEach((o,i)=>this.drawOpt(this.xs[i],h*0.45,P.type,o as string));
    if(hintLevel(this.fails)>=1){const ci=this.puzzle.options.indexOf(this.puzzle.target);
     this.fg.lineStyle(3,0x7dffb8,0.9);this.fg.strokeCircle(this.xs[ci],h*0.45,46);}}
   drawPost(this.pg,w,h,Math.floor(t*2));
@@ -83,7 +83,9 @@ export class GameScene extends Phaser.Scene{
  private drawOpt(x:number,y:number,type:string,o:string){const g=this.fg;
   if(type==='color'){const m:{[k:string]:number}={red:0xe74c3c,blue:0x4dc9ff,yellow:0xffd76a,green:0x7dffb8};g.fillStyle(m[o]??0xffffff,1);g.fillCircle(x,y,26);}
   else if(type==='size'){const r=o==='big'?30:o==='med'?22:14;g.fillStyle(0x7c4dff,1);g.fillCircle(x,y,r);}
-  else{if(o==='square'){g.fillStyle(0x7dffb8,1);g.fillRect(x-20,y-20,40,40);}else{g.fillStyle(0x7dffb8,1);g.fillCircle(x,y,20);}}}
+  else if(type==='odd'){if(o==='square'){g.fillStyle(0x7dffb8,1);g.fillRect(x-20,y-20,40,40);}else{g.fillStyle(0x7dffb8,1);g.fillCircle(x,y,20);}}
+  else if(type==='emotion'){g.fillStyle(0xffe0c2,1);g.fillCircle(x,y,22);g.fillStyle(0x2a2140,1);g.fillCircle(x-7,y-4,3);g.fillCircle(x+7,y-4,3);g.lineStyle(2,0xc2405e,1);
+   if(o==='happy'){g.beginPath();g.arc(x,y+6,8,0,Math.PI,false);g.strokePath();}else if(o==='sad'){g.beginPath();g.arc(x,y+12,8,Math.PI,0,true);g.strokePath();}else{g.lineBetween(x-8,y+8,x+8,y+8);}}}
  private drawFlower(x:number,y:number,s:number){const g=this.fg;
   g.fillStyle(0xff8bd4,1);for(let k=0;k<5;k++){const a=k/5*Math.PI*2;g.fillCircle(x+Math.cos(a)*6*s,y+Math.sin(a)*6*s,4*s);}
   g.fillStyle(0xffd76a,1);g.fillCircle(x,y,3.5*s);}
