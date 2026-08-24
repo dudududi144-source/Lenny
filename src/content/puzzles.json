@@ -1,0 +1,52 @@
+{
+ "puzzles": [
+  {
+   "id": "w0-match",
+   "world": 0,
+   "type": "match",
+   "target": "dog",
+   "prompt": "מִי הַכֶּלֶב?",
+   "options": [
+    "dog",
+    "cat",
+    "bird"
+   ]
+  },
+  {
+   "id": "w5-count",
+   "world": 5,
+   "type": "count",
+   "target": 3,
+   "prompt": "כַּמָּה פְּרָחִים?",
+   "options": [
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "id": "w0-match2",
+   "world": 0,
+   "type": "match",
+   "target": "cat",
+   "prompt": "מִי הַחָתוּל?",
+   "options": [
+    "bird",
+    "dog",
+    "cat"
+   ]
+  },
+  {
+   "id": "w5-count2",
+   "world": 5,
+   "type": "count",
+   "target": 2,
+   "prompt": "כַּמָּה פְּרָחִים?",
+   "options": [
+    2,
+    5,
+    3
+   ]
+  }
+ ]
+}
