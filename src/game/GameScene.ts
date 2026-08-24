@@ -19,6 +19,7 @@ export class GameScene extends Phaser.Scene{
  constructor(){super('game');}
  create(){
   const sv=loadSave();setLights(sv.lights);
+  (window as any).__screen='game';
   const w=this.scale.width,h=this.scale.height;this.baseY=h*0.62;
   this.bg=this.add.graphics();this.dio=this.add.graphics();this.mg=this.add.graphics();this.fg=this.add.graphics();
   this.mx=w*0.2;this.my=this.baseY;
