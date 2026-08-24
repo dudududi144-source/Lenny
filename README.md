@@ -1,30 +1,32 @@
-# לֶנִי · קְפִיצַת הַכּוֹכָבִים (Star Jump)
+# Lenny - Gan shel Orot (Garden of Lights)
 
-A brand-new, clean, and beautiful vertical jumping game for kids.
+A cognitive portal for children: 144 games across 9 developmental categories, wrapped in a theta-wave guided experience.
 
-## The Game
+## The Portal Flow
 
-Guide Lenny the star as she jumps up endless colorful platforms, collecting golden stars along the way. The higher you climb, the more points you score!
+VOID - SPARK - BREATH - REVEAL - MANDALA - GALAXY
 
-### How to Play
-- **Touch/Click**: Tap the left or right side of the screen to move
-- **Keyboard**: Use the arrow keys
-- Lenny automatically bounces when she lands on a platform
-- Collect stars for bonus points
-- Climb as high as you can!
+| State | What happens |
+|-------|-------------|
+| VOID | Pure darkness - the mind resets |
+| SPARK | A golden point pulses at 6Hz (theta entrainment) |
+| BREATH | Guided 4-2-4 breathing circle |
+| REVEAL | 144 particles of light scatter outward |
+| MANDALA | The 9-petal cognitive mandala blooms |
+| GALAXY | Home screen - 9 orbit rings of game stars |
 
-## Features
+## Architecture
 
-- **Smooth Physics**: Improved movement with gravity, jumping, and horizontal wrap-around
-- **Beautiful Design**: Gradient sky with twinkling stars, colorful platforms, and a cute star character
-- **Simple & Fun**: Easy to learn, challenging to master
-- **Score System**: Track your height and collected stars, with best score saved
-- **Mobile First**: Designed for touch controls on phones and tablets
-- **No Audio Needed**: Pure visual fun, no sounds required
-
-## Tech
-
-Built with Phaser 3 + TypeScript + Vite. Clean, single-scene architecture.
+- src/data/games.ts - 144 games, 9 categories, 4 levels
+- src/data/portalConfig.ts - theta / breath / colors / timings
+- src/portal/ThetaPulse.ts - visual theta-wave oscillator
+- src/portal/BreathSystem.ts - 4-2-4 guided breathing
+- src/portal/FractalBackground.ts - living star field + nebulae
+- src/portal/MandalaSystem.ts - 9-petal category mandala
+- src/portal/GalaxySystem.ts - 144-star orbital home screen
+- src/portal/SubliminalSystem.ts - affirmation priming layer
+- src/scenes/PortalScene.ts - state-machine conductor
+- src/scenes/PlayScene.ts - game #1 (Lenny Star Jump)
 
 ## Scripts
 
