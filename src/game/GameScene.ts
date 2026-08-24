@@ -60,8 +60,10 @@ export class GameScene extends Phaser.Scene{
    this.fg.fillStyle(0xffd76a,1);this.fg.fillCircle(gx,h*0.4,8);
    if(this.mx>gx-90&&!this.puzzleOpen)this.openPuzzle();}
   if(this.puzzleOpen&&this.puzzle){this.fg.fillStyle(0x0a0416,0.6);this.fg.fillRect(0,0,w,h);
-   if(this.puzzle.type==='match')(this.puzzle.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
-   else{const n=this.puzzle.target as number;for(let i=0;i<n;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);}
+   const P=this.puzzle;
+   if(P.type==='match')(P.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
+   else if(P.type==='count'){const n=P.target as number;for(let i=0;i<n;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);}
+   else P.options.forEach((o,i)=>this.drawOpt(this.xs[i],h*0.45,P.type,o as string));
    if(hintLevel(this.fails)>=1){const ci=this.puzzle.options.indexOf(this.puzzle.target);
     this.fg.lineStyle(3,0x7dffb8,0.9);this.fg.strokeCircle(this.xs[ci],h*0.45,46);}}
   drawPost(this.pg,w,h,Math.floor(t*2));
@@ -73,6 +75,10 @@ export class GameScene extends Phaser.Scene{
   (window as any).__lights=state.lights;
   (window as any).__lennyX=this.mx;
  }
+ private drawOpt(x:number,y:number,type:string,o:string){const g=this.fg;
+  if(type==='color'){const m:{[k:string]:number}={red:0xe74c3c,blue:0x4dc9ff,yellow:0xffd76a,green:0x7dffb8};g.fillStyle(m[o]??0xffffff,1);g.fillCircle(x,y,26);}
+  else if(type==='size'){const r=o==='big'?30:o==='med'?22:14;g.fillStyle(0x7c4dff,1);g.fillCircle(x,y,r);}
+  else{if(o==='square'){g.fillStyle(0x7dffb8,1);g.fillRect(x-20,y-20,40,40);}else{g.fillStyle(0x7dffb8,1);g.fillCircle(x,y,20);}}}
  private drawFlower(x:number,y:number,s:number){const g=this.fg;
   g.fillStyle(0xff8bd4,1);for(let k=0;k<5;k++){const a=k/5*Math.PI*2;g.fillCircle(x+Math.cos(a)*6*s,y+Math.sin(a)*6*s,4*s);}
   g.fillStyle(0xffd76a,1);g.fillCircle(x,y,3.5*s);}
