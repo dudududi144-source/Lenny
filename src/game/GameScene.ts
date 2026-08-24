@@ -12,6 +12,7 @@ export class GameScene extends Phaser.Scene{
  private mg!:Phaser.GameObjects.Graphics;private fg!:Phaser.GameObjects.Graphics;
  private mx=0;private my=0;private baseY=0;private vx=0;private vy=0;
  private puzzleOpen=false;private gateOpen=false;private won=0;
+ private qText!:Phaser.GameObjects.Text;
  private opts:{x:number;a:Animal}[]=[];
  constructor(){super('game');}
  create(){
@@ -23,7 +24,7 @@ export class GameScene extends Phaser.Scene{
   const order:Animal[]=['dog','cat','bird'];
   this.opts=order.map((a,i)=>({x:xs[i],a}));
   (window as any).__correctX=xs[0];
-  this.add.text(w/2,h*0.3,'מִי הַכֶּלֶב? 🐾'.replace(' 🐾',''),{fontFamily:'Heebo',fontSize:'28px',color:'#FFF6EC'}).setOrigin(0.5).setName('q');
+  this.qText=this.add.text(w/2,h*0.3,'מִי הַכֶּלֶב?',{fontFamily:'Heebo',fontSize:'28px',color:'#FFF6EC'}).setOrigin(0.5);this.qText.setVisible(false);
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
    if(this.puzzleOpen){const y=h*0.45;
     for(const o of this.opts){if(Math.abs(p.x-o.x)<40&&Math.abs(p.y-y)<50){
@@ -53,6 +54,7 @@ export class GameScene extends Phaser.Scene{
    this.opts.forEach(o=>{this.drawAnimal(o.x,h*0.45,1.4,o.a);});}
   if(this.won){const k=(this.time.now-this.won)/1000;
    if(k<1.2){this.fg.lineStyle(4,0xffd76a,1-k/1.2);this.fg.strokeCircle(this.mx,this.my-40,20+k*80);}}
+  this.qText.setVisible(this.puzzleOpen);
   (window as any).__puzzleOpen=this.puzzleOpen;
   (window as any).__lights=state.lights;
   (window as any).__lennyX=this.mx;
