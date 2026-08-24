@@ -5,6 +5,7 @@ import {drawAurora} from './fx/aurora';
 import {drawDiorama} from './fx/diorama';
 import {drawMascot} from './fx/mascot';
 import {GameScene} from './game/GameScene';
+import {startAudio} from './systems/audio';
 import {TitleScene} from './ui/TitleScene';
 import {HubScene} from './ui/HubScene';
 import {ParentsScene} from './ui/ParentsScene';
@@ -56,6 +57,7 @@ tokens.spacing.forEach((s,i)=>root.style.setProperty('--ln-sp'+i,s+'px'));
 tokens.type.forEach((s,i)=>root.style.setProperty('--ln-fs'+i,s+'px'));
 (window as any).__setLights=setLights;
 (window as any).__setEmotion=setEmotion;
+document.addEventListener('pointerdown',()=>startAudio());
 
 new Phaser.Game({
  type:Phaser.CANVAS,
