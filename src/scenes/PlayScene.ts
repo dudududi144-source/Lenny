@@ -84,7 +84,7 @@ export class PlayScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
 
     this.hintL = this.add.text(30, h / 2, '◄', {
-      fontFamily: 'Arial', fontSize: '40px', color: '#FFD76A', alpha: 0.3
+      fontFamily: 'Arial', fontSize: '40px', color: '#FFD76A'
     }).setOrigin(0.5).setAlpha(0.3);
 
     this.hintR = this.add.text(w - 30, h / 2, '►', {
