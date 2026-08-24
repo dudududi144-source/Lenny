@@ -1,5 +1,5 @@
 import data from '../content/puzzles.json';
-export type PuzzleType='match'|'count'|'color'|'size'|'odd'|'letter'|'emotion'|'time'|'music'|'boss';
+export type PuzzleType='match'|'count'|'color'|'size'|'odd'|'letter'|'emotion'|'time'|'music'|'boss'|'free';
 export interface Puzzle{id:string;world:number;type:PuzzleType;target:string|number;prompt:string;options:(string|number)[];steps?:Puzzle[];}
 /* טקסונומיה + scaffolding (ZPD) + תור spaced-repetition פשוט */
 export const PUZZLES=data.puzzles as Puzzle[];
