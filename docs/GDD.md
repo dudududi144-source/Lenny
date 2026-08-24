@@ -1,96 +1,51 @@
-# 🎬 Lenny — גַּן שֶׁל אוֹרוֹת · Game Design Document (חתום v1.0)
+# לֶנִי · קְפִיצַת הַכּוֹכָבִים — Game Design Document
 
-> מסמך זה הוא **החוזה** של המוצר. כל החלטה עיצובית/טכנית/תוכנית נגזרת ממנו.
-> סטטוס: **חתום**. שינוי דורש עדכון מפורש ומסומן.
+## Vision
 
----
+A simple, beautiful, and calm vertical jumping game for young children. Lenny the star bounces up endless colorful platforms, collecting golden stars. The experience is joyful, safe, and visually delightful — with no audio, no pressure, and no dark patterns.
 
-## 1. חזון (Vision)
-ילדה (4–7) נכנסת לעולם חי אחד — **גן שהחשיך** — וכל אור שהיא מצילה **משנה פיזית את העולם**:
-השמיים מתבהרים, פרחים נפתחים, יצורים מתעוררים, המוזיקה מתעשרת.
-היא לא "עוברת שלבים" — **היא מרפאה עולם**. הלמידה היא תוצאת לוואי של התאהבות.
+## Core Loop
 
-**עמודי התווך:**
-1. **עולם חי ומגיב** (state-driven) — פעולה אחת משנה הכול, כיחידה אחת.
-2. **בטיחות רגשית** — safe-to-fail, צמיחה (Growth Mindset), ויסות.
-3. **איכות סטודיו** — שפה ויזואלית אחידה, לא אמוג'י, לא טלאים.
-4. **אחריות** — anti-dark-pattern, פרטיות, הרגלים בריאים.
+Jump up platforms → Collect stars → Climb higher → Beat your best score → Play again
 
-## 2. קהל יעד
-ילדות 4–7 (עברית כשפת אם), עם **שכבת הורה** (שקיפות, שליטה, ערך התפתחותי).
+## Design Pillars
 
-## 3. Core Loop
-`חקירה → חידה (מותאמת) → פתיחת שער/הצלת אור → העולם מתעורר → תגמול intrinsic → חזרה לחקירה`
-- **חקירה:** תנועה חופשית (מגע/מקלדת), קפיצה, איסוף.
-- **חידה:** פותחת שער; מותאמת דינמית (scaffolding).
-- **אור:** משנה את מצב העולם (0→10).
-- **תגמול:** העולם מתעשר + קוסמטיקה — **לא currency ריק**.
+1. **Simplicity**: One-touch controls, one clear goal
+2. **Beauty**: Gradient skies, twinkling stars, cute character, colorful platforms
+3. **Calm**: No audio, no timers, no failure punishment — just gentle fun
+4. **Replayability**: Endless procedural platforms, best score tracking
 
-## 4. מערכת "העולם מתעורר" (State-Driven World)
-`lights: 0..10` הוא **מקור האמת היחיד**. כל שכבה מגיבה אליו:
-| רכיב | תגובה ל-lights |
-|------|----------------|
-| AuroraBackground | פלטה קרה→חמה, עוצמת זוהר עולה |
-| ParallaxDiorama | שכבות מתעוררות (פרחים/יצורים נוספים) |
-| WorldMap | אזורים מוארים |
-| MascotRig | לני מתעודדת, הבעים חיוביים יותר |
-| Audio | כלים מוזיקליים נוספים (אדפטיבי) |
-**עקביות סיבתית:** שינוי אחד → כל העולם מגיב. זה ה"תיאום".
+## Mechanics
 
-## 5. שפת עיצוב: "Aurora Paper-Diorama"
-- **שכבות:** 8–10 שכבות parallax וקטוריות עם drop-shadow ביניהן + breathing.
-- **שמיים:** aurora/gradient-mesh מונפש + bloom + grain עדין.
-- **Mascot:** לני modular (ראש/גוף/גפיים/שיער/עיניים/פה) — squash-stretch, secondary motion, 6 הבעים, lip-sync ל-TTS.
-- **פלטת "שעת הזהב הנצחית":** ורוד-אלמוג, זהב חם, סגול-דמדומים, מנטה — מוגדרת ב-tokens בלבד.
-- **טיפוגרפיה:** Heebo (Black לכותרות), ניקוד מלא בכל טקסט.
-- **איסורים:** אמוג'י ב-UI; צבעים hardcoded; אלמנט דקורטיבי שאינו מלמד.
+- **Movement**: Tap left/right side of screen to move horizontally
+- **Jumping**: Automatic bounce when landing on a platform
+- **Wrap-around**: Moving off one edge brings Lenny to the other side
+- **Stars**: Collect floating stars for bonus points
+- **Score**: Height climbed + collected stars
+- **Game Over**: Falling below the screen
 
-## 6. טוקנים (Design Tokens) — מקור יחיד
-`tokens.json`: צבעים (semantic: success/warn/info/locked), סקלת ריווח 8pt,
-type-scale (12/14/16/20/28/40), רדיוסים, צללים. → CSS vars + Canvas constants.
-**Gate:** כל רכיב חייב להשתמש בטוקנים; lint אוכף.
+## Character
 
-## 7. טקסונומיית חידות + Scaffolding (ZPD)
-סוגים: התאמה (קול/צללית), מיון, סדרה, זיכרון, מרחב, ספירה, אותיות, צבעים, גדלים, שעות.
-**AdaptiveHint:** כישלון1→הדגשה עדינה; 2→רמז חזק; 3→פתרון מודגם.
-קושי עולה רק אחרי רצף הצלחות; פריט חדש אחד בכל פעם (עומס קוגניטיבי נמוך).
+Lenny is a cute golden star with big eyes, a smile, and rosy cheeks. She is drawn with vector graphics (code-generated), giving a clean and friendly look.
 
-## 8. מדע כדרישות מדידות (Gate לכל מכניקה)
-- **קוגניטיבי:** ZPD/scaffolding · spaced repetition · dual coding · executive functions.
-- **רגשי:** Growth Mindset (משבח מאמץ) · safe-to-fail · ויסות (BreathingCalm) · emotion mirroring.
-- **חברתי:** prosocial · perspective-taking · co-play הורה.
-- **חשיבה:** חידות פתוחות · metacognition · transfer.
-- **אתי/כלכלי:** no loot/FOMO/ads · מגבלת זמן הורית · פרטיות COPPA/GDPR-K · תגמול intrinsic · אפס מעקב.
-**כל מכניקה עוברת Gate רגשי+קוגניטיבי+אתי לפני כניסה.**
+## Visual Style
 
-## 9. שפה
-עברית תקנית: **ניקוד מלא בכל מקום** (UI, חידות, נרטיב). TTS במבטא טבעי (קול עברי איכותי, קצב/אינטונציה מתונים); TTS = גיבוי, לא עיקר.
+- **Sky**: Purple-blue gradient with twinkling stars
+- **Platforms**: Rounded, colorful, with soft shadows and highlights
+- **Character**: Golden star with glow effect
+- **Collectibles**: Golden stars with rotation animation
 
-## 10. בקרה ומגע (מובייל-פירסט)
-- מגע: אזורי מגע על המסך (שמאל/ימין/אמצע=קפיצה) + כפתורים וקטוריים + מקלדת.
-- Scale Manager של Phaser — אותו קוד בכל מסך; מוכח ב-375px.
-- הכול נכנס במסך; אין גלילה במסכי משחק.
+## Accessibility & Safety
 
-## 11. הורים (ParentLens)
-דשבורד: "מה היא למדה", זמן, התקדמות קוגניטיבית/רגשית; שליטה בזמן; נעילה בחשבון.
-**שקיפות:** קורא מאותו state store — אמת, לא דוח מנופח.
+- No audio required (silent by design)
+- No tracking, no ads, no in-app purchases
+- COPPA-compliant (zero data collection)
+- Best score stored locally only
 
-## 12. ארכיטקטורה טכנית
-**Phaser 3 + Vite + TypeScript strict + Playwright.**
-- Data-driven: עולמות/חידות/נרטיב ב-JSON.
-- State store אחד; רכיבים: Aurora, Diorama, WorldMap, MascotRig, PuzzleCard, FeedbackBurst, AdaptiveHint, BreathingCalm, RewardReveal, ParentLens.
-- Post-FX pipelines: bloom / grain / color-grade per world-state.
-- CI: build + Playwright עם **pixel-assertions** (הבדיקה רואה את מה שהילד רואה) + בדיקות מגע.
+## Technical
 
-## 13. Vertical Slice — "השחר הראשון" (Gate 6)
-פיסת עולם אחת שמוכיחה הכול:
-כניסה → תנועה במגע → חידת חיות אחת → פתיחת שער → **האור הראשון** → העולם מתעורר (ויזואלית+סאונד) → מסך חגיגי → save.
-**Definition of Done:** עובד 100% במובייל 375px, מוכח בצילום + בדיקת מגע + pixel-assertion, לפני כל תוכן נוסף.
-
-## 14. מפת דרכים (Gates)
-0 GDD ✔ · 1 Scaffold · 2 Design System · 3 Aurora+PostFX · 4 Diorama · 5 Mascot ·
-6 Vertical Slice · 7 תוכן (10) · 8 עומק · 9 הורים+polish+QA.
-**חוק:** שום שלב לא מתחיל עד שהקודם מוכח (צילום+בדיקה).
-
----
-*נחתם: Lenny v1.0 · Lead Game Producer + Creative & Technical Director*
+- Phaser 3 + TypeScript + Vite
+- Single-scene architecture
+- Custom physics (gravity, jump, wrap-around)
+- All graphics code-generated (no image assets)
+- Mobile-first with touch controls
