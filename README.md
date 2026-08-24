@@ -29,3 +29,6 @@ Rule: each gate must pass lint+typecheck+build+e2e WITH visual/pixel proof.
 Safety: anti-dark-pattern, zero tracking, COPPA privacy, parental time limit, intrinsic rewards, safe-to-fail.
 Security: no secrets in repo; .env/keys blocked by .gitignore.
 MIT (c) 2025 Lenny
+
+## חי
+https://dudududi144-source.github.io/Lenny/
