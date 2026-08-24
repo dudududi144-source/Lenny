@@ -1,59 +1,56 @@
-# Lenny - Architecture (v2.0)
+# Lenny: Star Jump - Architecture
 
-## Principles
-- Single source of truth: core/StateManager.ts (lights, emotion, world)
-- Event-driven communication: core/EventBus.ts (no window globals)
-- Entity-Component System: core/EntityManager.ts for game objects
-- Data-driven: content (worlds/puzzles/narrative) loads from JSON
-- Tokens-first: tokens.json -> CSS vars + Canvas constants
+## Overview
 
-## Data Flow
+A clean, simple vertical jumping game built with Phaser 3.
 
-StateManager --> EventBus --> All Components
-     |
-     +--> fx/aurora.ts (sky palette/glow by lights)
-     +--> fx/diorama.ts (parallax layers + flowers by lights)
-     +--> entities/Mascot.ts (emotions affect appearance)
+## Files
 
-## Module Structure
+- src/main.ts - Game bootstrap, single scene
+- src/scenes/PlayScene.ts - The entire game (menu, play, game over)
 
-### Core (new)
-- core/EventBus.ts - Event system (replaces window globals)
-- core/StateManager.ts - State management with events
-- core/EntityManager.ts - ECS for game entities
+## Game Architecture
 
-### Entities (new)
-- entities/Mascot.ts - Mascot with MovementComponent + RenderComponent
+### Single Scene Design
+The game uses one PlayScene with three internal states:
+- menu: Title screen with animated character
+- play: Active gameplay
+- over: Game over screen with score
 
-### Scenes (refactored)
-- scenes/WorldScene.ts - Main gameplay (replaces GameScene)
-- scenes/PuzzleScene.ts - Separate puzzle handling
+### Physics (Custom, Improved)
+Instead of relying on arcade physics, the game uses clean custom physics:
+- Gravity pulls the player down (GRAV = 1500)
+- Jumping gives upward velocity (JUMP = -680)
+- Horizontal movement is direct (SPEED = 400)
+- Wrap-around at screen edges for smooth movement
 
-### FX (preserved - high quality)
-- fx/aurora.ts - Gradient sky with warm/cool transitions
-- fx/diorama.ts - Parallax layers with breathing animation
-- fx/mascot.ts - Mascot drawing (legacy, kept for compatibility)
-- fx/post.ts - Post-processing effects
+### Collision
+Simple platform collision when falling:
+- Only checks collision when player is moving downward
+- Detects landing on top of platform
+- Resets player position and applies jump velocity
 
-### Systems (preserved)
-- systems/puzzles.ts - Puzzle types and selection logic
-- systems/save.ts - Save/load functionality
-- systems/i18n.ts - Internationalization
-- systems/audio.ts - Audio system
-- systems/tts.ts - Text-to-speech
+### Camera
+- Camera follows the player upward only (never scrolls down)
+- Creates the sense of climbing higher
 
-### UI (preserved)
-- ui/TitleScene.ts - Main menu
-- ui/HubScene.ts - World selection
-- ui/ParentsScene.ts - Parent dashboard
-- ui/WinScene.ts - Victory screen
-- ui/DesignScene.ts - Design specimen
+### Rendering
+All graphics are drawn with Phaser Graphics (vector, no images):
+- Background: gradient sky with twinkling stars
+- Platforms: rounded rectangles with shadows and highlights
+- Player: cute star character with eyes and smile
+- Stars: collectible golden stars
 
-## Rendering
-Phaser CANVAS (compat + pixel tests). Layers: aurora -> diorama -> mascot -> UI.
+## Content
 
-## Tests
-Playwright e2e tests in tests/e2e/
+- Worlds: N/A (endless vertical game)
+- Puzzles: N/A (pure movement game)
+- Score: height climbed + collected stars
+- Best score saved to localStorage
 
-## CI
-lint -> typecheck -> build -> playwright -> e2e
+## Design Decisions
+
+- No audio: The game is designed as a silent, calm experience
+- No external assets: All graphics are code-generated
+- Single file scene: Keeps the game simple and maintainable
+- RTL Hebrew UI: Title and instructions in Hebrew with niqqud
