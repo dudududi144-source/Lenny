@@ -95,7 +95,7 @@ export class GameScene extends Phaser.Scene{
    else P.options.forEach((o,i)=>this.drawOpt(this.xs[i],h*0.45,P.type,o as string));
    if(hintLevel(this.fails)>=1){const ci=P.options.indexOf(P.target);
     this.fg.lineStyle(3,0x7dffb8,0.9);this.fg.strokeCircle(this.xs[ci],h*0.45,46);}
-   const ci=P.options.indexOf(P.target);(window as any).__correctX=this.xs[ci];}
+   const ci=P.type==='free'?0:P.options.indexOf(P.target);(window as any).__correctX=this.xs[ci];}
   if(this.onboard){this.fg.fillStyle(0xfff6ec,0.9);
    this.fg.fillTriangle(40,h*0.5,60,h*0.5-12,60,h*0.5+12);
    this.fg.fillTriangle(w-40,h*0.5,w-60,h*0.5-12,w-60,h*0.5+12);}
