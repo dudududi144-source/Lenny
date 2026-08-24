@@ -44,7 +44,8 @@ export class GameScene extends Phaser.Scene{
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
    if(this.puzzleOpen&&this.puzzle){const y=h*0.45;
     for(let i=0;i<3;i++){if(Math.abs(p.x-this.xs[i])<44&&Math.abs(p.y-y)<54){
-      if(this.cur().options[i]===this.cur().target){
+      const isFree=this.puzzle.type==='free';
+      if(isFree||this.cur().options[i]===this.cur().target){
        if(this.puzzle.type==='boss'&&this.stepIdx<(this.puzzle.steps||[]).length-1){this.stepIdx++;this.sub=(this.puzzle.steps||[])[this.stepIdx];this.refreshSub();speak(this.cur().prompt);}
        else this.win();}
       else{this.fails++;state.emotion='frustrated';}
@@ -88,7 +89,7 @@ export class GameScene extends Phaser.Scene{
    if(this.mx>gx-90&&!this.puzzleOpen)this.openPuzzle();}
   if(this.puzzleOpen&&this.puzzle){this.fg.fillStyle(0x0a0416,0.6);this.fg.fillRect(0,0,w,h);
    const P=this.cur();
-   if(P.type==='match')(P.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
+   if(P.type==='match'||P.type==='free')(P.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
    else if(P.type==='count'){const n=P.target as number;for(let i=0;i<n;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);}
    else if(P.type==='time')this.drawClock(w/2,h*0.3,P.target as number);
    else P.options.forEach((o,i)=>this.drawOpt(this.xs[i],h*0.45,P.type,o as string));
