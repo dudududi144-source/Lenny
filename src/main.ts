@@ -5,6 +5,8 @@ import {drawAurora} from './fx/aurora';
 import {drawDiorama} from './fx/diorama';
 import {drawMascot} from './fx/mascot';
 import {GameScene} from './game/GameScene';
+import {TitleScene} from './ui/TitleScene';
+import {HubScene} from './ui/HubScene';
 import tokens from './tokens.json';
 
 /* Boot — הוכחת יכולת: רקע חי + mascot מגיב למגע (CANVAS כדי שהבדיקות יראו פיקסלים) */
@@ -59,5 +61,5 @@ new Phaser.Game({
  parent:'game',
  backgroundColor:tokens.colors.night,
  scale:{mode:Phaser.Scale.RESIZE,width:'100%',height:'100%'},
- scene:[BootScene,DesignScene,GameScene]
+ scene:[TitleScene,HubScene,GameScene,BootScene,DesignScene]
 });
