@@ -20,6 +20,7 @@ export class GameScene extends Phaser.Scene{
  private qText!:Phaser.GameObjects.Text;private speech!:Phaser.GameObjects.Text;
  private optTexts:Phaser.GameObjects.Text[]=[];private xs:number[]=[];
  private onboard=false;private creatureCol=0x8d5a3b;
+ private sub:Puzzle|null=null;private stepIdx=0;
  constructor(){super('game');}
  create(){
   const sv=loadSave();setLights(sv.lights);
@@ -38,7 +39,10 @@ export class GameScene extends Phaser.Scene{
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
    if(this.puzzleOpen&&this.puzzle){const y=h*0.45;
     for(let i=0;i<3;i++){if(Math.abs(p.x-this.xs[i])<44&&Math.abs(p.y-y)<54){
-      if(this.puzzle.options[i]===this.puzzle.target)this.win();else{this.fails++;state.emotion='frustrated';}
+      if(this.cur().options[i]===this.cur().target){
+       if(this.puzzle.type==='boss'&&this.stepIdx<(this.puzzle.steps||[]).length-1){this.stepIdx++;this.sub=(this.puzzle.steps||[])[this.stepIdx];this.refreshSub();speak(this.cur().prompt);}
+       else this.win();}
+      else{this.fails++;state.emotion='frustrated';}
       return;}}
     return;}
    const fx=p.x/w;
@@ -50,13 +54,19 @@ export class GameScene extends Phaser.Scene{
  }
  private openPuzzle(){const want=new URLSearchParams(location.search).get('puzzle');
   this.puzzle=(want?PUZZLES.find(q=>q.id===want):undefined)??pickPuzzle(state.lights);
-  this.fails=0;this.puzzleOpen=true;speak(this.puzzle.prompt);
-  this.qText.setText(this.puzzle.prompt);this.qText.setVisible(true);
-  const showText=this.puzzle.type==='count'||this.puzzle.type==='letter'||this.puzzle.type==='time';
-  this.optTexts.forEach((t,i)=>{if(showText){t.setText(String(this.puzzle!.options[i]));t.setVisible(true);}else t.setVisible(false);});}
+  this.fails=0;this.puzzleOpen=true;this.stepIdx=0;
+  this.sub=(this.puzzle.type==='boss'?(this.puzzle.steps&&this.puzzle.steps[0])||this.puzzle:this.puzzle);
+  speak(this.cur().prompt);
+  this.refreshSub();
+  const showText=this.sub!.type==='count'||this.sub!.type==='letter'||this.sub!.type==='time';
+  this.optTexts.forEach((t,i)=>{if(showText){t.setText(String(this.sub!.options[i]));t.setVisible(true);}else t.setVisible(false);});}
+ private cur(){return this.sub||this.puzzle!;}
+ private refreshSub(){this.qText.setText(this.cur().prompt);this.qText.setVisible(true);
+  const showText=this.cur().type==='count'||this.cur().type==='letter'||this.cur().type==='time';
+  this.optTexts.forEach((t,i)=>{if(showText){t.setText(String(this.cur().options[i]));t.setVisible(true);}else t.setVisible(false);});}
  private win(){this.puzzleOpen=false;this.gateOpen=true;this.won=this.time.now;
   setLights(state.lights+1);storeSave({lights:state.lights,name:loadSave().name});state.emotion='joy';speak('כָּבוֹד!');
-  this.qText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));}
+  this.qText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));this.sub=null;}
  update(time:number){
   const dt=this.game.loop.delta/1000;const w=this.scale.width,h=this.scale.height;const t=time*0.001;
   drawAurora(this.bg,w,h,t,state.lights);
@@ -72,7 +82,7 @@ export class GameScene extends Phaser.Scene{
    this.fg.fillStyle(0xffd76a,1);this.fg.fillCircle(gx,h*0.4,8);
    if(this.mx>gx-90&&!this.puzzleOpen)this.openPuzzle();}
   if(this.puzzleOpen&&this.puzzle){this.fg.fillStyle(0x0a0416,0.6);this.fg.fillRect(0,0,w,h);
-   const P=this.puzzle;
+   const P=this.cur();
    if(P.type==='match')(P.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
    else if(P.type==='count'){const n=P.target as number;for(let i=0;i<n;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);}
    else if(P.type==='time')this.drawClock(w/2,h*0.3,P.target as number);
