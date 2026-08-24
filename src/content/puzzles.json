@@ -107,6 +107,52 @@
     "mid",
     "low"
    ]
+  },
+  {
+   "id": "w9-boss",
+   "world": 9,
+   "type": "boss",
+   "target": "",
+   "prompt": "הָבֵס אֶת הַצֵּל בְּ־3 שְׁלָבִים!",
+   "options": [],
+   "steps": [
+    {
+     "id": "b1",
+     "world": 9,
+     "type": "match",
+     "target": "dog",
+     "prompt": "שָׁלָב 1: מִי הַכֶּלב?",
+     "options": [
+      "dog",
+      "cat",
+      "bird"
+     ]
+    },
+    {
+     "id": "b2",
+     "world": 9,
+     "type": "count",
+     "target": 2,
+     "prompt": "שָׁלָב 2: כַּמָּה פְּרָחִים?",
+     "options": [
+      3,
+      2,
+      4
+     ]
+    },
+    {
+     "id": "b3",
+     "world": 9,
+     "type": "color",
+     "target": "yellow",
+     "prompt": "שָׁלָב 3: אֵיזה צֶבַע זָהָב?",
+     "options": [
+      "blue",
+      "yellow",
+      "red"
+     ]
+    }
+   ]
   }
  ]
 }
