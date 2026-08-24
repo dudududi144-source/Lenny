@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {state} from '../game/state';
+import {state,setWorld} from '../game/state';
 import worldsData from '../content/worlds.json';
 import {drawAurora} from '../fx/aurora';
 export class HubScene extends Phaser.Scene{
@@ -18,7 +18,7 @@ export class HubScene extends Phaser.Scene{
    this.bubbles.push({x:cx,y:cy,r:26,i});
    this.add.text(cx,cy+40,wd.name,{fontFamily:'Heebo',fontSize:'11px',color:'#FFF6EC'}).setOrigin(0.5);});
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
-   for(const b of this.bubbles){if(Math.hypot(p.x-b.x,p.y-b.y)<b.r){if(b.i<=state.lights)this.scene.start('game');return;}}});
+   for(const b of this.bubbles){if(Math.hypot(p.x-b.x,p.y-b.y)<b.r){if(b.i<=state.lights){setWorld(b.i);this.scene.start('game');}return;}}});
  }
  update(time:number){const w=this.scale.width,h=this.scale.height;const t=time*0.001;
   drawAurora(this.bg,w,h,t,state.lights);
