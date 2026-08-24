@@ -1,6 +1,6 @@
 import {state,subscribe} from '../game/state';
 let ctx:AudioContext|null=null;let master:GainNode|null=null;let started=false;
-export function audioWave(){const w=['sine','triangle','square','sawtooth'];return w[((state.world%4)+4)%4];}
+export function audioWave():OscillatorType{const w:OscillatorType[]=['sine','triangle','square','sawtooth'];return w[((state.world%4)+4)%4];}
 export function audioLayers(){return Math.min(5,1+Math.floor(state.lights/2));}
 export function audioStarted(){return started;}
 function note(f:number,dur:number,vol:number){const c=ctx,m=master;if(!c||!m)return;
