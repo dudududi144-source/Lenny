@@ -1,10 +1,10 @@
 {
- "name": "Lenny - גַּן שֶל אוֹרוֹת",
- "short_name": "Lenny",
+ "name": "לֶנִי - קְפִיצַת הַכּוֹכָבִים",
+ "short_name": "לֶנִי",
  "start_url": ".",
  "display": "standalone",
- "background_color": "#0a0416",
- "theme_color": "#7c4dff",
+ "background_color": "#1a1040",
+ "theme_color": "#1a1040",
  "dir": "rtl",
  "lang": "he",
  "icons": [
