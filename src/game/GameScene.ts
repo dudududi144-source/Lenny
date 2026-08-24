@@ -6,6 +6,7 @@ import {drawAurora} from '../fx/aurora';
 import {drawDiorama} from '../fx/diorama';
 import {drawMascot} from '../fx/mascot';
 import {drawPost} from '../fx/post';
+import narrativeData from '../content/narrative.json';
 import {speak} from '../systems/tts';
 type Animal='dog'|'cat'|'bird';
 
@@ -18,6 +19,7 @@ export class GameScene extends Phaser.Scene{
  private puzzle:Puzzle|null=null;
  private onboard=false;
  private qText!:Phaser.GameObjects.Text;
+ private narrText!:Phaser.GameObjects.Text;
  private pg!:Phaser.GameObjects.Graphics;private optTexts:Phaser.GameObjects.Text[]=[];
  private xs:number[]=[];
  constructor(){super('game');}
@@ -30,6 +32,7 @@ export class GameScene extends Phaser.Scene{
   this.mx=w*0.2;this.my=this.baseY;
   this.xs=[0.3,0.5,0.7].map(f=>f*w);
   this.qText=this.add.text(w/2,h*0.26,'',{fontFamily:'Heebo',fontSize:'28px',color:'#FFF6EC'}).setOrigin(0.5);this.qText.setVisible(false);
+  this.narrText=this.add.text(w/2,h*0.18,'',{fontFamily:'Heebo',fontSize:'16px',color:'#7dffb8'}).setOrigin(0.5);this.narrText.setVisible(false);
   for(let i=0;i<3;i++){const t=this.add.text(this.xs[i],h*0.45,'',{fontFamily:'Heebo',fontSize:'30px',color:'#FFD76A'}).setOrigin(0.5);t.setVisible(false);this.optTexts.push(t);}
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
    if(this.puzzleOpen&&this.puzzle){const y=h*0.45;
@@ -47,11 +50,14 @@ export class GameScene extends Phaser.Scene{
   this.puzzle=(want?PUZZLES.find(q=>q.id===want):undefined)??pickPuzzle(state.lights);
   this.fails=0;this.puzzleOpen=true;speak(this.puzzle.prompt);
   this.qText.setText(this.puzzle.prompt);this.qText.setVisible(true);
+  const nl=(narrativeData.narrative as string[])[this.puzzle.world]||'';
+  this.narrText.setText(nl);this.narrText.setVisible(true);
+  (window as any).__narrative=nl;
   const showText=this.puzzle.type==='count'||this.puzzle.type==='letter'||this.puzzle.type==='time';
   this.optTexts.forEach((t,i)=>{if(showText){t.setText(String(this.puzzle!.options[i]));t.setVisible(true);}else t.setVisible(false);});}
  private win(){this.puzzleOpen=false;this.gateOpen=true;this.won=this.time.now;
   setLights(state.lights+1);storeSave({lights:state.lights,name:loadSave().name});state.emotion='joy';speak('כָּבוֹד!');
-  this.qText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));}
+  this.qText.setVisible(false);this.narrText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));}
  update(time:number){
   const dt=this.game.loop.delta/1000;const w=this.scale.width,h=this.scale.height;const t=time*0.001;
   drawAurora(this.bg,w,h,t,state.lights);
