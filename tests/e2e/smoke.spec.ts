@@ -1,30 +1,21 @@
 import { test, expect } from '@playwright/test';
 
-test('game loads with title screen', async ({ page }) => {
-  await page.goto('/');
-  
-  // Wait for the game canvas to appear
-  await page.waitForSelector('canvas', { timeout: 10000 });
-  
-  // Verify the page title
-  await expect(page).toHaveTitle(/לֶנִי/);
-});
-
-test('game canvas is visible', async ({ page }) => {
+test('portal loads with canvas', async ({ page }) => {
   await page.goto('/');
   await page.waitForSelector('canvas', { timeout: 10000 });
-  
   const canvas = page.locator('canvas');
   await expect(canvas).toBeVisible();
 });
 
-test('clicking starts the game', async ({ page }) => {
+test('page title is Garden of Lights', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveTitle(/\u05d2\u05b7\u05bc\u05df|\u05dc\u05b6\u05e0\u05b4\u05d9/);
+});
+
+test('portal advances past void without crash', async ({ page }) => {
   await page.goto('/');
   await page.waitForSelector('canvas', { timeout: 10000 });
-  
-  // Click to start the game
-  await page.click('canvas');
-  
-  // Wait a bit for the game to start
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(4000);
+  const canvas = page.locator('canvas');
+  await expect(canvas).toBeVisible();
 });
