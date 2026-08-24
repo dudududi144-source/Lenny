@@ -13,7 +13,7 @@ export class ParentsScene extends Phaser.Scene{
    'אוֹרוֹת: '+state.lights+'/10',
    'התקדמות: '+Math.round(state.lights*10)+'%',
    'מיומנויות שנתקלו: חיות, מספרים',
-   'מגבלת זמן: '+(sv.limit?sv.limit+' דק׳:'כבויה')];
+   'מגבלת זמן: '+(sv.limit?sv.limit+' דק׳':'כבויה')];
   this.add.text(w/2,h*0.32,lines.join('\n'),{fontFamily:'Heebo',fontSize:'20px',color:'#FFF6EC',align:'center'}).setOrigin(0.5);
   (window as any).__parentsLines=lines.length;
  }
