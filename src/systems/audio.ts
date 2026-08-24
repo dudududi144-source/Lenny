@@ -15,7 +15,7 @@ function note(f:number,dur:number,vol:number,type:OscillatorType){const c=ctx,m=
 export function startAudio(){try{
  if(started)return;
  const AC=(window as any).AudioContext||(window as any).webkitAudioContext;if(!AC)return;
- ctx=new AC();master=ctx.createGain();master.gain.value=0.15;master.connect(ctx.destination);
+ const c=new AC() as AudioContext;ctx=c;master=c.createGain();master.gain.value=0.15;master.connect(c.destination);
  started=true;let beat=0;
  const mult=[1,9/8,5/4,3/2,5/3,2];
  setInterval(()=>{const c=ctx;if(!c||!master)return;const L=audioLayers();const tim=worldTimbre();
