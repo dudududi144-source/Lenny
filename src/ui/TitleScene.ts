@@ -11,6 +11,7 @@ export class TitleScene extends Phaser.Scene{
   (window as any).__screen='title';
   const q=new URLSearchParams(location.search).get('scene');
   if(q==='game'){this.scene.start('game');return;}
+  if(q==='boot'){this.scene.start('boot');return;}
   if(q==='design'){this.scene.start('design');return;}
   const w=this.scale.width,h=this.scale.height;
   this.bg=this.add.graphics();this.dio=this.add.graphics();this.mg=this.add.graphics();this.fg=this.add.graphics();
