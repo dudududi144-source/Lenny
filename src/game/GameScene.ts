@@ -19,6 +19,8 @@ export class GameScene extends Phaser.Scene{
  private puzzle:Puzzle|null=null;
  private onboard=false;
  private qText!:Phaser.GameObjects.Text;
+ private dText!:Phaser.GameObjects.Text;
+ private dialogUntil=0;
  private narrText!:Phaser.GameObjects.Text;
  private pg!:Phaser.GameObjects.Graphics;private optTexts:Phaser.GameObjects.Text[]=[];
  private xs:number[]=[];
@@ -32,6 +34,7 @@ export class GameScene extends Phaser.Scene{
   this.mx=w*0.2;this.my=this.baseY;
   this.xs=[0.3,0.5,0.7].map(f=>f*w);
   this.qText=this.add.text(w/2,h*0.26,'',{fontFamily:'Heebo',fontSize:'28px',color:'#FFF6EC'}).setOrigin(0.5);this.qText.setVisible(false);
+  this.dText=this.add.text(w/2,h*0.16,'',{fontFamily:'Heebo',fontSize:'16px',color:'#FFD76A'}).setOrigin(0.5);this.dText.setVisible(false);
   this.narrText=this.add.text(w/2,h*0.18,'',{fontFamily:'Heebo',fontSize:'16px',color:'#7dffb8'}).setOrigin(0.5);this.narrText.setVisible(false);
   for(let i=0;i<3;i++){const t=this.add.text(this.xs[i],h*0.45,'',{fontFamily:'Heebo',fontSize:'30px',color:'#FFD76A'}).setOrigin(0.5);t.setVisible(false);this.optTexts.push(t);}
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
@@ -57,6 +60,8 @@ export class GameScene extends Phaser.Scene{
   this.optTexts.forEach((t,i)=>{if(showText){t.setText(String(this.puzzle!.options[i]));t.setVisible(true);}else t.setVisible(false);});}
  private win(){this.puzzleOpen=false;this.gateOpen=true;this.won=this.time.now;
   setLights(state.lights+1);storeSave({lights:state.lights,name:loadSave().name});state.emotion='joy';speak('כָּבוֹד!');
+  const nd=(narrativeData as any).worlds?.find((q:any)=>q.id===(this.puzzle?.world??0));
+  if(nd){this.dText.setText(nd.who+': '+nd.line);this.dText.setVisible(true);this.dialogUntil=this.time.now+2600;speak(nd.line);}
   this.qText.setVisible(false);this.narrText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));}
  update(time:number){
   const dt=this.game.loop.delta/1000;const w=this.scale.width,h=this.scale.height;const t=time*0.001;
@@ -85,6 +90,8 @@ export class GameScene extends Phaser.Scene{
   if(this.puzzle&&this.puzzleOpen){const ci=this.puzzle.options.indexOf(this.puzzle.target);(window as any).__correctX=this.xs[ci];}
   (window as any).__hintLevel=hintLevel(this.fails);
   (window as any).__onboard=this.onboard;
+  if(this.dText.visible&&this.time.now>this.dialogUntil)this.dText.setVisible(false);
+  (window as any).__dialogLine=this.dText.visible?this.dText.text:'';
   (window as any).__puzzleOpen=this.puzzleOpen;
   (window as any).__lights=state.lights;
   (window as any).__lennyX=this.mx;
