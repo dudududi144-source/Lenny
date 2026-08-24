@@ -1,34 +1,47 @@
 # Lenny - Gan shel Orot (Garden of Lights)
+
 Premium kids game (4-7) - Phaser 3 + Vite + TypeScript - Hebrew with niqqud - mobile-first.
-Contract: docs/GDD.md - Architecture: docs/ARCHITECTURE.md
 
-The idea: one living world that went dark; every light rescued physically changes the world.
+## Architecture (v2.0 - Fixed)
 
-Scripts:
-    npm install
-    npm run dev        # develop
-    npm run build      # build
-    npm run preview    # serve dist
-    npm run typecheck  # tsc --noEmit
-    npm run lint       # eslint
-    npm run test:e2e   # Playwright (needs build first)
+This repository has been refactored from a monolithic structure to a clean, modular architecture.
 
-Structure:
-    src/main.ts           bootstrap + Boot scene
-    src/tokens.json       Design Tokens (single source)
-    src/game/state.ts     source of truth (lights/emotion)
-    src/fx/aurora.ts      living sky (state-reactive)
-    src/fx/diorama.ts     parallax paper-diorama (state-reactive)
-    src/ui/DesignScene.ts design specimen (?scene=design)
-    tests/e2e/            Playwright pixel+touch assertions
-    docs/                 GDD + ARCHITECTURE
+### Core System
+- src/core/EventBus.ts - Clean event system (replaces window as any anti-pattern)
+- src/core/StateManager.ts - Single source of truth with event integration
+- src/core/EntityManager.ts - Entity-Component System for game objects
 
-Gates (never skip): 0 GDD, 1 Scaffold, 2 Design, 3 Aurora, 4 Diorama, 5 Mascot, 6 Vertical Slice, 7 Content, 8 Depth, 9 Parents+QA.
-Rule: each gate must pass lint+typecheck+build+e2e WITH visual/pixel proof.
+### Entities
+- src/entities/Mascot.ts - Modular mascot with movement and render components
 
-Safety: anti-dark-pattern, zero tracking, COPPA privacy, parental time limit, intrinsic rewards, safe-to-fail.
-Security: no secrets in repo; .env/keys blocked by .gitignore.
-MIT (c) 2025 Lenny
+### Scenes
+- src/scenes/WorldScene.ts - Main gameplay scene (clean, modular)
+- src/scenes/PuzzleScene.ts - Separate puzzle handling
 
-## חי
+### FX (High-quality - preserved from original)
+- src/fx/aurora.ts - Beautiful gradient sky effect
+- src/fx/diorama.ts - Parallax layers with breathing animation
+
+### Data
+- src/content/ - JSON data for worlds, puzzles, narrative
+- src/tokens.json - Design tokens
+
+## Key Improvements
+
+1. Eliminated window as any - Replaced with proper EventBus
+2. Modular Architecture - Entity-Component System instead of monolithic GameScene
+3. Clean Separation - Each scene has a single responsibility
+4. Preserved Quality - Kept the high-quality aurora and diorama effects
+5. Type Safety - Proper TypeScript interfaces and types
+6. State Management - Centralized state with event-driven updates
+
+## Scripts
+
+npm install
+npm run dev
+npm run build
+npm run preview
+
+## Live URL
+
 https://dudududi144-source.github.io/Lenny/
