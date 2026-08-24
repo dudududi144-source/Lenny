@@ -22,7 +22,7 @@ export class BreathSystem {
   /** Advance by dt seconds. */
   update(dt: number): void {
     this.t += dt;
-    const { inhale, exhale } = this.timings;
+    const { inhale, hold, exhale } = this.timings;
     if (this.phase === 'inhale' && this.t >= inhale) {
       this.t -= inhale;
       this.phase = 'hold';
