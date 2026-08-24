@@ -57,7 +57,7 @@ export class GameScene extends Phaser.Scene{
    if(this.mx>gx-90&&!this.puzzleOpen)this.openPuzzle();}
   if(this.puzzleOpen&&this.puzzle){this.fg.fillStyle(0x0a0416,0.6);this.fg.fillRect(0,0,w,h);
    if(this.puzzle.type==='match')(this.puzzle.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
-   else for(let i=0;i<this.puzzle.target;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);
+   else{const n=this.puzzle.target as number;for(let i=0;i<n;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);}
    if(hintLevel(this.fails)>=1){const ci=this.puzzle.options.indexOf(this.puzzle.target);
     this.fg.lineStyle(3,0x7dffb8,0.9);this.fg.strokeCircle(this.xs[ci],h*0.45,46);}}
   if(this.won){const k=(this.time.now-this.won)/1000;
