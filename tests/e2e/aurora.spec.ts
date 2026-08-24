@@ -14,3 +14,17 @@ test('aurora: רקע חי — שני פריימים שונים + מגוון צב
   return s.size;});
  expect(variety).toBeGreaterThan(6);
 });
+
+test('aurora מגיב ל-lights (עולם מתעורר)', async ({page})=>{
+ await page.goto('/');
+ await page.waitForSelector('canvas');
+ await page.waitForTimeout(300);
+ const read=()=>page.evaluate(()=>{const c=document.querySelector('canvas') as HTMLCanvasElement;
+  const x=c.getContext('2d')!;const d=x.getImageData(Math.floor(c.width/2),c.height-6,1,1).data;
+  return [d[0],d[1],d[2]];});
+ const cold=await read();
+ await page.evaluate(()=>(window as any).__setLights(10));
+ await page.waitForTimeout(300);
+ const warm=await read();
+ expect(warm).not.toEqual(cold);
+});
