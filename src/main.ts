@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {state} from './game/state';
+import {state,setLights} from './game/state';
 import {DesignScene} from './ui/DesignScene';
 import {drawAurora} from './fx/aurora';
 import tokens from './tokens.json';
@@ -33,6 +33,13 @@ class BootScene extends Phaser.Scene{
   (window as any).__lights=state.lights;
  }
 }
+
+/* טוקנים → CSS vars (לשימוש UI DOM בהמשך) */
+const root=document.documentElement;
+Object.entries(tokens.colors).forEach(([k,v])=>root.style.setProperty('--ln-'+k,v as string));
+tokens.spacing.forEach((s,i)=>root.style.setProperty('--ln-sp'+i,s+'px'));
+tokens.type.forEach((s,i)=>root.style.setProperty('--ln-fs'+i,s+'px'));
+(window as any).__setLights=setLights;
 
 new Phaser.Game({
  type:Phaser.CANVAS,
