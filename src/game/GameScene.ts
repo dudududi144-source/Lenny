@@ -66,6 +66,7 @@ export class GameScene extends Phaser.Scene{
   this.optTexts.forEach((t,i)=>{if(showText){t.setText(String(this.cur().options[i]));t.setVisible(true);}else t.setVisible(false);});}
  private win(){this.puzzleOpen=false;this.gateOpen=true;this.won=this.time.now;
   setLights(state.lights+1);storeSave({lights:state.lights,name:loadSave().name});state.emotion='joy';speak('כָּבוֹד!');
+  if(state.lights>=10){this.scene.start('win');return;}
   this.qText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));this.sub=null;}
  update(time:number){
   const dt=this.game.loop.delta/1000;const w=this.scale.width,h=this.scale.height;const t=time*0.001;
