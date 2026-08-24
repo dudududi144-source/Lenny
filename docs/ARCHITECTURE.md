@@ -13,7 +13,7 @@ Data flow:
     state.ts --> audio (instruments by lights) [later]
     input(touch/pointer/keys) --> Boot scene --> mascot + camera
 
-Modules: main.ts (boot,input,test hooks) | state.ts | fx/aurora | fx/diorama | ui/DesignScene | ui/MascotRig(step5) | systems/puzzles(6-7) | systems/save(6) | ui/ParentLens(9)
+Modules: main.ts (boot,input,test hooks) | state.ts | fx/aurora | fx/diorama | fx/mascot (MascotRig,6 emotions) | game/GameScene (vertical slice: move->puzzle->gate->light->save) | systems/save (done) | systems/puzzles (step7) | ui/ParentLens (step9)
 
 Rendering: Phaser CANVAS (compat + pixel tests). Layers: aurora -> diorama -> mascot -> UI. Post-FX (bloom/grain) at polish.
 
