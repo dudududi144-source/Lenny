@@ -22,7 +22,7 @@ export class BreathSystem {
   /** Advance by dt seconds. */
   update(dt: number): void {
     this.t += dt;
-    const { inhale, hold, exhale } = this.timings;
+    const { inhale, exhale } = this.timings;
     if (this.phase === 'inhale' && this.t >= inhale) {
       this.t -= inhale;
       this.phase = 'hold';
@@ -50,7 +50,7 @@ export class BreathSystem {
    * inhale: 0 -> 1 (easeOut), hold: 1, exhale: 1 -> 0 (easeIn).
    */
   getScale(): number {
-    const { inhale, hold, exhale } = this.timings;
+    const { inhale, exhale } = this.timings;
     if (this.phase === 'inhale') {
       const p = Math.min(1, this.t / inhale);
       return this.easeOutCubic(p);
