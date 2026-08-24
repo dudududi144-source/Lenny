@@ -1,34 +1,34 @@
 import Phaser from 'phaser';
 import {state,setLights} from './state';
 import {loadSave,storeSave} from '../systems/save';
+import {pickPuzzle,hintLevel,Puzzle} from '../systems/puzzles';
 import {drawAurora} from '../fx/aurora';
 import {drawDiorama} from '../fx/diorama';
 import {drawMascot} from '../fx/mascot';
 type Animal='dog'|'cat'|'bird';
 
-/* Vertical Slice "השחר הראשון": תנועה -> חידה -> שער -> אור -> העולם מתעורר -> save */
+/* Vertical Slice data-driven: תנועה -> חידה מה-JSON -> שער -> אור -> העולם מתעורר -> save */
 export class GameScene extends Phaser.Scene{
  private bg!:Phaser.GameObjects.Graphics;private dio!:Phaser.GameObjects.Graphics;
  private mg!:Phaser.GameObjects.Graphics;private fg!:Phaser.GameObjects.Graphics;
  private mx=0;private my=0;private baseY=0;private vx=0;private vy=0;
- private puzzleOpen=false;private gateOpen=false;private won=0;
- private qText!:Phaser.GameObjects.Text;
- private opts:{x:number;a:Animal}[]=[];
+ private puzzleOpen=false;private gateOpen=false;private won=0;private fails=0;
+ private puzzle:Puzzle|null=null;
+ private qText!:Phaser.GameObjects.Text;private optTexts:Phaser.GameObjects.Text[]=[];
+ private xs:number[]=[];
  constructor(){super('game');}
  create(){
-  const sv=loadSave();if(sv.lights>0){setLights(sv.lights);this.gateOpen=true;}
+  const sv=loadSave();setLights(sv.lights);
   const w=this.scale.width,h=this.scale.height;this.baseY=h*0.62;
   this.bg=this.add.graphics();this.dio=this.add.graphics();this.mg=this.add.graphics();this.fg=this.add.graphics();
   this.mx=w*0.2;this.my=this.baseY;
-  const xs=[0.3,0.5,0.7].map(f=>f*w);
-  const order:Animal[]=['dog','cat','bird'];
-  this.opts=order.map((a,i)=>({x:xs[i],a}));
-  (window as any).__correctX=xs[0];
-  this.qText=this.add.text(w/2,h*0.3,'מִי הַכֶּלֶב?',{fontFamily:'Heebo',fontSize:'28px',color:'#FFF6EC'}).setOrigin(0.5);this.qText.setVisible(false);
+  this.xs=[0.3,0.5,0.7].map(f=>f*w);
+  this.qText=this.add.text(w/2,h*0.26,'',{fontFamily:'Heebo',fontSize:'28px',color:'#FFF6EC'}).setOrigin(0.5);this.qText.setVisible(false);
+  for(let i=0;i<3;i++){const t=this.add.text(this.xs[i],h*0.45,'',{fontFamily:'Heebo',fontSize:'30px',color:'#FFD76A'}).setOrigin(0.5);t.setVisible(false);this.optTexts.push(t);}
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
-   if(this.puzzleOpen){const y=h*0.45;
-    for(const o of this.opts){if(Math.abs(p.x-o.x)<40&&Math.abs(p.y-y)<50){
-      if(o.a==='dog')this.win();else{state.emotion='frustrated';}
+   if(this.puzzleOpen&&this.puzzle){const y=h*0.45;
+    for(let i=0;i<3;i++){if(Math.abs(p.x-this.xs[i])<44&&Math.abs(p.y-y)<54){
+      if(this.puzzle.options[i]===this.puzzle.target)this.win();else{this.fails++;state.emotion='frustrated';}
       return;}}
     return;}
    const fx=p.x/w;
@@ -36,8 +36,13 @@ export class GameScene extends Phaser.Scene{
   });
   this.input.on('pointerup',()=>{this.vx=0;});
  }
+ private openPuzzle(){this.puzzle=pickPuzzle(state.lights);this.fails=0;this.puzzleOpen=true;
+  this.qText.setText(this.puzzle.prompt);this.qText.setVisible(true);
+  const isCount=this.puzzle.type==='count';
+  this.optTexts.forEach((t,i)=>{if(isCount){t.setText(String(this.puzzle!.options[i]));t.setVisible(true);}else t.setVisible(false);});}
  private win(){this.puzzleOpen=false;this.gateOpen=true;this.won=this.time.now;
-  setLights(1);storeSave({lights:1,name:loadSave().name});state.emotion='joy';}
+  setLights(state.lights+1);storeSave({lights:state.lights,name:loadSave().name});state.emotion='joy';
+  this.qText.setVisible(false);this.optTexts.forEach(t=>t.setVisible(false));}
  update(time:number){
   const dt=this.game.loop.delta/1000;const w=this.scale.width,h=this.scale.height;const t=time*0.001;
   drawAurora(this.bg,w,h,t,state.lights);
@@ -49,23 +54,28 @@ export class GameScene extends Phaser.Scene{
   const gx=w*0.85;
   if(!this.gateOpen){this.fg.fillStyle(0x7c4dff,1);this.fg.fillRect(gx-4,h*0.4,8,h*0.22);
    this.fg.fillStyle(0xffd76a,1);this.fg.fillCircle(gx,h*0.4,8);
-   if(this.mx>gx-90&&!this.puzzleOpen)this.puzzleOpen=true;}
-  if(this.puzzleOpen){this.fg.fillStyle(0x0a0416,0.6);this.fg.fillRect(0,0,w,h);
-   this.opts.forEach(o=>{this.drawAnimal(o.x,h*0.45,1.4,o.a);});}
+   if(this.mx>gx-90&&!this.puzzleOpen)this.openPuzzle();}
+  if(this.puzzleOpen&&this.puzzle){this.fg.fillStyle(0x0a0416,0.6);this.fg.fillRect(0,0,w,h);
+   if(this.puzzle.type==='match')(this.puzzle.options as Animal[]).forEach((a,i)=>this.drawAnimal(this.xs[i],h*0.45,1.4,a));
+   else for(let i=0;i<this.puzzle.target;i++)this.drawFlower(w*0.35+i*36,h*0.32,1);
+   if(hintLevel(this.fails)>=1){const ci=this.puzzle.options.indexOf(this.puzzle.target);
+    this.fg.lineStyle(3,0x7dffb8,0.9);this.fg.strokeCircle(this.xs[ci],h*0.45,46);}}
   if(this.won){const k=(this.time.now-this.won)/1000;
    if(k<1.2){this.fg.lineStyle(4,0xffd76a,1-k/1.2);this.fg.strokeCircle(this.mx,this.my-40,20+k*80);}}
-  this.qText.setVisible(this.puzzleOpen);
+  if(this.puzzle&&this.puzzleOpen){const ci=this.puzzle.options.indexOf(this.puzzle.target);(window as any).__correctX=this.xs[ci];}
+  (window as any).__hintLevel=hintLevel(this.fails);
   (window as any).__puzzleOpen=this.puzzleOpen;
   (window as any).__lights=state.lights;
   (window as any).__lennyX=this.mx;
  }
- private drawAnimal(x:number,y:number,s:number,a:Animal){
-  const g=this.fg;
+ private drawFlower(x:number,y:number,s:number){const g=this.fg;
+  g.fillStyle(0xff8bd4,1);for(let k=0;k<5;k++){const a=k/5*Math.PI*2;g.fillCircle(x+Math.cos(a)*6*s,y+Math.sin(a)*6*s,4*s);}
+  g.fillStyle(0xffd76a,1);g.fillCircle(x,y,3.5*s);}
+ private drawAnimal(x:number,y:number,s:number,a:Animal){const g=this.fg;
   if(a==='dog'){g.fillStyle(0x8d5a3b,1);g.fillCircle(x,y,12*s);g.fillCircle(x+9*s,y-8*s,7*s);g.fillStyle(0x5b3a24,1);g.fillCircle(x+6*s,y-14*s,3*s);}
   else if(a==='cat'){g.fillStyle(0x9aa0b4,1);g.fillCircle(x,y,12*s);g.fillCircle(x,y-10*s,7*s);
    g.beginPath();g.moveTo(x-6*s,y-14*s);g.lineTo(x-2*s,y-20*s);g.lineTo(x-1*s,y-13*s);g.closePath();g.fillPath();
    g.beginPath();g.moveTo(x+6*s,y-14*s);g.lineTo(x+2*s,y-20*s);g.lineTo(x+1*s,y-13*s);g.closePath();g.fillPath();}
   else{g.fillStyle(0x4dc9ff,1);g.fillCircle(x,y,10*s);g.fillStyle(0xffd76a,1);
-   g.beginPath();g.moveTo(x+9*s,y-2*s);g.lineTo(x+16*s,y);g.lineTo(x+9*s,y+2*s);g.closePath();g.fillPath();}
- }
+   g.beginPath();g.moveTo(x+9*s,y-2*s);g.lineTo(x+16*s,y);g.lineTo(x+9*s,y+2*s);g.closePath();g.fillPath();}}
 }
