@@ -16,12 +16,14 @@ export class GameScene extends Phaser.Scene{
  private mx=0;private my=0;private baseY=0;private vx=0;private vy=0;
  private puzzleOpen=false;private gateOpen=false;private won=0;private fails=0;
  private puzzle:Puzzle|null=null;
+ private onboard=false;
  private qText!:Phaser.GameObjects.Text;
  private pg!:Phaser.GameObjects.Graphics;private optTexts:Phaser.GameObjects.Text[]=[];
  private xs:number[]=[];
  constructor(){super('game');}
  create(){
   const sv=loadSave();setLights(sv.lights);
+  this.onboard=!sv.onboarded;
   (window as any).__screen='game';
   const w=this.scale.width,h=this.scale.height;this.baseY=h*0.62;
   this.bg=this.add.graphics();this.dio=this.add.graphics();this.mg=this.add.graphics();this.fg=this.add.graphics();this.pg=this.add.graphics();
@@ -37,6 +39,7 @@ export class GameScene extends Phaser.Scene{
     return;}
    const fx=p.x/w;
    if(fx<0.34)this.vx=-240;else if(fx>0.66)this.vx=240;else this.vy=-260;
+   if(this.onboard){this.onboard=false;storeSave({lights:state.lights,name:loadSave().name,onboarded:true});}
   });
   this.input.on('pointerup',()=>{this.vx=0;});
  }
@@ -67,10 +70,12 @@ export class GameScene extends Phaser.Scene{
    if(hintLevel(this.fails)>=1){const ci=this.puzzle.options.indexOf(this.puzzle.target);
     this.fg.lineStyle(3,0x7dffb8,0.9);this.fg.strokeCircle(this.xs[ci],h*0.45,46);}}
   drawPost(this.pg,w,h,Math.floor(t*2));
+  if(this.onboard){this.fg.fillStyle(0xfff6ec,0.9);this.fg.fillTriangle(40,h*0.5,60,h*0.5-12,60,h*0.5+12);this.fg.fillTriangle(w-40,h*0.5,w-60,h*0.5-12,w-60,h*0.5+12);}
   if(this.won){const k=(this.time.now-this.won)/1000;
    if(k<1.2){this.fg.lineStyle(4,0xffd76a,1-k/1.2);this.fg.strokeCircle(this.mx,this.my-40,20+k*80);}}
   if(this.puzzle&&this.puzzleOpen){const ci=this.puzzle.options.indexOf(this.puzzle.target);(window as any).__correctX=this.xs[ci];}
   (window as any).__hintLevel=hintLevel(this.fails);
+  (window as any).__onboard=this.onboard;
   (window as any).__puzzleOpen=this.puzzleOpen;
   (window as any).__lights=state.lights;
   (window as any).__lennyX=this.mx;
