@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import {state,setLights} from './state';
 import {loadSave,storeSave} from '../systems/save';
-import {pickPuzzle,hintLevel,Puzzle,PUZZLES} from '../systems/puzzles';
+import {pickPuzzle,hintLevel,Puzzle,PUZZLES,pickForWorld} from '../systems/puzzles';
+import {setWorld} from './state';
 import worldsData from '../content/worlds.json';
 import {drawAurora} from '../fx/aurora';
 import {drawDiorama} from '../fx/diorama';
@@ -28,6 +29,7 @@ export class GameScene extends Phaser.Scene{
   const w=this.scale.width,h=this.scale.height;this.baseY=h*0.62;
   const wd=(worldsData.worlds as any[])[state.world]??(worldsData.worlds as any[])[0];
   const wantW=new URLSearchParams(location.search).get('world');
+  if(wantW)setWorld(+wantW);
   const wwd=wantW?((worldsData.worlds as any[])[+wantW]??wd):wd;
   this.creatureCol=(wwd.creature as number)??0x8d5a3b;this.creatureShape=(wwd.shape as string)??'dog';
   (window as any).__worldName=wwd.name;
@@ -56,7 +58,7 @@ export class GameScene extends Phaser.Scene{
   (window as any).__screen='game';
  }
  private openPuzzle(){const want=new URLSearchParams(location.search).get('puzzle');
-  this.puzzle=(want?PUZZLES.find(q=>q.id===want):undefined)??pickPuzzle(state.lights);
+  this.puzzle=(want?PUZZLES.find(q=>q.id===want):undefined)??pickForWorld(state.world,state.lights);
   this.fails=0;this.puzzleOpen=true;this.stepIdx=0;
   this.sub=(this.puzzle.type==='boss'?(this.puzzle.steps&&this.puzzle.steps[0])||this.puzzle:this.puzzle);
   speak(this.cur().prompt);
@@ -100,6 +102,7 @@ export class GameScene extends Phaser.Scene{
    if(k<1.2){this.fg.lineStyle(4,0xffd76a,1-k/1.2);this.fg.strokeCircle(this.mx,this.my-40,20+k*80);}}
   drawPost(this.pg,w,h,Math.floor(t*2));
   (window as any).__onboard=this.onboard;
+  (window as any).__puzzleType=this.puzzle?this.puzzle.type:'';
   (window as any).__hintLevel=hintLevel(this.fails);
   (window as any).__puzzleOpen=this.puzzleOpen;
   (window as any).__lights=state.lights;
