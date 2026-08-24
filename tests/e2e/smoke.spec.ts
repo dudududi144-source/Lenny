@@ -12,11 +12,13 @@ test('boot: מרנדר + קלט מזיז את לני', async ({page})=>{
   return s.size>0;});
  expect(rendered).toBe(true);
  const x0=await page.evaluate(()=>(window as any).__lennyX as number);
- // החזקת קלט בצד ימין (pointer events — אותו מסלול שמטפל במגע)
- await page.mouse.move(300,300);
- await page.mouse.down();
- await page.waitForTimeout(300);
- await page.mouse.up();
+ // החזקת MAGEM אמיתית (CDP touch) בצד ימין — fallback לעכבר
+ try{
+  const cdp=await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:300,y:300}]});
+  await page.waitForTimeout(300);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ }catch{ await page.mouse.move(300,300);await page.mouse.down();await page.waitForTimeout(300);await page.mouse.up(); }
  const x1=await page.evaluate(()=>(window as any).__lennyX as number);
  expect(x1).toBeGreaterThan(x0);
  expect(errors).toEqual([]);
