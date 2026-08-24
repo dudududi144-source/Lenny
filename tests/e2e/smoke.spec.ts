@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 test('boot: מרנדר + קלט מזיז את לני', async ({page})=>{
  const errors:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.goto('/');
+ await page.goto('/?scene=boot');
  await page.waitForSelector('canvas');
  await page.waitForTimeout(500);
  const rendered=await page.evaluate(()=>{const c=document.querySelector('canvas') as HTMLCanvasElement;
