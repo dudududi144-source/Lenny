@@ -2,11 +2,13 @@
  * PortalScene — the cognitive gateway
  * One scene, six states, zero cuts:
  *   VOID -> SPARK -> BREATH -> REVEAL -> MANDALA -> GALAXY
- * Conducts every portal subsystem into a single flow.
+ * Tap anywhere during the intro to skip straight to the galaxy.
+ * In the galaxy, tap a golden star to enter its game.
  * ============================================================ */
 
 import Phaser from 'phaser';
-import { PortalState, THETA, BREATH, TIMING, COLORS, SUBLIMINAL, LENNY } from '../data/portalConfig';
+import { PortalState, THETA, BREATH, TIMING, COLORS, LENNY, UI_TEXT } from '../data/portalConfig';
+import { CATEGORIES } from '../data/games';
 import { ThetaPulse } from '../portal/ThetaPulse';
 import { BreathSystem } from '../portal/BreathSystem';
 import { FractalBackground } from '../portal/FractalBackground';
@@ -36,6 +38,7 @@ export class PortalScene extends Phaser.Scene {
 
   private breathText!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
+  private feedbackText!: Phaser.GameObjects.Text;
   private subliminalText!: Phaser.GameObjects.Text;
 
   private particles: RevealParticle[] = [];
@@ -56,35 +59,59 @@ export class PortalScene extends Phaser.Scene {
 
     const w = this.scale.width, h = this.scale.height;
 
-    this.breathText = this.add.text(w / 2, h * 0.82, '', {
-      fontFamily: 'Heebo, Arial', fontSize: '20px', color: '#fff6ec',
-    }).setOrigin(0.5).setAlpha(0.85);
+    const heebo = { fontFamily: 'Heebo, Arial', color: '#fff6ec' };
 
-    this.promptText = this.add.text(w / 2, h * 0.1, '', {
-      fontFamily: 'Heebo, Arial', fontSize: '16px', color: '#fff6ec',
-    }).setOrigin(0.5).setAlpha(0.5);
+    this.breathText = this.add.text(w / 2, h * 0.84, '', { ...heebo, fontSize: '22px' })
+      .setOrigin(0.5).setAlpha(0.9);
 
-    this.subliminalText = this.add.text(0, 0, '', {
-      fontFamily: 'Heebo, Arial', fontSize: '14px', color: '#fff6ec',
-    }).setOrigin(0.5).setVisible(false);
+    this.promptText = this.add.text(w / 2, h * 0.07, '', { ...heebo, fontSize: '17px' })
+      .setOrigin(0.5).setAlpha(0.55);
+
+    this.feedbackText = this.add.text(w / 2, h * 0.93, '', { ...heebo, fontSize: '18px' })
+      .setOrigin(0.5).setAlpha(0);
+
+    this.subliminalText = this.add.text(0, 0, '', { ...heebo, fontSize: '14px' })
+      .setOrigin(0.5).setVisible(false);
+
     this.subliminal = new SubliminalSystem(this.subliminalText, () => this.time.now);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTouch(p));
   }
 
   private onTouch(p: Phaser.Input.Pointer): void {
-    if (this.state === 'GALAXY' && this.galaxyReady) {
-      const w = this.scale.width, h = this.scale.height;
-      const cx = w / 2, cy = h / 2;
-      const minDim = Math.min(w, h);
-      const hit = this.galaxy.hitTest(p.x, p.y, cx, cy, minDim);
-      if (hit && hit.unlocked && hit.scene) {
-        this.scene.start(hit.scene);
-      }
-    } else if (this.state === 'VOID' || this.state === 'SPARK') {
-      /* tap to skip the opening for returning visitors */
-      this.toState('BREATH');
+    if (this.state === 'GALAXY') {
+      this.handleGalaxyTap(p);
+      return;
     }
+    /* any tap during the intro fast-forwards to the galaxy */
+    this.toState('GALAXY');
+  }
+
+  private handleGalaxyTap(p: Phaser.Input.Pointer): void {
+    if (!this.galaxyReady) return;
+    const w = this.scale.width, h = this.scale.height;
+    const cx = w / 2, cy = h / 2;
+    const minDim = Math.min(w, h);
+    const hit = this.galaxy.hitTest(p.x, p.y, cx, cy, minDim);
+    if (!hit) return;
+
+    if (hit.unlocked && hit.scene) {
+      this.showFeedback('\u05e0ִ\u05db\u05e0\u05b8\u05e1\u05d9\u05dd...');
+      this.time.delayedCall(250, () => this.scene.start(hit.scene as string));
+    } else {
+      this.showFeedback(UI_TEXT.lockedMsg);
+    }
+  }
+
+  private showFeedback(msg: string): void {
+    this.feedbackText.setText(msg);
+    this.feedbackText.setAlpha(1);
+    this.tweens.add({
+      targets: this.feedbackText,
+      alpha: 0,
+      duration: 1400,
+      delay: 600,
+    });
   }
 
   private toState(next: PortalState): void {
@@ -93,7 +120,10 @@ export class PortalScene extends Phaser.Scene {
     if (next === 'REVEAL') this.spawnParticles();
     if (next === 'GALAXY') {
       this.galaxyReady = false;
-      this.time.delayedCall(800, () => { this.galaxyReady = true; });
+      this.promptText.setText(UI_TEXT.galaxyPrompt);
+      this.time.delayedCall(700, () => { this.galaxyReady = true; });
+    } else {
+      this.promptText.setText('');
     }
   }
 
@@ -111,8 +141,8 @@ export class PortalScene extends Phaser.Scene {
     }
   }
 
-  update(time: number): void {
-    const dt = Math.min(this.game.loop.delta / 1000, 0.033);
+  update(time: number, delta: number): void {
+    const dt = Math.min(delta / 1000, 0.033);
     this.globalT += dt;
     this.stateT += dt;
     this.theta.update(dt);
@@ -130,8 +160,8 @@ export class PortalScene extends Phaser.Scene {
       case 'SPARK': this.updateSpark(w, h); break;
       case 'BREATH': this.updateBreath(w, h); break;
       case 'REVEAL': this.updateReveal(dt); break;
-      case 'MANDALA': this.updateMandala(w, h); break;
-      case 'GALAXY': this.updateGalaxy(w, h); break;
+      case 'MANDALA': this.updateMandala(dt, w, h); break;
+      case 'GALAXY': this.updateGalaxy(dt, w, h); break;
     }
   }
 
@@ -144,7 +174,6 @@ export class PortalScene extends Phaser.Scene {
 
   private updateVoid(): void {
     this.breathText.setText('');
-    /* pure darkness, handled by backdrop */
     if (this.stateT >= TIMING.void) this.toState('SPARK');
   }
 
@@ -161,6 +190,8 @@ export class PortalScene extends Phaser.Scene {
     this.mainG.fillStyle(0xfff6ec, 0.9);
     this.mainG.fillCircle(cx, cy, r * 0.4);
 
+    this.promptText.setText(UI_TEXT.tapToSkip);
+
     if (this.stateT >= TIMING.spark) this.toState('BREATH');
   }
 
@@ -170,7 +201,6 @@ export class PortalScene extends Phaser.Scene {
     const baseR = Math.min(w, h) * 0.16;
     const r = baseR * (0.45 + scale * 0.55);
 
-    /* breathing circle */
     this.mainG.fillStyle(COLORS.violet, 0.10);
     this.mainG.fillCircle(cx, cy, r * 1.5);
     this.mainG.lineStyle(2, COLORS.mint, 0.7);
@@ -201,8 +231,8 @@ export class PortalScene extends Phaser.Scene {
     if (this.stateT >= TIMING.reveal) this.toState('MANDALA');
   }
 
-  private updateMandala(w: number, h: number): void {
-    this.mandala.update(this.game.loop.delta / 1000);
+  private updateMandala(dt: number, w: number, h: number): void {
+    this.mandala.update(dt);
     const bloom = Math.min(1, this.stateT / 1.4);
     const eased = 1 - Math.pow(1 - bloom, 3);
     const cx = w / 2, cy = h / 2;
@@ -212,19 +242,14 @@ export class PortalScene extends Phaser.Scene {
     if (this.stateT >= TIMING.mandala) this.toState('GALAXY');
   }
 
-  private updateGalaxy(w: number, h: number): void {
-    this.galaxy.update(this.game.loop.delta / 1000);
+  private updateGalaxy(dt: number, w: number, h: number): void {
+    this.galaxy.update(dt);
     const cx = w / 2, cy = h / 2;
     const minDim = Math.min(w, h);
     this.galaxy.draw(this.mainG, cx, cy, minDim, this.globalT);
     this.drawLennyCore(cx, cy);
-
-    if (this.galaxyReady) {
-      this.promptText.setText('\u05d1\u05b0\u05bc\u05d7\u05b2\u05e8\u05b4\u05d9 \u05db\u05bc\u05d5\u05b9\u05db\u05b8\u05d1 \u05d6\u05b8\u05d4\u05d5\u05b9\u05d1');
-    }
   }
 
-  /* Lenny at the galaxy heart, breathing */
   private drawLennyCore(cx: number, cy: number): void {
     const b = 0.85 + 0.15 * Math.sin(this.globalT * LENNY.breathRate * Math.PI * 2);
     const r = 16 * b;
@@ -232,7 +257,6 @@ export class PortalScene extends Phaser.Scene {
     this.mainG.fillCircle(cx, cy, r * 2.4);
     this.mainG.fillStyle(LENNY.color, 1);
     this.mainG.fillCircle(cx, cy, r);
-    /* eyes */
     this.mainG.fillStyle(0xffffff, 1);
     this.mainG.fillCircle(cx - 5, cy - 3, 3.4);
     this.mainG.fillCircle(cx + 5, cy - 3, 3.4);
