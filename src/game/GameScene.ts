@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {state,setLights} from './state';
 import {loadSave,storeSave} from '../systems/save';
 import {pickPuzzle,hintLevel,Puzzle,PUZZLES} from '../systems/puzzles';
+import worldsData from '../content/worlds.json';
 import {drawAurora} from '../fx/aurora';
 import {drawDiorama} from '../fx/diorama';
 import {drawMascot} from '../fx/mascot';
@@ -18,6 +19,8 @@ export class GameScene extends Phaser.Scene{
  private puzzleOpen=false;private gateOpen=false;private won=0;private fails=0;
  private puzzle:Puzzle|null=null;
  private onboard=false;
+ private speech!:Phaser.GameObjects.Text;
+ private creatureCol=0x8d5a3b;
  private qText!:Phaser.GameObjects.Text;
  private dText!:Phaser.GameObjects.Text;
  private dialogUntil=0;
@@ -28,6 +31,11 @@ export class GameScene extends Phaser.Scene{
  create(){
   const sv=loadSave();setLights(sv.lights);
   this.onboard=!sv.onboarded;
+  const wd=(worldsData.worlds as any[])[state.world]??(worldsData.worlds as any[])[0];
+  this.creatureCol=wd.creature as number;
+  (window as any).__worldName=wd.name;
+  this.speech=this.add.text(w/2,h*0.16,wd.line,{fontFamily:'Heebo',fontSize:'16px',color:'#FFF6EC'}).setOrigin(0.5);
+  this.time.delayedCall(2600,()=>this.speech.setVisible(false));
   (window as any).__screen='game';
   const w=this.scale.width,h=this.scale.height;this.baseY=h*0.62;
   this.bg=this.add.graphics();this.dio=this.add.graphics();this.mg=this.add.graphics();this.fg=this.add.graphics();this.pg=this.add.graphics();
@@ -72,6 +80,7 @@ export class GameScene extends Phaser.Scene{
   drawMascot(this.mg,this.mx,this.my,1.2,t,state.emotion,this.vy,this.my>=this.baseY-1);
   this.fg.clear();
   const gx=w*0.85;
+  this.fg.fillStyle(this.creatureCol,1);this.fg.fillCircle(gx-40,h*0.56,14);this.fg.fillStyle(0xffffff,1);this.fg.fillCircle(gx-44,h*0.54,3);this.fg.fillCircle(gx-36,h*0.54,3);
   if(!this.gateOpen){this.fg.fillStyle(0x7c4dff,1);this.fg.fillRect(gx-4,h*0.4,8,h*0.22);
    this.fg.fillStyle(0xffd76a,1);this.fg.fillCircle(gx,h*0.4,8);
    if(this.mx>gx-90&&!this.puzzleOpen)this.openPuzzle();}
