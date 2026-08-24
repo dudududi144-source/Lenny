@@ -153,6 +153,42 @@
      ]
     }
    ]
+  },
+  {
+   "id": "w0-free",
+   "world": 0,
+   "type": "free",
+   "target": "*",
+   "prompt": "מִי שׁבָּא לָךְ לְחַבֵּק?",
+   "options": [
+    "dog",
+    "cat",
+    "bird"
+   ]
+  },
+  {
+   "id": "w2-letter2",
+   "world": 2,
+   "type": "letter",
+   "target": "ב",
+   "prompt": "אֵיזו אוֹת ב?",
+   "options": [
+    "ג",
+    "ב",
+    "א"
+   ]
+  },
+  {
+   "id": "w6-color2",
+   "world": 6,
+   "type": "color",
+   "target": "green",
+   "prompt": "אֵיזה צֶבַע יָרֹק?",
+   "options": [
+    "yellow",
+    "red",
+    "green"
+   ]
   }
  ]
 }
