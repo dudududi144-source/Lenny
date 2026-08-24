@@ -1,9 +1,25 @@
-/* מקור האמת היחיד — כל הרכיבים קוראים ממנו */
+import { stateManager } from '../core/StateManager';
+import { events } from '../core/EventBus';
+
+/* מקור האמת היחיד — כעת מגובה על ידי StateManager המרכזי */
 export interface WorldState{lights:number;emotion:'calm'|'joy'|'frustrated';world:number;}
+
+/* אובייקט חי שמתעדכן אוטומטית מה-StateManager (backward compat) */
+export const state:WorldState = stateManager.get();
+
+/* סנכרון אוטומטי: כל שינוי ב-StateManager מתעדכן לאובייקט הישן */
+events.on('state:lights:changed',(l:number)=>{state.lights=l;});
+events.on('state:emotion:changed',(e:WorldState['emotion'])=>{state.emotion=e;});
+events.on('state:world:changed',(w:number)=>{state.world=w;});
+
+export function setLights(n:number){stateManager.setLights(n);}
+export function setEmotion(e:WorldState['emotion']){stateManager.setEmotion(e);}
+export function setWorld(w:number){stateManager.setWorld(w);}
+
 type L=()=>void;
 const listeners=new Set<L>();
-export const state:WorldState={lights:0,emotion:'calm',world:0};
-export function setLights(n:number){state.lights=Math.max(0,Math.min(10,n));listeners.forEach(f=>f());}
-export function setEmotion(e:WorldState['emotion']){state.emotion=e;listeners.forEach(f=>f());}
-export function setWorld(w:number){state.world=w;listeners.forEach(f=>f());}
+events.on('state:lights:changed',()=>listeners.forEach(f=>f()));
+events.on('state:emotion:changed',()=>listeners.forEach(f=>f()));
+events.on('state:world:changed',()=>listeners.forEach(f=>f()));
+
 export function subscribe(f:L){listeners.add(f);return()=>{listeners.delete(f);};}
