@@ -3,12 +3,14 @@ import {state} from '../game/state';
 import {drawAurora} from '../fx/aurora';
 import {drawDiorama} from '../fx/diorama';
 import {drawMascot} from '../fx/mascot';
+import {t} from '../systems/i18n';
 export class TitleScene extends Phaser.Scene{
  private bg!:Phaser.GameObjects.Graphics;private dio!:Phaser.GameObjects.Graphics;private mg!:Phaser.GameObjects.Graphics;
  private btn={x:0,y:0,w:180,h:56};
  constructor(){super('title');}
  create(){
   (window as any).__screen='title';
+  (window as any).__cta=t('cta');
   const q=new URLSearchParams(location.search).get('scene');
   if(q==='game'){this.scene.start('game');return;}
   if(q==='boot'){this.scene.start('boot');return;}
@@ -19,7 +21,7 @@ export class TitleScene extends Phaser.Scene{
   this.btn={x:w/2-90,y:h*0.78,w:180,h:56};
   this.add.text(w/2,h*0.2,'LENY',{fontFamily:'Heebo',fontSize:'56px',color:'#FFD76A'}).setOrigin(0.5);
   this.add.text(w/2,h*0.3,'גַּן שֶל אוֹרוֹת',{fontFamily:'Heebo',fontSize:'24px',color:'#FFF6EC'}).setOrigin(0.5);
-  const bt=this.add.text(w/2,this.btn.y+28,'יוֹצְאִים לַמַּסָּע',{fontFamily:'Heebo',fontSize:'24px',color:'#2a2140'}).setOrigin(0.5);
+  const bt=this.add.text(w/2,this.btn.y+28,t('cta'),{fontFamily:'Heebo',fontSize:'24px',color:'#2a2140'}).setOrigin(0.5);
   this.input.on('pointerdown',(p:Phaser.Input.Pointer)=>{
    if(p.x>this.btn.x&&p.x<this.btn.x+this.btn.w&&p.y>this.btn.y&&p.y<this.btn.y+this.btn.h)this.scene.start('hub');});
   this.events.on('update',(_t:number,d:number)=>this.render(d));
