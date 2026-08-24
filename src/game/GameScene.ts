@@ -86,6 +86,7 @@ export class GameScene extends Phaser.Scene{
   if(this.won){const k=(this.time.now-this.won)/1000;
    if(k<1.2){this.fg.lineStyle(4,0xffd76a,1-k/1.2);this.fg.strokeCircle(this.mx,this.my-40,20+k*80);}}
   drawPost(this.pg,w,h,Math.floor(t*2));
+  (window as any).__onboard=this.onboard;
   (window as any).__hintLevel=hintLevel(this.fails);
   (window as any).__puzzleOpen=this.puzzleOpen;
   (window as any).__lights=state.lights;
