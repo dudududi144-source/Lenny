@@ -83,6 +83,30 @@
     "circle",
     "square"
    ]
+  },
+  {
+   "id": "w8-time",
+   "world": 8,
+   "type": "time",
+   "target": 3,
+   "prompt": "אֵיזו שָׁעָה?",
+   "options": [
+    2,
+    3,
+    4
+   ]
+  },
+  {
+   "id": "w3-music",
+   "world": 3,
+   "type": "music",
+   "target": "high",
+   "prompt": "מִי הַצֵּל גָּבוֹהַ?",
+   "options": [
+    "high",
+    "mid",
+    "low"
+   ]
   }
  ]
 }
