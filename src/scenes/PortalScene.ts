@@ -96,7 +96,7 @@ export class PortalScene extends Phaser.Scene {
     if (!hit) return;
 
     if (hit.unlocked && hit.scene) {
-      this.showFeedback('\u05e0ִ\u05db\u05e0\u05b8\u05e1\u05d9\u05dd...');
+      this.showFeedback('נִכְנָסִים...');
       this.time.delayedCall(250, () => this.scene.start(hit.scene as string));
     } else {
       this.showFeedback(UI_TEXT.lockedMsg);
