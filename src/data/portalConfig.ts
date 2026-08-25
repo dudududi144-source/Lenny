@@ -1,24 +1,23 @@
 /* ============================================================
  * Portal Configuration — Single source of truth.
- * Language here follows docs/ETHICS.md: no medical/scientific
- * overclaims, and nothing hidden from the child.
+ * Language follows docs/ETHICS.md and docs/GARDEN.md:
+ * honest claims, warm everyday Hebrew, nothing hidden.
  * ============================================================ */
 
 export type PortalState =
   | 'VOID'
   | 'SPARK'
   | 'BREATH'
-  | 'REVEAL'
-  | 'MANDALA'
-  | 'GALAXY';
+  | 'STORY'
+  | 'GARDEN';
 
 /* ---------- Calming visual rhythm ----------
  * A gentle pulsing light used purely for a soothing atmosphere.
  * It makes NO medical or brainwave-entrainment claims (see ETHICS 4).
  */
 export const THETA = {
-  freq: 6.0,          /* gentle visual pulse rate (Hz) */
-  pulseAlpha: 0.25,   /* kept low for photosensitivity safety */
+  freq: 6.0,
+  pulseAlpha: 0.25,
   ambientRate: 6,
 };
 
@@ -35,8 +34,7 @@ export const TIMING = {
   void: 0.4,
   spark: 1.6,
   breath: 10.5,
-  reveal: 1.8,
-  mandala: 3.0,
+  story: 6.0,
 };
 
 /* ---------- Semantic palette (Dream Minimalism) ---------- */
@@ -52,25 +50,19 @@ export const COLORS = {
   locked: 0x3a3350,
 };
 
-/* ---------- Encouragement messages — VISIBLE, never hidden ----------
- * Per ETHICS 5: these are shown clearly to the child for a few seconds.
- * There is no subliminal / below-awareness content in this product.
- */
+/* ---------- Encouragement messages — VISIBLE, never hidden ---------- */
 export const AFFIRMATIONS = {
-  /* how long the message stays on screen, clearly readable */
   displayMs: 2500,
-  /* gap between messages so they feel calm, not spammy */
   minGapMs: 14000,
   maxGapMs: 20000,
   messages: [
-    'אַתְּ מוּפְלָאָה',
-    'הַלֵּב שֶׁלָּךְ חָכָם',
-    'הַדִּמְיוֹן שֶׁלָּךְ גָּדוֹל',
+    'וָאו, כָּל הַכָּבוֹד!',
+    'אַתְּ מַצְלִיחָה!',
     'כָּל נְשִׁימָה מַרְגִּיעָה',
-    'אַתְּ אוֹר קָטָן',
-    'הָעוֹלָם שָׂמֵחַ שֶׁאַתְּ כָּאן',
-    'אַתְּ מְיֻחֶדֶת',
-    'טוֹב שֶׁאַתְּ',
+    'אֵיזֶה יֹפִי!',
+    'בּוֹא נְגַלֶּה מָה יֵשׁ פֹּה',
+    'טוֹב שֶׁאַתְּ כָּאן',
+    'הַגַּן שָׂמֵחַ שֶׁבָּאת',
   ],
 };
 
@@ -81,24 +73,10 @@ export const LENNY = {
   breathRate: 0.5,
 };
 
-/* ---------- Galaxy (home screen) ----------
- * Radii are fractions of min(width,height).
- * baseRadius + 8*ringGap = 0.46 so every ring stays on screen.
+/* ---------- Garden (home world) ----------
+ * The garden replaces the old galaxy. Zones sit along a path.
  */
-export const GALAXY = {
-  rings: 9,
-  baseRadius: 0.14,
-  ringGap: 0.04,
-  starSize: 11,
-  orbitSpeed: 0.05,
-};
-
-/* ---------- UI text (proper Hebrew, RTL-safe) ---------- */
-export const UI_TEXT = {
-  title: 'לֶנִי',
-  subtitle: 'גַּן שֶׁל אוֹרוֹת',
-  breathIntro: 'נִשְׁמוּ יַחַד',
-  galaxyPrompt: 'נִגְעוּ בְּכוֹכָב זָהָב',
-  lockedMsg: 'הַכּוֹכָב עוֹד יָשֵׁן',
-  tapToSkip: 'נִגְעוּ כְּדֵי לְהַמְשִׁיךְ',
+export const GARDEN_UI = {
+  zoneRadius: 17,
+  currentRadius: 22,
 };
