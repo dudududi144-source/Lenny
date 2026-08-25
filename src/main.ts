@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { PortalScene } from './scenes/PortalScene';
 import { PlayScene } from './scenes/PlayScene';
 import { MemoryPairsScene } from './scenes/MemoryPairsScene';
+import { GlowFishScene } from './scenes/GlowFishScene';
 
 /* Lenny — Garden of Lights. Portal opens first; each zone leads to its games. */
 new Phaser.Game({
@@ -14,5 +15,5 @@ new Phaser.Game({
     width: 420,
     height: 720,
   },
-  scene: [PortalScene, PlayScene, MemoryPairsScene],
+  scene: [PortalScene, PlayScene, MemoryPairsScene, GlowFishScene],
 });
