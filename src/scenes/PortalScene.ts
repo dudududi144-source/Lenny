@@ -39,6 +39,12 @@ export class PortalScene extends Phaser.Scene {
 
   constructor() { super('portal'); }
 
+  preload(): void {
+    /* professional art assets */
+    this.load.image('garden-bg', 'art/garden-bg.png');
+    this.load.image('lenny', 'art/lenny.png');
+  }
+
   create(): void {
     this.mainG = this.add.graphics();
     this.fxG = this.add.graphics();
