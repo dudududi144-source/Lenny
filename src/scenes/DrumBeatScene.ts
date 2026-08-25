@@ -136,6 +136,12 @@ export class DrumBeatScene extends Phaser.Scene {
     /* relax drum pulse */
     this.drumScale += (1 - this.drumScale) * Math.min(1, dt * 8);
 
+    /* auto-finish when the pattern completes, even if the child stops tapping */
+    if (this.started && !this.done && this.engine.isDone(this.clock)) {
+      this.finish();
+      return;
+    }
+
     this.drawNotes();
     this.drawDrum(time * 0.001);
   }
