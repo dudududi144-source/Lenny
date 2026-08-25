@@ -1,34 +1,47 @@
-# Lenny - Gan shel Orot - Portal GDD
+# Lenny - Gan shel Orot - Product Design Document
+
+Bound by docs/ETHICS.md. Read it first.
 
 ## Vision
 
-A cognitive sanctuary for children aged 4-7. Not a game menu - a guided transition into a state of calm, focused readiness to learn. The portal uses theta-wave visual entrainment, guided breathing, and gentle subliminal affirmations to prepare the child's mind for play.
+A calm, beautiful play-space for children aged 4-7. It invites a gentle, focused mood through soft visuals, slow pacing, and guided breathing - then offers small cognitive games to enjoy.
+
+## What this product claims (and what it does NOT)
+
+- It IS a relaxing, enjoyable play experience.
+- It is NOT a medical device, therapy, or a scientifically-proven learning tool.
+- It makes NO claims about brainwave entrainment, IQ, or developmental outcomes.
 
 ## The 144-Game Matrix
 
 9 categories x 16 games (4 levels x 4 games each).
 
-| Category | Skill focus | Target freq |
-|----------|-------------|-------------|
-| memory | working + long-term memory | 4.0Hz |
-| attention | sustained + selective attention | 6.0Hz |
-| logic | causal reasoning, problem solving | 8.0Hz |
-| spatial | navigation, mental rotation | 5.0Hz |
-| language | vocabulary, phonology | 7.0Hz |
-| emotion | recognition, regulation | 4.5Hz |
-| creativity | divergent thinking | 6.5Hz |
-| rhythm | motor sync, timing | 8.0Hz |
-| breath | nervous regulation, mindfulness | 4.0Hz |
+| Category | Skill it playfully exercises |
+|----------|------------------------------|
+| memory | matching, recall, sequences |
+| attention | spotting, focus, tracking |
+| logic | patterns, cause and effect |
+| spatial | shapes, rotation, maps |
+| language | letters, sounds, words |
+| emotion | naming and recognizing feelings |
+| creativity | drawing, imagining, making |
+| rhythm | timing, movement, music |
+| breath | slow breathing, calming |
 
-Levels: seed, sprout, tree, blossom (ages 3-7).
+Levels: seed, sprout, tree, blossom (roughly ages 3-7).
 
-## Safety
+## Honesty about progress
+
+Only game #0 (Lenny Star Jump) is playable today. The other 143 are shown as dormant stars - clearly locked, never falsely advertised as available.
+
+## Safety & Privacy
 
 - No audio by default (silent visual experience).
-- No flashing above safe thresholds; theta pulses are low-amplitude.
-- No tracking, no ads, no purchases. COPPA-clean.
-- Subliminal messages are positive affirmations only.
+- Visual pulses are low-amplitude and photosensitivity-safe.
+- No tracking, no ads, no purchases, no external links. COPPA-clean.
+- Encouragement messages are fully visible to the child - never hidden.
+- All progress is stored locally on the device only.
 
 ## First Playable
 
-Game #0 is Lenny Star Jump (scene 'play'). All other 143 games are dormant seeds that unlock as content is built.
+Game #0 is Lenny Star Jump (scene 'play').
