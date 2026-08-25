@@ -1,18 +1,19 @@
 /* ============================================================
  * GardenSystem — draws the living garden path.
- * Replaces the galaxy: a winding trail with zone-stations the
- * child walks along. Zones unlock as the child progresses.
+ *
+ * VISUAL OVERHAUL: the illustrated background now shows through.
+ * No opaque ground fill anymore. This system adds:
+ *   - drifting fireflies
+ *   - a glowing golden trail connecting the zone stations
+ *   - stations as glowing orbs (open bright / locked dim / current pulsing)
  * ============================================================ */
 
 import Phaser from 'phaser';
 import { ZONES, ZoneId } from '../data/garden';
 
 export interface GardenProgress {
-  /* which zones the child has opened */
   unlocked: ZoneId[];
-  /* how many games finished per zone */
   finished: Record<string, number>;
-  /* which zone the child is standing in */
   current: ZoneId;
 }
 
@@ -22,33 +23,23 @@ export const defaultProgress: GardenProgress = {
   current: 'light-path',
 };
 
-export function freshProgress(): GardenProgress {
-  return {
-    unlocked: [...defaultProgress.unlocked],
-    finished: { ...defaultProgress.finished },
-    current: defaultProgress.current,
-  };
-}
+interface Firefly { x: number; y: number; p: number; s: number; }
 
 export class GardenSystem {
-  /* normalized positions along a winding trail (0..1) */
   private spots: { id: ZoneId; nx: number; ny: number }[] = [];
+  private flies: Firefly[] = [];
 
   constructor() {
-    /* lay the 10 zones on a gentle S-curve from bottom to top */
     const n = ZONES.length;
     for (let i = 0; i < n; i++) {
       const f = i / (n - 1);
-      const ny = 0.88 - f * 0.72;
+      const ny = 0.86 - f * 0.7;
       const nx = 0.5 + Math.sin(f * Math.PI * 2.2) * 0.22;
       this.spots.push({ id: ZONES[i].id, nx, ny });
     }
-  }
-
-  private zonePos(id: ZoneId, w: number, h: number): { x: number; y: number } | null {
-    const s = this.spots.find((p) => p.id === id);
-    if (!s) return null;
-    return { x: s.nx * w, y: s.ny * h };
+    for (let i = 0; i < 16; i++) {
+      this.flies.push({ x: Math.random(), y: Math.random(), p: Math.random() * 6.28, s: 0.5 + Math.random() });
+    }
   }
 
   draw(
@@ -56,101 +47,69 @@ export class GardenSystem {
     w: number,
     h: number,
     t: number,
-    progress: GardenProgress
+    progress: GardenProgress,
   ): void {
     g.clear();
 
-    /* --- soft garden ground --- */
-    this.drawGround(g, w, h, t);
-
-    /* --- the winding path --- */
-    g.lineStyle(5, 0xfff6ec, 0.18);
-    g.beginPath();
-    for (let i = 0; i < this.spots.length; i++) {
-      const s = this.spots[i];
-      if (i === 0) g.moveTo(s.nx * w, s.ny * h);
-      else g.lineTo(s.nx * w, s.ny * h);
+    /* fireflies drifting over the illustrated garden */
+    for (const f of this.flies) {
+      const fx = ((f.x * w + Math.sin(t * 0.4 * f.s + f.p) * 26 + t * 6 * f.s) % w + w) % w;
+      const fy = f.y * h + Math.cos(t * 0.5 * f.s + f.p) * 18;
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.6 * f.s + f.p));
+      g.fillStyle(0xffd76a, 0.10 * tw);
+      g.fillCircle(fx, fy, 6);
+      g.fillStyle(0xfff6ec, 0.5 * tw);
+      g.fillCircle(fx, fy, 1.6);
     }
-    g.strokePath();
 
-    /* dotted light along the path */
+    /* glowing golden trail between stations */
     for (let i = 0; i < this.spots.length - 1; i++) {
       const a = this.spots[i], b = this.spots[i + 1];
-      for (let k = 1; k < 4; k++) {
-        const fx = (a.nx + (b.nx - a.nx) * (k / 4)) * w;
-        const fy = (a.ny + (b.ny - a.ny) * (k / 4)) * h;
-        const tw = 0.5 + 0.5 * Math.sin(t * 2 + i + k);
-        g.fillStyle(0xffd76a, 0.15 + tw * 0.1);
-        g.fillCircle(fx, fy, 2);
+      const ax = a.nx * w, ay = a.ny * h, bx = b.nx * w, by = b.ny * h;
+      g.lineStyle(14, 0xffd76a, 0.06);
+      g.lineBetween(ax, ay, bx, by);
+      g.lineStyle(7, 0xffd76a, 0.12);
+      g.lineBetween(ax, ay, bx, by);
+      const dx = bx - ax, dy = by - ay;
+      const len = Math.hypot(dx, dy);
+      const steps = Math.max(2, Math.floor(len / 16));
+      for (let s = 0; s <= steps; s++) {
+        const px = ax + dx * (s / steps);
+        const py = ay + dy * (s / steps);
+        const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 2 + s * 0.7 + i));
+        g.fillStyle(0xfff6ec, 0.35 * tw);
+        g.fillCircle(px, py, 2);
       }
     }
 
-    /* --- zone stations --- */
-    for (const zone of ZONES) {
-      const pos = this.zonePos(zone.id, w, h);
-      if (!pos) continue;
-      const isOpen = progress.unlocked.includes(zone.id);
-      const isCurrent = progress.current === zone.id;
-      this.drawZone(g, pos.x, pos.y, zone.color, zone.icon, isOpen, isCurrent, t);
-    }
+    /* zone stations as glowing orbs */
+    for (let i = 0; i < this.spots.length; i++) {
+      const s = this.spots[i];
+      const x = s.nx * w, y = s.ny * h;
+      const zone = ZONES[i];
+      const open = progress.unlocked.includes(s.id);
+      const current = progress.current === s.id;
+      const pulse = 0.6 + 0.4 * Math.sin(t * 2.2 + i);
 
-    /* --- living garden elements that grow with progress --- */
-    this.drawLife(g, w, h, t, progress);
-  }
+      if (current) {
+        g.fillStyle(0xffd76a, 0.10 * pulse);
+        g.fillCircle(x, y, 52);
+        g.fillStyle(0xffd76a, 0.16 * pulse);
+        g.fillCircle(x, y, 36);
+      } else if (open) {
+        g.fillStyle(zone.color, 0.12 * pulse);
+        g.fillCircle(x, y, 40);
+      }
 
-  private drawGround(g: Phaser.GameObjects.Graphics, w: number, h: number, t: number): void {
-    /* vertical gradient: sky -> grass */
-    const bands = 16;
-    for (let i = 0; i < bands; i++) {
-      const f = i / (bands - 1);
-      const r = Math.round(26 + f * 20);
-      const gg = Math.round(20 + f * 34);
-      const b = Math.round(64 - f * 20);
-      g.fillStyle((r << 16) | (gg << 8) | Math.max(0, b), 1);
-      g.fillRect(0, (h / bands) * i, w, h / bands + 1);
-    }
-    /* drifting fireflies */
-    for (let i = 0; i < 14; i++) {
-      const fx = ((i * 67 + t * 12) % w);
-      const fy = ((i * 131 + t * 8) % (h * 0.8)) + h * 0.1;
-      const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 1.6 + i));
-      g.fillStyle(0xffd76a, 0.12 * tw);
-      g.fillCircle(fx, fy, 3);
-    }
-  }
-
-  private drawZone(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    color: number,
-    icon: string,
-    open: boolean,
-    current: boolean,
-    t: number
-  ): void {
-    void icon; /* icon rendered via Text in the scene if needed */
-    const r = current ? 22 : 17;
-    const pulse = open ? 0.6 + 0.4 * Math.sin(t * 2) : 0.3;
-
-    /* halo */
-    if (open) {
-      g.fillStyle(color, 0.14 * pulse);
-      g.fillCircle(x, y, r * 2);
-    }
-
-    /* body */
-    g.fillStyle(open ? color : 0x3a3350, open ? 0.9 : 0.6);
-    g.fillCircle(x, y, r);
-
-    /* ring */
-    g.lineStyle(2, open ? 0xfff6ec : 0x55506a, open ? 0.8 : 0.4);
-    g.strokeCircle(x, y, r);
-
-    /* spark on current zone */
-    if (current) {
-      g.fillStyle(0xfff6ec, 0.9);
-      g.fillCircle(x, y - r - 8, 3);
+      const r = current ? 24 : open ? 18 : 13;
+      g.fillStyle(open ? zone.color : 0x2a2440, open ? 0.95 : 0.55);
+      g.fillCircle(x, y, r);
+      g.lineStyle(current ? 3 : 2, 0xfff6ec, open ? 0.85 : 0.25);
+      g.strokeCircle(x, y, r);
+      if (open) {
+        g.fillStyle(0xfff6ec, 0.85 * pulse);
+        g.fillCircle(x, y, current ? 6 : 4);
+      }
     }
   }
 
@@ -160,63 +119,8 @@ export class GardenSystem {
     for (const s of this.spots) {
       const x = s.nx * w, y = s.ny * h;
       const d = Math.hypot(px - x, py - y);
-      if (d < 30 && d < bestD) {
-        bestD = d;
-        best = s.id;
-      }
+      if (d < 34 && d < bestD) { bestD = d; best = s.id; }
     }
     return best;
-  }
-
-  /* Flowers, lanterns and sparkles that appear as the child progresses.
-     The garden literally grows with the player. */
-  private drawLife(
-    g: Phaser.GameObjects.Graphics,
-    w: number,
-    h: number,
-    t: number,
-    progress: GardenProgress
-  ): void {
-    /* total finished games = how awake the garden is */
-    let totalDone = 0;
-    for (const k of Object.keys(progress.finished)) {
-      totalDone += progress.finished[k] || 0;
-    }
-
-    /* flowers bloom near each unlocked zone */
-    for (let i = 0; i < this.spots.length; i++) {
-      const s = this.spots[i];
-      if (!progress.unlocked.includes(s.id)) continue;
-      const zx = s.nx * w, zy = s.ny * h;
-      const done = progress.finished[s.id] || 0;
-      const blooms = Math.min(4, done);
-      for (let b = 0; b < blooms; b++) {
-        const ang = (b / 4) * Math.PI * 2 + i;
-        const fx = zx + Math.cos(ang) * 34;
-        const fy = zy + Math.sin(ang) * 22 + 8;
-        const sway = Math.sin(t * 1.4 + b + i) * 2;
-        /* stem */
-        g.lineStyle(1.5, 0x4caf6e, 0.7);
-        g.lineBetween(fx, fy + 8, fx + sway, fy);
-        /* petals */
-        g.fillStyle(0xf2549a, 0.85);
-        g.fillCircle(fx + sway, fy, 4);
-        g.fillStyle(0xffd76a, 0.95);
-        g.fillCircle(fx + sway, fy, 1.8);
-      }
-    }
-
-    /* lanterns light the path as more games are finished */
-    const lanterns = Math.min(8, totalDone);
-    for (let i = 0; i < lanterns; i++) {
-      const f = i / 8;
-      const lx = (0.5 + Math.sin(f * Math.PI * 2.2) * 0.22) * w;
-      const ly = (0.88 - f * 0.72) * h - 20;
-      const flick = 0.7 + 0.3 * Math.sin(t * 3 + i * 2);
-      g.fillStyle(0xffd76a, 0.12 * flick);
-      g.fillCircle(lx, ly, 12);
-      g.fillStyle(0xffd76a, 0.9);
-      g.fillCircle(lx, ly, 3.5);
-    }
   }
 }
