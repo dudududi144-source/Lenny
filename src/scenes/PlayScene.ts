@@ -347,8 +347,9 @@ export class PlayScene extends Phaser.Scene {
 
   /* count this run toward the Light Path zone in the garden */
   private recordGardenProgress(): void {
-    /* only meaningful runs count (collected at least 3 stars) */
-    if (this.starCount < 3) return;
+    /* count any run with at least one star so the journey never stalls
+       for young players (3-star gate previously blocked the whole chain) */
+    if (this.starCount < 1) return;
 recordZoneFinish('light-path');
   }
 }
