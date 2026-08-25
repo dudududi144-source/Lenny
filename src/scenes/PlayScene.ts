@@ -213,6 +213,7 @@ export class PlayScene extends Phaser.Scene {
 
     if (this.py > this.cameraY + h + 60) {
       this.state = 'over';
+      this.recordGardenProgress();
       if (this.score > this.best) {
         this.best = this.score;
         localStorage.setItem('lenny_best', String(this.best));
@@ -341,5 +342,18 @@ export class PlayScene extends Phaser.Scene {
     }
     g.closePath();
     g.fillPath();
+  }
+
+  /* count this run toward the Light Path zone in the garden */
+  private recordGardenProgress(): void {
+    /* only meaningful runs count (collected at least 3 stars) */
+    if (this.starCount < 3) return;
+    try {
+      const raw = localStorage.getItem('lenny-garden');
+      const prog = raw ? JSON.parse(raw) : { unlocked: ['light-path', 'breath-pool'], finished: {}, current: 'light-path' };
+      prog.finished = prog.finished || {};
+      prog.finished['light-path'] = (prog.finished['light-path'] || 0) + 1;
+      localStorage.setItem('lenny-garden', JSON.stringify(prog));
+    } catch { /* noop */ }
   }
 }
