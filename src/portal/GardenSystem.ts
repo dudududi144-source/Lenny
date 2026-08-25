@@ -23,6 +23,14 @@ export const defaultProgress: GardenProgress = {
   current: 'light-path',
 };
 
+export function freshProgress(): GardenProgress {
+  return {
+    unlocked: [...defaultProgress.unlocked],
+    finished: { ...defaultProgress.finished },
+    current: defaultProgress.current,
+  };
+}
+
 interface Firefly { x: number; y: number; p: number; s: number; }
 
 export class GardenSystem {
