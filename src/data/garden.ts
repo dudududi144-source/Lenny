@@ -1,0 +1,167 @@
+import { GameCategory } from './games';
+
+/* ============================================================
+ * The Garden — a living world, not a menu.
+ * Zones sit along a path. Each has a mission, an insight, and
+ * an unlock rule. Language is warm and everyday (see ETHICS + GARDEN.md).
+ * ============================================================ */
+
+export type ZoneId =
+  | 'light-path'
+  | 'memory-hill'
+  | 'attention-stream'
+  | 'thinking-forest'
+  | 'space-sky'
+  | 'words-valley'
+  | 'feelings-garden'
+  | 'creativity-meadow'
+  | 'rhythm-square'
+  | 'breath-pool';
+
+export type UnlockKind = 'open' | 'key' | 'bridge' | 'tunnel';
+
+export interface UnlockRule {
+  kind: UnlockKind;
+  /* which zone must be completed first */
+  from?: ZoneId;
+  /* how many games to finish in the previous zone */
+  gamesNeeded?: number;
+}
+
+export interface ZoneDef {
+  id: ZoneId;
+  name: string;        /* everyday Hebrew, with niqqud */
+  mission: string;     /* the big mission of this zone */
+  insight: string;     /* the little realization at the end */
+  category: GameCategory;
+  color: number;
+  icon: string;
+  unlock: UnlockRule;
+}
+
+export const ZONES: ZoneDef[] = [
+  {
+    id: 'light-path',
+    name: 'שְׁבִיל הָאוֹר',
+    mission: 'בּוֹא נַדְלִיק אֶת הַפָּנָסִים שֶׁל הַשְּׁבִיל!',
+    insight: 'רָאִית? כָּל אוֹר קָטָן עוֹשֶׂה אֶת הַדֶּרֶךְ בְּהִירָה.',
+    category: 'breath',
+    color: 0xffd76a,
+    icon: '✦',
+    unlock: { kind: 'open' },
+  },
+  {
+    id: 'memory-hill',
+    name: 'גִּבְעַת הַזִּכָּרוֹן',
+    mission: 'הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ. בּוֹא נַעֲזֹר לוֹ!',
+    insight: 'כְּשֶׁמִּתְרַכְּזִים, זוֹכְרִים יוֹתֵר טוֹב!',
+    category: 'memory',
+    color: 0xf2549a,
+    icon: '❁',
+    unlock: { kind: 'key', from: 'light-path', gamesNeeded: 3 },
+  },
+  {
+    id: 'attention-stream',
+    name: 'נַחַל הַקֶּשֶׁב',
+    mission: 'הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִּינָה. בּוֹא נַקְשִׁיב יַחַד!',
+    insight: 'כְּשֶׁמַּקְשִׁיבִים, שׁוֹמְעִים דְּבָרִים יָפִים.',
+    category: 'attention',
+    color: 0x4dc9ff,
+    icon: '≈',
+    unlock: { kind: 'bridge', from: 'memory-hill', gamesNeeded: 3 },
+  },
+  {
+    id: 'thinking-forest',
+    name: 'יַעַר הַחֲשִׁיבָה',
+    mission: 'הַסְּנַאי צָרִיךְ לְסַדֵּר אֶת הַבְּלוּטִים. בּוֹא נַחְשֹׁב יַחַד!',
+    insight: 'לִפְעָמִים צָרִיךְ לְנַסּוֹת כַּמָּה דְּרָכִים עַד שֶׁמַּצְלִיחִים.',
+    category: 'logic',
+    color: 0x7dffb8,
+    icon: '❋',
+    unlock: { kind: 'tunnel', from: 'attention-stream', gamesNeeded: 3 },
+  },
+  {
+    id: 'space-sky',
+    name: 'שְׁמֵי הַמֶּרְחָב',
+    mission: 'הָעִפְעוֹפִים הִתְבַּלְבְּלוּ בַּשָּׁמַיִם. בּוֹא נְסַדֵּר אוֹתָם!',
+    insight: 'גַּם כְּשֶׁמִּסְתַּבֵּךְ, אֶפְשָׁר לִמְצֹא אֶת הַמָּקוֹם.',
+    category: 'spatial',
+    color: 0xb39ddb,
+    icon: '✧',
+    unlock: { kind: 'key', from: 'thinking-forest', gamesNeeded: 3 },
+  },
+  {
+    id: 'words-valley',
+    name: 'עֵמֶק הַמִּלִּים',
+    mission: 'הָאַרְנֶבֶת אִבְּדָה אֶת הָאוֹתִיּוֹת. בּוֹא נִמְצָא אוֹתָן!',
+    insight: 'אוֹתִיּוֹת קְטַנּוֹת מִתְחַבְּרוֹת לְמִלִּים גְּדוֹלוֹת.',
+    category: 'language',
+    color: 0xffa552,
+    icon: '✶',
+    unlock: { kind: 'bridge', from: 'space-sky', gamesNeeded: 3 },
+  },
+  {
+    id: 'feelings-garden',
+    name: 'גַּן הָרְגָשׁוֹת',
+    mission: 'הַצָּב עָצוּב וְלֹא יוֹדֵעַ לָמָּה. בּוֹא נְדַבֵּר אִתּוֹ!',
+    insight: 'כָּל הָרְגָשׁוֹת הֵם בְּסֵדֶר. גַּם הָעֶצֶב.',
+    category: 'emotion',
+    color: 0xff8bd4,
+    icon: '♥',
+    unlock: { kind: 'key', from: 'words-valley', gamesNeeded: 3 },
+  },
+  {
+    id: 'creativity-meadow',
+    name: 'אֲחוּ הַיְּצִירָה',
+    mission: 'הַדְּבוֹרָה רוֹצָה לְצַיֵּר אֲבָל אֵין לָהּ צְבָעִים. בּוֹא נַעֲזֹר!',
+    insight: 'אֵין דֶּרֶךְ אַחַת לְצַיֵּר. כָּל דֶּרֶךְ יָפָה.',
+    category: 'creativity',
+    color: 0xffa552,
+    icon: '✿',
+    unlock: { kind: 'tunnel', from: 'feelings-garden', gamesNeeded: 3 },
+  },
+  {
+    id: 'rhythm-square',
+    name: 'כִּכַּר הַקֶּצֶב',
+    mission: 'הַתֹּף הַגָּדוֹל הִפְסִיק לְתַפְתֵּף. בּוֹא נַחְזִיר לוֹ אֶת הַקֶּצֶב!',
+    insight: 'כְּשֶׁזָּזִים בְּקֶצֶב, הַגּוּף וְהַלֵּב נִרְגָּעִים.',
+    category: 'rhythm',
+    color: 0x52e0c4,
+    icon: '♪',
+    unlock: { kind: 'key', from: 'creativity-meadow', gamesNeeded: 3 },
+  },
+  {
+    id: 'breath-pool',
+    name: 'בְּרֵכַת הַנְּשִׁימָה',
+    mission: 'הַבּוּעוֹת רוֹצוֹת לָעוּף לְאַט. בּוֹא נִנְשֹׁם אִתָּן!',
+    insight: 'נְשִׁימָה אֲרוּכָּה עוֹשָׂה שֶׁקֶט בַּפְּנִים.',
+    category: 'breath',
+    color: 0x7c4dff,
+    icon: '◌',
+    unlock: { kind: 'open' },
+  },
+];
+
+/* ---------- helpers ---------- */
+
+export function getZone(id: ZoneId): ZoneDef | undefined {
+  return ZONES.find((z) => z.id === id);
+}
+
+export function zonesByCategory(cat: GameCategory): ZoneDef[] {
+  return ZONES.filter((z) => z.category === cat);
+}
+
+/* ---------- warm everyday UI lines (no biblical register) ---------- */
+export const GARDEN_TEXT = {
+  welcome: 'הַגַּן נִרְדָּם... בּוֹא נַעֲזֹר לוֹ לְהִתְעוֹרֵר?',
+  firstLight: 'וָאו! הַפֶּרַח נִפְתַּח! תּוֹדָה לְךָ!',
+  keepGoing: 'בּוֹא נִמְשִׁיךְ! יֵשׁ עוֹד מָה לְגַלּוֹת.',
+  newZone: 'הַשַּׁעַר נִפְתַּח! בּוֹא נִרְאֶה מָה יֵשׁ שָׁם!',
+  lockedSoon: 'עוֹד קְצָת וְגַם הַשַּׁעַר הַזֶּה יִפָּתַח.',
+  backLater: 'אֶפְשָׁר לָחוֹז הַמָּקוֹם הַזֶּה מָתַי שֶׁבָּא לְךָ.',
+  playInvite: 'בּוֹא נְשַׂחֵק!',
+  wellDone: 'וָאו, כָּל הַכָּבוֹד!',
+  tryAgain: 'לֹא נוֹרָא, בּוֹא נְנַסֶּה עוֹד פַּעַם.',
+  giftIdea: 'אֶפְשָׁר לִשְׁלֹחַ מַתָּנָה לְחָבֵר!',
+};
