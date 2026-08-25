@@ -33,7 +33,6 @@ export class ParentLensScene extends Phaser.Scene {
     this.add.rectangle(w / 2, h / 2, w, h, 0x0e1030);
 
     const titleStyle = { fontFamily: 'Heebo, Arial', fontSize: '22px', color: '#ffd76a' };
-    const bodyStyle = { fontFamily: 'Heebo, Arial', fontSize: '14px', color: '#fff6ec', wordWrap: { width: w - 60 } };
 
     this.add.text(w / 2, h * 0.06, 'פִּנַּת הַהוֹרִים', titleStyle).setOrigin(0.5);
 
@@ -100,6 +99,7 @@ export class ParentLensScene extends Phaser.Scene {
 
   private zoneLabel(zone: string): string {
     const labels: Record<string, string> = {
+      'light-path': 'שְׁבִיל הָאוֹר',
       'memory-hill': 'גִּבְעַת הַזִּכָּרוֹן',
       'attention-stream': 'נַחַל הַקֶּשֶׁב',
       'thinking-forest': 'יַעַר הַחֲשִׁיבָה',
