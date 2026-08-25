@@ -1,28 +1,3 @@
-import Phaser from 'phaser';
-import { PortalScene } from './scenes/PortalScene';
-import { PlayScene } from './scenes/PlayScene';
-import { MemoryPairsScene } from './scenes/MemoryPairsScene';
-import { GlowFishScene } from './scenes/GlowFishScene';
-import { AcornSortScene } from './scenes/AcornSortScene';
-import { KiteMatchScene } from './scenes/KiteMatchScene';
-import { FindLetterScene } from './scenes/FindLetterScene';
-import { EmotionFaceScene } from './scenes/EmotionFaceScene';
-import { BeePaintScene } from './scenes/BeePaintScene';
-import { DrumBeatScene } from './scenes/DrumBeatScene';
-import { LennyStoryScene } from './scenes/LennyStoryScene';
-import { OpenEndedScene } from './scenes/OpenEndedScene';
-import { ParentLensScene } from './scenes/ParentLensScene';
-
-/* Lenny — Garden of Lights. Portal opens first; each zone leads to its games. */
-new Phaser.Game({
-  type: Phaser.CANVAS,
-  parent: 'game',
-  backgroundColor: '#050210',
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: 420,
-    height: 720,
-  },
-  scene: [PortalScene, PlayScene, MemoryPairsScene, GlowFishScene, AcornSortScene, KiteMatchScene, FindLetterScene, EmotionFaceScene, BeePaintScene, DrumBeatScene, LennyStoryScene, OpenEndedScene, ParentLensScene],
-});
+/* entry.ts is now the real bootstrap (wired to the HTML hero).
+   This file is intentionally a no-op for backward compatibility. */
+export {};
