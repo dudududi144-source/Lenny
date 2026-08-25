@@ -37,11 +37,14 @@ export interface ZoneDef {
   color: number;
   icon: string;
   unlock: UnlockRule;
+  /* Phaser scene to open when this zone is played (undefined = not built yet) */
+  gameScene?: string;
 }
 
 export const ZONES: ZoneDef[] = [
   {
     id: 'light-path',
+    gameScene: 'play',
     name: 'שְׁבִיל הָאוֹר',
     mission: 'בּוֹא נַדְלִיק אֶת הַפָּנָסִים שֶׁל הַשְּׁבִיל!',
     insight: 'רָאִית? כָּל אוֹר קָטָן עוֹשֶׂה אֶת הַדֶּרֶךְ בְּהִירָה.',
@@ -52,6 +55,7 @@ export const ZONES: ZoneDef[] = [
   },
   {
     id: 'memory-hill',
+    gameScene: 'memory-pairs',
     name: 'גִּבְעַת הַזִּכָּרוֹן',
     mission: 'הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ. בּוֹא נַעֲזֹר לוֹ!',
     insight: 'כְּשֶׁמִּתְרַכְּזִים, זוֹכְרִים יוֹתֵר טוֹב!',
