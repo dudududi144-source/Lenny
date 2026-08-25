@@ -93,6 +93,9 @@ export class GardenSystem {
       const isCurrent = progress.current === zone.id;
       this.drawZone(g, pos.x, pos.y, zone.color, zone.icon, isOpen, isCurrent, t);
     }
+
+    /* --- living garden elements that grow with progress --- */
+    this.drawLife(g, w, h, t, progress);
   }
 
   private drawGround(g: Phaser.GameObjects.Graphics, w: number, h: number, t: number): void {
@@ -163,5 +166,57 @@ export class GardenSystem {
       }
     }
     return best;
+  }
+
+  /* Flowers, lanterns and sparkles that appear as the child progresses.
+     The garden literally grows with the player. */
+  private drawLife(
+    g: Phaser.GameObjects.Graphics,
+    w: number,
+    h: number,
+    t: number,
+    progress: GardenProgress
+  ): void {
+    /* total finished games = how awake the garden is */
+    let totalDone = 0;
+    for (const k of Object.keys(progress.finished)) {
+      totalDone += progress.finished[k] || 0;
+    }
+
+    /* flowers bloom near each unlocked zone */
+    for (let i = 0; i < this.spots.length; i++) {
+      const s = this.spots[i];
+      if (!progress.unlocked.includes(s.id)) continue;
+      const zx = s.nx * w, zy = s.ny * h;
+      const done = progress.finished[s.id] || 0;
+      const blooms = Math.min(4, done);
+      for (let b = 0; b < blooms; b++) {
+        const ang = (b / 4) * Math.PI * 2 + i;
+        const fx = zx + Math.cos(ang) * 34;
+        const fy = zy + Math.sin(ang) * 22 + 8;
+        const sway = Math.sin(t * 1.4 + b + i) * 2;
+        /* stem */
+        g.lineStyle(1.5, 0x4caf6e, 0.7);
+        g.lineBetween(fx, fy + 8, fx + sway, fy);
+        /* petals */
+        g.fillStyle(0xf2549a, 0.85);
+        g.fillCircle(fx + sway, fy, 4);
+        g.fillStyle(0xffd76a, 0.95);
+        g.fillCircle(fx + sway, fy, 1.8);
+      }
+    }
+
+    /* lanterns light the path as more games are finished */
+    const lanterns = Math.min(8, totalDone);
+    for (let i = 0; i < lanterns; i++) {
+      const f = i / 8;
+      const lx = (0.5 + Math.sin(f * Math.PI * 2.2) * 0.22) * w;
+      const ly = (0.88 - f * 0.72) * h - 20;
+      const flick = 0.7 + 0.3 * Math.sin(t * 3 + i * 2);
+      g.fillStyle(0xffd76a, 0.12 * flick);
+      g.fillCircle(lx, ly, 12);
+      g.fillStyle(0xffd76a, 0.9);
+      g.fillCircle(lx, ly, 3.5);
+    }
   }
 }
