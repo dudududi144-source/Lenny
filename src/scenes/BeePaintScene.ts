@@ -34,11 +34,18 @@ export class BeePaintScene extends Phaser.Scene {
 
   constructor() { super('bee-paint'); }
 
+  preload(): void {
+    this.load.image('garden-bg', 'art/garden-bg.png');
+  }
+
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
     /* meadow background */
-    this.add.rectangle(w / 2, h / 2, w, h, 0x1e3a20);
+    /* illustrated background */
+    const _bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    _bg.setDisplaySize(w, h).setAlpha(0.5).setDepth(0);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x1e3a20, 0.45);
 
     this.flowerG = this.add.graphics();
     this.burst = new ParticleBurst(this);
