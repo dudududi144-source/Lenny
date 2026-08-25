@@ -21,11 +21,18 @@ export class KiteMatchScene extends Phaser.Scene {
 
   constructor() { super('kite-match'); }
 
+  preload(): void {
+    this.load.image('garden-bg', 'art/garden-bg.png');
+  }
+
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
     /* sky background */
-    this.add.rectangle(w / 2, h / 2, w, h, 0x1a2a4a);
+    /* illustrated background */
+    const _bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    _bg.setDisplaySize(w, h).setAlpha(0.5).setDepth(0);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x1a2a4a, 0.45);
 
     this.kiteG = this.add.graphics();
 
