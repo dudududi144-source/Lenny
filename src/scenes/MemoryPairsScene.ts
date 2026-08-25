@@ -25,6 +25,13 @@ interface Card {
 }
 
 export class MemoryPairsScene extends Phaser.Scene {
+  /* cognitive core engines */
+  private dda = new AdaptiveDifficulty('memory-hill');
+  private pm = new PlayerModel();
+  private signals = new LearningSignals();
+  private roundStart = 0;
+  private mistakes = 0;
+
   private grid!: CardFlipSystem;
   private ring!: ProgressRing;
   private dialogue!: DialogueBox;
