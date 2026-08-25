@@ -63,7 +63,7 @@ function buildGarden(): void {
 
   ZONES.forEach((z, i) => {
     const open = isUnlocked(data, z.id);
-    const done = data.zones[z.id] ? data.zones[z.id].finished : 0;
+    const done = (data.finished && data.finished[z.id]) || (data.zones[z.id] ? data.zones[z.id].finished : 0) || 0;
     const node = document.createElement('button');
     node.className = 'zone' + (open ? '' : ' locked');
     node.style.setProperty('--zc', z.color);
