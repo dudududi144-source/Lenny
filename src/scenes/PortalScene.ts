@@ -1,73 +1,63 @@
 /* ============================================================
- * PortalScene — the cognitive gateway
- * One scene, six states, zero cuts:
- *   VOID -> SPARK -> BREATH -> REVEAL -> MANDALA -> GALAXY
- * Tap anywhere during the intro to skip straight to the galaxy.
- * In the galaxy, tap a golden star to enter its game.
+ * PortalScene — the gateway into the Garden.
+ * States: VOID -> SPARK -> BREATH -> STORY -> GARDEN.
+ * Warm, everyday Hebrew. Nothing hidden. Tap to skip ahead.
  * ============================================================ */
 
 import Phaser from 'phaser';
-import { PortalState, THETA, BREATH, TIMING, COLORS, LENNY, UI_TEXT } from '../data/portalConfig';
+import { PortalState, THETA, BREATH, TIMING, COLORS, LENNY, AFFIRMATIONS } from '../data/portalConfig';
+import { ZONES, getZone, GARDEN_TEXT, ZoneId } from '../data/garden';
 import { ThetaPulse } from '../portal/ThetaPulse';
 import { BreathSystem } from '../portal/BreathSystem';
-import { FractalBackground } from '../portal/FractalBackground';
-import { MandalaSystem } from '../portal/MandalaSystem';
-import { GalaxySystem } from '../portal/GalaxySystem';
+import { GardenSystem, GardenProgress, defaultProgress } from '../portal/GardenSystem';
 import { AffirmationSystem } from '../portal/AffirmationSystem';
 
-interface RevealParticle {
-  x: number; y: number; vx: number; vy: number; life: number;
-}
-
 export class PortalScene extends Phaser.Scene {
-  private bgG!: Phaser.GameObjects.Graphics;
   private mainG!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
 
   private theta!: ThetaPulse;
   private breath!: BreathSystem;
-  private backdrop!: FractalBackground;
-  private mandala!: MandalaSystem;
-  private galaxy!: GalaxySystem;
+  private garden!: GardenSystem;
   private affirmation!: AffirmationSystem;
 
   private state: PortalState = 'VOID';
   private stateT = 0;
   private globalT = 0;
 
-  private breathText!: Phaser.GameObjects.Text;
+  private progress: GardenProgress = defaultProgress;
+
+  private centerText!: Phaser.GameObjects.Text;
+  private storyText!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
-  private feedbackText!: Phaser.GameObjects.Text;
   private affirmationText!: Phaser.GameObjects.Text;
 
-  private particles: RevealParticle[] = [];
-  private galaxyReady = false;
+  private gardenReady = false;
 
   constructor() { super('portal'); }
 
   create(): void {
-    this.bgG = this.add.graphics();
     this.mainG = this.add.graphics();
     this.fxG = this.add.graphics();
 
     this.theta = new ThetaPulse(THETA.freq);
     this.breath = new BreathSystem(BREATH);
-    this.backdrop = new FractalBackground();
-    this.mandala = new MandalaSystem();
-    this.galaxy = new GalaxySystem();
+    this.garden = new GardenSystem();
+
+    /* load saved garden progress if any */
+    this.loadProgress();
 
     const w = this.scale.width, h = this.scale.height;
-
     const heebo = { fontFamily: 'Heebo, Arial', color: '#fff6ec' };
 
-    this.breathText = this.add.text(w / 2, h * 0.84, '', { ...heebo, fontSize: '22px' })
+    this.centerText = this.add.text(w / 2, h * 0.84, '', { ...heebo, fontSize: '22px' })
       .setOrigin(0.5).setAlpha(0.9);
+
+    this.storyText = this.add.text(w / 2, h * 0.42, '', { ...heebo, fontSize: '20px', align: 'center' })
+      .setOrigin(0.5).setAlpha(0);
 
     this.promptText = this.add.text(w / 2, h * 0.07, '', { ...heebo, fontSize: '17px' })
       .setOrigin(0.5).setAlpha(0.55);
-
-    this.feedbackText = this.add.text(w / 2, h * 0.93, '', { ...heebo, fontSize: '18px' })
-      .setOrigin(0.5).setAlpha(0);
 
     this.affirmationText = this.add.text(0, 0, '', { ...heebo, fontSize: '24px' })
       .setOrigin(0.5).setVisible(false);
@@ -77,70 +67,87 @@ export class PortalScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTouch(p));
   }
 
+  private loadProgress(): void {
+    try {
+      const raw = localStorage.getItem('lenny-garden');
+      if (raw) {
+        const parsed = JSON.parse(raw) as Partial<GardenProgress>;
+        this.progress = { ...defaultProgress, ...parsed };
+      }
+    } catch {
+      this.progress = defaultProgress;
+    }
+  }
+
+  private saveProgress(): void {
+    try {
+      localStorage.setItem('lenny-garden', JSON.stringify(this.progress));
+    } catch {
+      /* noop */
+    }
+  }
+
   private onTouch(p: Phaser.Input.Pointer): void {
-    if (this.state === 'GALAXY') {
-      this.handleGalaxyTap(p);
+    if (this.state === 'GARDEN') {
+      this.handleGardenTap(p);
       return;
     }
-    /* any tap during the intro fast-forwards to the galaxy */
-    this.toState('GALAXY');
+    /* any tap during the intro fast-forwards into the garden */
+    this.toState('GARDEN');
   }
 
-  private handleGalaxyTap(p: Phaser.Input.Pointer): void {
-    if (!this.galaxyReady) return;
+  private handleGardenTap(p: Phaser.Input.Pointer): void {
+    if (!this.gardenReady) return;
     const w = this.scale.width, h = this.scale.height;
-    const cx = w / 2, cy = h / 2;
-    const minDim = Math.min(w, h);
-    const hit = this.galaxy.hitTest(p.x, p.y, cx, cy, minDim);
-    if (!hit) return;
+    const zoneId = this.garden.hitTest(p.x, p.y, w, h);
+    if (!zoneId) return;
 
-    if (hit.unlocked && hit.scene) {
-      this.showFeedback('נִכְנָסִים...');
-      this.time.delayedCall(250, () => this.scene.start(hit.scene as string));
+    const zone = getZone(zoneId);
+    if (!zone) return;
+
+    if (this.progress.unlocked.includes(zoneId)) {
+      this.progress.current = zoneId;
+      this.saveProgress();
+      /* for now, the first zone's playable game is Lenny Star Jump */
+      if (zoneId === 'light-path') {
+        this.showCenter(GARDEN_TEXT.playInvite);
+        this.time.delayedCall(300, () => this.scene.start('play'));
+      } else {
+        this.showCenter(zone.mission);
+      }
     } else {
-      this.showFeedback(UI_TEXT.lockedMsg);
+      this.showCenter(GARDEN_TEXT.lockedSoon);
     }
   }
 
-  private showFeedback(msg: string): void {
-    this.feedbackText.setText(msg);
-    this.feedbackText.setAlpha(1);
-    this.tweens.add({
-      targets: this.feedbackText,
-      alpha: 0,
-      duration: 1400,
-      delay: 600,
-    });
+  private showCenter(msg: string): void {
+    this.centerText.setText(msg);
+    this.centerText.setAlpha(1);
+    this.tweens.add({ targets: this.centerText, alpha: 0, duration: 1200, delay: 1400 });
   }
 
   private toState(next: PortalState): void {
     this.state = next;
     this.stateT = 0;
-    if (next === 'REVEAL') this.spawnParticles();
-    if (next === 'GALAXY') {
-      this.galaxyReady = false;
-      this.promptText.setText(UI_TEXT.galaxyPrompt);
-      this.time.delayedCall(700, () => { this.galaxyReady = true; });
+    if (next === 'GARDEN') {
+      this.gardenReady = false;
+      this.storyText.setAlpha(0);
+      this.promptText.setText(GARDEN_TEXT.backLater);
+      this.time.delayedCall(700, () => { this.gardenReady = true; });
+    } else if (next === 'STORY') {
+      this.promptText.setText('');
+      this.showStory();
     } else {
       this.promptText.setText('');
     }
   }
 
-  private spawnParticles(): void {
-    const w = this.scale.width, h = this.scale.height;
-    this.particles = [];
-    for (let i = 0; i < 144; i++) {
-      const ang = Math.random() * Math.PI * 2;
-      const spd = 60 + Math.random() * 220;
-      this.particles.push({
-        x: w / 2, y: h / 2,
-        vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
-        life: 1,
-      });
-    }
+  private showStory(): void {
+    this.storyText.setText(GARDEN_TEXT.welcome);
+    this.tweens.add({ targets: this.storyText, alpha: 1, duration: 800 });
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
     const dt = Math.min(delta / 1000, 0.033);
     this.globalT += dt;
     this.stateT += dt;
@@ -149,30 +156,20 @@ export class PortalScene extends Phaser.Scene {
     this.affirmation.update();
 
     const w = this.scale.width, h = this.scale.height;
-    this.backdrop.draw(this.bgG, w, h, this.globalT, this.warmth(), this.theta.getEased() * 0.4);
-
-    this.fxG.clear();
     this.mainG.clear();
+    this.fxG.clear();
 
     switch (this.state) {
       case 'VOID': this.updateVoid(); break;
       case 'SPARK': this.updateSpark(w, h); break;
       case 'BREATH': this.updateBreath(w, h); break;
-      case 'REVEAL': this.updateReveal(dt); break;
-      case 'MANDALA': this.updateMandala(dt, w, h); break;
-      case 'GALAXY': this.updateGalaxy(dt, w, h); break;
+      case 'STORY': this.updateStory(w, h); break;
+      case 'GARDEN': this.updateGarden(dt, w, h); break;
     }
   }
 
-  private warmth(): number {
-    if (this.state === 'VOID') return 0;
-    if (this.state === 'SPARK') return 0.2;
-    if (this.state === 'BREATH') return 0.35;
-    return 0.5;
-  }
-
   private updateVoid(): void {
-    this.breathText.setText('');
+    this.centerText.setText('');
     if (this.stateT >= TIMING.void) this.toState('SPARK');
   }
 
@@ -188,8 +185,6 @@ export class PortalScene extends Phaser.Scene {
     this.mainG.fillCircle(cx, cy, r);
     this.mainG.fillStyle(0xfff6ec, 0.9);
     this.mainG.fillCircle(cx, cy, r * 0.4);
-
-    this.promptText.setText(UI_TEXT.tapToSkip);
 
     if (this.stateT >= TIMING.spark) this.toState('BREATH');
   }
@@ -207,60 +202,33 @@ export class PortalScene extends Phaser.Scene {
     this.mainG.fillStyle(COLORS.spark, 0.14);
     this.mainG.fillCircle(cx, cy, r);
 
-    this.breathText.setText(this.breath.getLabel());
+    this.centerText.setText('בּוֹא נִנְשֹׁם רֶגַע יַחַד');
 
     if (this.stateT >= TIMING.breath) {
-      this.breathText.setText('');
-      this.toState('REVEAL');
+      this.centerText.setText('');
+      this.toState('STORY');
     }
   }
 
-  private updateReveal(dt: number): void {
-    for (const p of this.particles) {
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vx *= 0.985;
-      p.vy *= 0.985;
-      p.life -= dt * 0.5;
-      if (p.life > 0) {
-        this.fxG.fillStyle(COLORS.spark, p.life * 0.8);
-        this.fxG.fillCircle(p.x, p.y, 2 + p.life * 2);
-      }
-    }
-    if (this.stateT >= TIMING.reveal) this.toState('MANDALA');
-  }
-
-  private updateMandala(dt: number, w: number, h: number): void {
-    this.mandala.update(dt);
-    const bloom = Math.min(1, this.stateT / 1.4);
-    const eased = 1 - Math.pow(1 - bloom, 3);
-    const cx = w / 2, cy = h / 2;
-    const radius = Math.min(w, h) * 0.3;
-    this.mandala.draw(this.mainG, cx, cy, radius, this.globalT, eased);
-
-    if (this.stateT >= TIMING.mandala) this.toState('GALAXY');
-  }
-
-  private updateGalaxy(dt: number, w: number, h: number): void {
-    this.galaxy.update(dt);
-    const cx = w / 2, cy = h / 2;
-    const minDim = Math.min(w, h);
-    this.galaxy.draw(this.mainG, cx, cy, minDim, this.globalT);
-    this.drawLennyCore(cx, cy);
-  }
-
-  private drawLennyCore(cx: number, cy: number): void {
-    const b = 0.85 + 0.15 * Math.sin(this.globalT * LENNY.breathRate * Math.PI * 2);
-    const r = 16 * b;
-    this.mainG.fillStyle(LENNY.glow, 0.15);
-    this.mainG.fillCircle(cx, cy, r * 2.4);
+  private updateStory(w: number, h: number): void {
+    /* Lenny glows softly while telling the story */
+    const cx = w / 2, cy = h * 0.62;
+    const pulse = this.theta.getEased();
+    this.mainG.fillStyle(LENNY.glow, 0.15 + pulse * 0.05);
+    this.mainG.fillCircle(cx, cy, 34);
     this.mainG.fillStyle(LENNY.color, 1);
-    this.mainG.fillCircle(cx, cy, r);
+    this.mainG.fillCircle(cx, cy, 16);
     this.mainG.fillStyle(0xffffff, 1);
     this.mainG.fillCircle(cx - 5, cy - 3, 3.4);
     this.mainG.fillCircle(cx + 5, cy - 3, 3.4);
     this.mainG.fillStyle(0x0a0416, 1);
     this.mainG.fillCircle(cx - 5, cy - 3, 1.7);
     this.mainG.fillCircle(cx + 5, cy - 3, 1.7);
+
+    if (this.stateT >= TIMING.story) this.toState('GARDEN');
+  }
+
+  private updateGarden(dt: number, w: number, h: number): void {
+    this.garden.draw(this.mainG, w, h, this.globalT, this.progress);
   }
 }
