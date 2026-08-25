@@ -49,8 +49,23 @@ export class MemoryPairsScene extends Phaser.Scene {
 
   constructor() { super('memory-pairs'); }
 
+  preload(): void {
+    this.load.image('butterfly', 'art/butterfly.png');
+    this.load.image('garden-bg', 'art/garden-bg.png');
+  }
+
   create(): void {
     const w = this.scale.width, h = this.scale.height;
+
+    /* illustrated background */
+    const bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    bg.setDisplaySize(w, h);
+    bg.setAlpha(0.35);
+
+    /* butterfly companion top-right */
+    const bf = this.add.image(w * 0.85, h * 0.12, 'butterfly');
+    bf.setDisplaySize(70, 70);
+    this.tweens.add({ targets: bf, y: bf.y - 6, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     this.add.rectangle(w / 2, h / 2, w, h, 0x1a1040);
     this.cardG = this.add.graphics();
