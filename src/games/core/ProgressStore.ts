@@ -15,6 +15,7 @@ export interface GardenData {
   firstSeen: number;
   lights: number;
   zones: Record<string, ZoneProg>;
+  finished?: Record<string, number>;
 }
 
 export interface ProgressStore {
@@ -39,6 +40,7 @@ export class LocalProgressStore implements ProgressStore {
           firstSeen: s.firstSeen || Date.now(),
           lights: s.lights || 0,
           zones: s.zones || {},
+          finished: s.finished || {},
         };
       }
     } catch { /* fresh */ }
@@ -58,6 +60,7 @@ export function bloomLevel(data: GardenData): number {
 
 export function isUnlocked(data: GardenData, zone: string): boolean {
   if (DEFAULT_UNLOCKED.includes(zone)) return true;
+  if (data.finished && (data.finished[zone] || 0) > 0) return true;
   return !!data.zones[zone] && data.zones[zone].unlocked;
 }
 
