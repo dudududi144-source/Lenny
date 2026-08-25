@@ -60,14 +60,14 @@ export class MemoryPairsScene extends Phaser.Scene {
     /* illustrated background */
     const bg = this.add.image(w / 2, h / 2, 'garden-bg');
     bg.setDisplaySize(w, h);
-    bg.setAlpha(0.35);
+    bg.setAlpha(0.6);
 
     /* butterfly companion top-right */
     const bf = this.add.image(w * 0.85, h * 0.12, 'butterfly');
     bf.setDisplaySize(70, 70);
     this.tweens.add({ targets: bf, y: bf.y - 6, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-    this.add.rectangle(w / 2, h / 2, w, h, 0x1a1040);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x1a1040, 0.45);
     this.cardG = this.add.graphics();
     this.burst = new ParticleBurst(this);
 
