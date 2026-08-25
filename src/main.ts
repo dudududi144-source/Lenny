@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 import { PortalScene } from './scenes/PortalScene';
 import { PlayScene } from './scenes/PlayScene';
+import { MemoryPairsScene } from './scenes/MemoryPairsScene';
 
-/* Lenny — Cognitive Portal. Portal opens first; PlayScene is reached
-   by selecting the one unlocked golden star in the galaxy. */
+/* Lenny — Garden of Lights. Portal opens first; each zone leads to its games. */
 new Phaser.Game({
   type: Phaser.CANVAS,
   parent: 'game',
@@ -14,5 +14,5 @@ new Phaser.Game({
     width: 420,
     height: 720,
   },
-  scene: [PortalScene, PlayScene],
+  scene: [PortalScene, PlayScene, MemoryPairsScene],
 });
