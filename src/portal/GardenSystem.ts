@@ -22,6 +22,14 @@ export const defaultProgress: GardenProgress = {
   current: 'light-path',
 };
 
+export function freshProgress(): GardenProgress {
+  return {
+    unlocked: [...defaultProgress.unlocked],
+    finished: { ...defaultProgress.finished },
+    current: defaultProgress.current,
+  };
+}
+
 export class GardenSystem {
   /* normalized positions along a winding trail (0..1) */
   private spots: { id: ZoneId; nx: number; ny: number }[] = [];
