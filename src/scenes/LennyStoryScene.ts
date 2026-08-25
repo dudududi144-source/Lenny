@@ -37,11 +37,18 @@ export class LennyStoryScene extends Phaser.Scene {
 
   constructor() { super('lenny-story'); }
 
+  preload(): void {
+    this.load.image('garden-bg', 'art/garden-bg.png');
+  }
+
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
     /* calm night pool background */
-    this.add.rectangle(w / 2, h / 2, w, h, 0x0e1030);
+    /* illustrated background */
+    const _bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    _bg.setDisplaySize(w, h).setAlpha(0.5).setDepth(0);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x0e1030, 0.45);
 
     this.storyG = this.add.graphics();
     this.burst = new ParticleBurst(this);
