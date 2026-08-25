@@ -62,7 +62,7 @@ export const ZONES: ZoneDef[] = [
     category: 'memory',
     color: 0xf2549a,
     icon: '❁',
-    unlock: { kind: 'key', from: 'light-path', gamesNeeded: 3 },
+    unlock: { kind: 'key', from: 'light-path', gamesNeeded: 1 },
   },
   {
     id: 'attention-stream',
@@ -72,7 +72,7 @@ export const ZONES: ZoneDef[] = [
     category: 'attention',
     color: 0x4dc9ff,
     icon: '≈',
-    unlock: { kind: 'bridge', from: 'memory-hill', gamesNeeded: 3 },
+    unlock: { kind: 'bridge', from: 'memory-hill', gamesNeeded: 1 },
   },
   {
     id: 'thinking-forest',
@@ -82,7 +82,7 @@ export const ZONES: ZoneDef[] = [
     category: 'logic',
     color: 0x7dffb8,
     icon: '❋',
-    unlock: { kind: 'tunnel', from: 'attention-stream', gamesNeeded: 3 },
+    unlock: { kind: 'tunnel', from: 'attention-stream', gamesNeeded: 1 },
   },
   {
     id: 'space-sky',
@@ -92,7 +92,7 @@ export const ZONES: ZoneDef[] = [
     category: 'spatial',
     color: 0xb39ddb,
     icon: '✧',
-    unlock: { kind: 'key', from: 'thinking-forest', gamesNeeded: 3 },
+    unlock: { kind: 'key', from: 'thinking-forest', gamesNeeded: 1 },
   },
   {
     id: 'words-valley',
@@ -102,7 +102,7 @@ export const ZONES: ZoneDef[] = [
     category: 'language',
     color: 0xffa552,
     icon: '✶',
-    unlock: { kind: 'bridge', from: 'space-sky', gamesNeeded: 3 },
+    unlock: { kind: 'bridge', from: 'space-sky', gamesNeeded: 1 },
   },
   {
     id: 'feelings-garden',
@@ -112,7 +112,7 @@ export const ZONES: ZoneDef[] = [
     category: 'emotion',
     color: 0xff8bd4,
     icon: '♥',
-    unlock: { kind: 'key', from: 'words-valley', gamesNeeded: 3 },
+    unlock: { kind: 'key', from: 'words-valley', gamesNeeded: 1 },
   },
   {
     id: 'creativity-meadow',
@@ -122,7 +122,7 @@ export const ZONES: ZoneDef[] = [
     category: 'creativity',
     color: 0xffa552,
     icon: '✿',
-    unlock: { kind: 'tunnel', from: 'feelings-garden', gamesNeeded: 3 },
+    unlock: { kind: 'tunnel', from: 'feelings-garden', gamesNeeded: 1 },
   },
   {
     id: 'rhythm-square',
@@ -132,7 +132,7 @@ export const ZONES: ZoneDef[] = [
     category: 'rhythm',
     color: 0x52e0c4,
     icon: '♪',
-    unlock: { kind: 'key', from: 'creativity-meadow', gamesNeeded: 3 },
+    unlock: { kind: 'key', from: 'creativity-meadow', gamesNeeded: 1 },
   },
   {
     id: 'breath-pool',
