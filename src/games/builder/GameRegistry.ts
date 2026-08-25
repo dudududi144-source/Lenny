@@ -163,6 +163,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     baseTier: 0,
     openEnded: false,
   },
+  {
+    id: 'open-create-1',
+    kind: 'open-create',
+    zone: 'creativity-meadow',
+    category: 'creativity',
+    skills: ['creativity.divergent', 'creativity.expression'],
+    narrative: {
+      intro: ['בְּרוּכִים הַבָּאִים לַאֲחוּ הַיְּצִירָה!', 'בּוֹא נְצַיֵּר חָפְשִׁי, אֵין נָכוֹן וְלֹא נָכוֹן.'],
+      win: 'וָאו, מַה שֶּׁיָּצַרְתָּ!',
+      encourage: 'תְּנוּעָה מְעַנְיֶּנֶת!',
+    },
+    params: { itemCount: 7 },
+    baseTier: 0,
+    openEnded: true,
+  },
 ];
 
 /** All games in a garden zone. */
