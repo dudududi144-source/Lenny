@@ -71,6 +71,13 @@ export class PortalScene extends Phaser.Scene {
     this.affirmation = new AffirmationSystem(this.affirmationText, () => this.time.now);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTouch(p));
+
+    /* small parent icon top-left -> ParentLens */
+    const w2 = this.scale.width;
+    this.parentIcon = this.add.text(w2 - 24, 20, '⬤', {
+      fontFamily: 'Arial', fontSize: '14px', color: '#3a3350',
+    }).setOrigin(0.5).setInteractive();
+    this.parentIcon.on('pointerdown', () => this.scene.start('parent-lens'));
   }
 
   private loadProgress(): void {
