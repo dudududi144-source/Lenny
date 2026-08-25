@@ -63,6 +63,21 @@ config-driven, documented, and used by multiple scenes.
     src/games/core/SkillGraph.ts
         dependency-aware skill map (what unlocks what)
 
+## The Game Builder (multi-capable production system)
+
+New games are authored as DATA, not as new scene code.
+
+    src/games/builder/GameSpec.ts
+        the contract: a game described as kind + skills + narrative + params
+
+    src/games/builder/GameRegistry.ts
+        the catalog: 10 games as specs + discovery helpers
+
+    src/games/builder/GameFactory.ts
+        the engine: spec -> runnable scene, with validation
+
+To add a game: write a GameSpec, push it to GameRegistry. Done.
+
 Pattern for every new game:
 1. Create a scene in src/scenes/.
 2. Reuse the fx systems instead of re-implementing effects.
