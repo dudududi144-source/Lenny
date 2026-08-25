@@ -46,6 +46,7 @@ export class PortalScene extends Phaser.Scene {
 
     /* load saved garden progress if any */
     this.loadProgress();
+    this.checkUnlocks();
 
     const w = this.scale.width, h = this.scale.height;
     const heebo = { fontFamily: 'Heebo, Arial', color: '#fff6ec' };
@@ -85,6 +86,30 @@ export class PortalScene extends Phaser.Scene {
     } catch {
       /* noop */
     }
+  }
+
+  /* open any zone whose unlock condition is now met */
+  private checkUnlocks(): boolean {
+    let opened = false;
+    for (const zone of ZONES) {
+      if (this.progress.unlocked.includes(zone.id)) continue;
+      const rule = zone.unlock;
+      if (rule.kind === 'open') {
+        this.progress.unlocked.push(zone.id);
+        opened = true;
+        continue;
+      }
+      if (rule.from) {
+        const done = this.progress.finished[rule.from] || 0;
+        const need = rule.gamesNeeded ?? 1;
+        if (done >= need) {
+          this.progress.unlocked.push(zone.id);
+          opened = true;
+        }
+      }
+    }
+    if (opened) this.saveProgress();
+    return opened;
   }
 
   private onTouch(p: Phaser.Input.Pointer): void {
