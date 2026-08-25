@@ -19,6 +19,7 @@ import { DrumBeatScene } from './scenes/DrumBeatScene';
 import { LennyStoryScene } from './scenes/LennyStoryScene';
 import { OpenEndedScene } from './scenes/OpenEndedScene';
 import { ParentLensScene } from './scenes/ParentLensScene';
+import { LocalProgressStore, bloomLevel, isUnlocked, GardenData } from './games/core/ProgressStore';
 
 interface ZoneDef { id: string; name: string; desc: string; color: string; scene: string; }
 
@@ -37,16 +38,8 @@ const ZONES: ZoneDef[] = [
 
 const DEFAULT_UNLOCKED = ['light-path', 'breath-pool'];
 
-function loadUnlocked(): string[] {
-  try {
-    const raw = localStorage.getItem('lenny-garden');
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s && Array.isArray(s.unlocked)) return s.unlocked;
-    }
-  } catch { /* fresh */ }
-  return [...DEFAULT_UNLOCKED];
-}
+const store = new LocalProgressStore();
+function loadGarden(): GardenData { return store.load(); }
 
 /* ---------- screens ---------- */
 const hero = () => document.getElementById('hero');
@@ -66,10 +59,11 @@ function buildGarden(): void {
   const path = document.getElementById('path');
   if (!path) return;
   path.innerHTML = '';
-  const unlocked = loadUnlocked();
+  const data = loadGarden();
 
   ZONES.forEach((z, i) => {
-    const open = unlocked.includes(z.id);
+    const open = isUnlocked(data, z.id);
+    const done = data.zones[z.id] ? data.zones[z.id].finished : 0;
     const node = document.createElement('button');
     node.className = 'zone' + (open ? '' : ' locked');
     node.style.setProperty('--zc', z.color);
@@ -78,7 +72,7 @@ function buildGarden(): void {
       '<span class="node"><span class="core"></span></span>' +
       '<span class="zone-text">' +
         '<span class="zone-name">' + z.name + '</span>' +
-        '<span class="zone-desc">' + (open ? z.desc : 'עוֹד מְעַט...') + '</span>' +
+        '<span class="zone-desc">' + (open ? (done>0 ? ('⭐ ' + done + ' · ' + z.desc) : z.desc) : 'עוֹד מְעַט...') + '</span>' +
       '</span>' +
       (open ? '' : '<span class="lock">🔒</span>');
     node.addEventListener('click', () => {
@@ -150,6 +144,9 @@ try {
     const firstSeen = s && s.firstSeen ? s.firstSeen : Date.now();
     const days = Math.round((Date.now() - firstSeen) / 86400000);
     const g = document.getElementById('greeting');
+    const bloom = bloomLevel(store.load());
+    const badge = document.querySelector('.badge .dot') as HTMLElement | null;
+    if (badge && bloom > 0) badge.style.background = '#ffd76a';
     if (g) g.textContent = days >= 1 ? 'הֵיי! חָזַרְתְּ. הַגַּן הִתְגַּעְגֵּעַ.' : 'בְּרוּכָה הַבָּאָה לַגַּן שֶל אוֹרוֹת.';
     const cont = document.getElementById('continueBtn') as HTMLButtonElement | null;
     if (cont && s && s.finished && Object.keys(s.finished).length > 0) cont.hidden = false;
