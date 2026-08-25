@@ -9,7 +9,7 @@ import { PortalState, THETA, BREATH, TIMING, COLORS, LENNY, AFFIRMATIONS } from 
 import { ZONES, getZone, GARDEN_TEXT, ZoneId } from '../data/garden';
 import { ThetaPulse } from '../portal/ThetaPulse';
 import { BreathSystem } from '../portal/BreathSystem';
-import { GardenSystem, GardenProgress, defaultProgress } from '../portal/GardenSystem';
+import { GardenSystem, GardenProgress, freshProgress } from '../portal/GardenSystem';
 import { AffirmationSystem } from '../portal/AffirmationSystem';
 
 export class PortalScene extends Phaser.Scene {
@@ -25,7 +25,7 @@ export class PortalScene extends Phaser.Scene {
   private stateT = 0;
   private globalT = 0;
 
-  private progress: GardenProgress = defaultProgress;
+  private progress: GardenProgress = freshProgress();
 
   private centerText!: Phaser.GameObjects.Text;
   private storyText!: Phaser.GameObjects.Text;
@@ -72,10 +72,10 @@ export class PortalScene extends Phaser.Scene {
       const raw = localStorage.getItem('lenny-garden');
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<GardenProgress>;
-        this.progress = { ...defaultProgress, ...parsed };
+        this.progress = { ...freshProgress(), ...parsed };
       }
     } catch {
-      this.progress = defaultProgress;
+      this.progress = freshProgress();
     }
   }
 
