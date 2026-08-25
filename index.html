@@ -46,6 +46,49 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
 #game canvas{display:block}
 @media (max-height:640px){.lenny-wrap{width:34vmin;height:34vmin}h1{font-size:clamp(44px,12vmin,72px)}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ---------- Garden journey map ---------- */
+#garden{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;
+  transition:opacity .7s ease,transform .7s ease,filter .7s ease;}
+#garden.hidden{opacity:0;transform:translateY(12px) scale(.98);filter:blur(6px);pointer-events:none;}
+.garden-head{display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 8px;flex:0 0 auto;}
+.garden-title{font-size:20px;font-weight:600;color:var(--cream);}
+.garden-sub{font-size:12px;color:rgba(255,246,236,.55);margin-top:2px;}
+.back-btn{appearance:none;border:0;cursor:pointer;font-family:inherit;font-size:14px;
+  color:var(--cream);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  padding:8px 14px;border-radius:999px;backdrop-filter:blur(10px);}
+.back-btn:hover{background:rgba(255,255,255,.1);}
+#path{flex:1 1 auto;overflow-y:auto;padding:12px 24px 40px;position:relative;
+  -webkit-overflow-scrolling:touch;}
+#path::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:3px;
+  transform:translateX(-50%);
+  background:linear-gradient(180deg,transparent 0,rgba(255,215,106,.35) 8%,rgba(255,215,106,.35) 92%,transparent 100%);
+  border-radius:2px;}
+.zone{position:relative;display:flex;align-items:center;gap:16px;width:100%;
+  appearance:none;border:0;cursor:pointer;font-family:inherit;text-align:right;
+  background:transparent;padding:14px 0;
+  animation:rise .6s cubic-bezier(.2,.8,.2,1) both;
+  animation-delay:calc(var(--i) * 60ms);}
+.zone:nth-child(odd){flex-direction:row;}
+.zone:nth-child(even){flex-direction:row-reverse;text-align:left;}
+.zone .node{flex:0 0 auto;width:52px;height:52px;border-radius:50%;
+  display:grid;place-items:center;position:relative;z-index:1;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.5),transparent 40%),var(--zc);
+  box-shadow:0 0 0 4px rgba(255,255,255,.08),0 0 24px color-mix(in srgb,var(--zc) 60%,transparent),0 6px 16px rgba(0,0,0,.4);
+  transition:transform .2s ease,box-shadow .2s ease;}
+.zone .node .core{width:14px;height:14px;border-radius:50%;background:#fff;
+  box-shadow:0 0 12px #fff;animation:pulse 2.4s ease-in-out infinite;}
+.zone:hover .node{transform:scale(1.08);}
+.zone-text{display:flex;flex-direction:column;gap:2px;flex:1 1 auto;}
+.zone-name{font-size:18px;font-weight:600;color:var(--cream);}
+.zone-desc{font-size:13px;color:rgba(255,246,236,.6);}
+.zone .lock{font-size:16px;opacity:.7;}
+.zone.locked{opacity:.5;}
+.zone.locked .node{background:#2a2440;box-shadow:0 0 0 4px rgba(255,255,255,.05);}
+.zone.locked .node .core{background:#55506a;box-shadow:none;animation:none;}
+.zone.shake{animation:shake .4s ease;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 </style>
 </head>
 <body>
@@ -70,6 +113,17 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
       <button class="btn secondary" id="continueBtn" hidden>הַמְשִׁיכִים מֵאֵיפֹה עָצַרְנוּ</button>
       <div class="micro">ללא פִּרְסוֹמוֹת · ללא רְכִישׁוֹת · הַכֹּל נִשְׁמָר בַּמָּסָךְ</div>
     </div>
+  </div>
+  
+  <div id="garden" class="hidden">
+    <header class="garden-head">
+      <div>
+        <div class="garden-title">הַגַּן שֶׁל לֶנִי</div>
+        <div class="garden-sub">בַּחֲרִי אָן רוֹצִים לְשַׂחֵק</div>
+      </div>
+      <button class="back-btn" id="backBtn">→ חזרה</button>
+    </header>
+    <div id="path"></div>
   </div>
   <div id="game"></div>
   <script type="module" src="/src/entry.ts"></script>
