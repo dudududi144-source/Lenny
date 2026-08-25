@@ -13,7 +13,7 @@ import { BreathSystem } from '../portal/BreathSystem';
 import { FractalBackground } from '../portal/FractalBackground';
 import { MandalaSystem } from '../portal/MandalaSystem';
 import { GalaxySystem } from '../portal/GalaxySystem';
-import { SubliminalSystem } from '../portal/SubliminalSystem';
+import { AffirmationSystem } from '../portal/AffirmationSystem';
 
 interface RevealParticle {
   x: number; y: number; vx: number; vy: number; life: number;
@@ -29,7 +29,7 @@ export class PortalScene extends Phaser.Scene {
   private backdrop!: FractalBackground;
   private mandala!: MandalaSystem;
   private galaxy!: GalaxySystem;
-  private subliminal!: SubliminalSystem;
+  private affirmation!: AffirmationSystem;
 
   private state: PortalState = 'VOID';
   private stateT = 0;
@@ -38,7 +38,7 @@ export class PortalScene extends Phaser.Scene {
   private breathText!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
   private feedbackText!: Phaser.GameObjects.Text;
-  private subliminalText!: Phaser.GameObjects.Text;
+  private affirmationText!: Phaser.GameObjects.Text;
 
   private particles: RevealParticle[] = [];
   private galaxyReady = false;
@@ -69,10 +69,10 @@ export class PortalScene extends Phaser.Scene {
     this.feedbackText = this.add.text(w / 2, h * 0.93, '', { ...heebo, fontSize: '18px' })
       .setOrigin(0.5).setAlpha(0);
 
-    this.subliminalText = this.add.text(0, 0, '', { ...heebo, fontSize: '14px' })
+    this.affirmationText = this.add.text(0, 0, '', { ...heebo, fontSize: '24px' })
       .setOrigin(0.5).setVisible(false);
 
-    this.subliminal = new SubliminalSystem(this.subliminalText, () => this.time.now);
+    this.affirmation = new AffirmationSystem(this.affirmationText, () => this.time.now);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTouch(p));
   }
@@ -146,7 +146,7 @@ export class PortalScene extends Phaser.Scene {
     this.stateT += dt;
     this.theta.update(dt);
     this.breath.update(dt);
-    this.subliminal.update();
+    this.affirmation.update();
 
     const w = this.scale.width, h = this.scale.height;
     this.backdrop.draw(this.bgG, w, h, this.globalT, this.warmth(), this.theta.getEased() * 0.4);
