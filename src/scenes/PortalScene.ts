@@ -46,7 +46,10 @@ export class PortalScene extends Phaser.Scene {
 
     /* load saved garden progress if any */
     this.loadProgress();
-    this.checkUnlocks();
+    const opened = this.checkUnlocks();
+    if (opened.length > 0 && this.progress.finished && Object.keys(this.progress.finished).length > 0) {
+      this.time.delayedCall(600, () => this.celebrate(opened[opened.length - 1]));
+    }
 
     const w = this.scale.width, h = this.scale.height;
     const heebo = { fontFamily: 'Heebo, Arial', color: '#fff6ec' };
@@ -88,15 +91,15 @@ export class PortalScene extends Phaser.Scene {
     }
   }
 
-  /* open any zone whose unlock condition is now met */
-  private checkUnlocks(): boolean {
-    let opened = false;
+  /* open any zone whose unlock condition is now met; returns opened zone names */
+  private checkUnlocks(): string[] {
+    const openedNames: string[] = [];
     for (const zone of ZONES) {
       if (this.progress.unlocked.includes(zone.id)) continue;
       const rule = zone.unlock;
       if (rule.kind === 'open') {
         this.progress.unlocked.push(zone.id);
-        opened = true;
+        openedNames.push(zone.name);
         continue;
       }
       if (rule.from) {
@@ -104,12 +107,32 @@ export class PortalScene extends Phaser.Scene {
         const need = rule.gamesNeeded ?? 1;
         if (done >= need) {
           this.progress.unlocked.push(zone.id);
-          opened = true;
+          openedNames.push(zone.name);
         }
       }
     }
-    if (opened) this.saveProgress();
-    return opened;
+    if (openedNames.length > 0) this.saveProgress();
+    return openedNames;
+  }
+
+  /* little celebration when a new zone opens */
+  private celebrate(zoneName: string): void {
+    const w = this.scale.width, h = this.scale.height;
+    this.showCenter(GARDEN_TEXT.newZone + '\n' + zoneName);
+    /* sparkle burst */
+    for (let i = 0; i < 24; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 30 + Math.random() * 70;
+      const sx = w / 2 + Math.cos(ang) * dist;
+      const sy = h * 0.45 + Math.sin(ang) * dist;
+      const dot = this.add.circle(w / 2, h * 0.45, 2.5, 0xffd76a, 1);
+      this.tweens.add({
+        targets: dot,
+        x: sx, y: sy, alpha: 0,
+        duration: 700 + Math.random() * 400,
+        onComplete: () => dot.destroy(),
+      });
+    }
   }
 
   private onTouch(p: Phaser.Input.Pointer): void {
