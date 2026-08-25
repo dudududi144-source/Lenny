@@ -23,8 +23,17 @@ export class FindLetterScene extends Phaser.Scene {
 
   constructor() { super('find-letter'); }
 
+  preload(): void {
+    this.load.image('rabbit', 'art/rabbit.png');
+  }
+
   create(): void {
     const w = this.scale.width, h = this.scale.height;
+
+    /* illustrated rabbit companion */
+    const rb = this.add.image(w * 0.85, h * 0.1, 'rabbit');
+    rb.setDisplaySize(70, 70);
+    this.tweens.add({ targets: rb, y: rb.y - 6, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     /* valley background */
     this.add.rectangle(w / 2, h / 2, w, h, 0x2a1a3e);
