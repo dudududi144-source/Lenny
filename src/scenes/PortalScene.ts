@@ -5,6 +5,8 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { GameFactory } from '../games/builder/GameFactory';
+import { gamesInZone } from '../games/builder/GameRegistry';
 import { PortalState, THETA, BREATH, TIMING, COLORS, LENNY, AFFIRMATIONS } from '../data/portalConfig';
 import { ZONES, getZone, GARDEN_TEXT, ZoneId } from '../data/garden';
 import { ThetaPulse } from '../portal/ThetaPulse';
@@ -156,9 +158,11 @@ export class PortalScene extends Phaser.Scene {
     if (this.progress.unlocked.includes(zoneId)) {
       this.progress.current = zoneId;
       this.saveProgress();
-      if (zone.gameScene) {
+      const zoneGames = gamesInZone(zoneId);
+      if (zoneGames.length > 0) {
         this.showCenter(GARDEN_TEXT.playInvite);
-        this.time.delayedCall(300, () => this.scene.start(zone.gameScene as string));
+        const spec = zoneGames[0];
+        this.time.delayedCall(300, () => GameFactory.start(this, spec));
       } else {
         this.showCenter(zone.mission);
       }
