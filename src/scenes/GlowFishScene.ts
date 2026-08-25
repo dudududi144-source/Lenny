@@ -1,11 +1,17 @@
 /* ============================================================
- * GlowFishScene — the third playable game.
+ * GlowFishScene — upgraded to use the reusable fx library.
  * Lives in Attention Stream (zone: attention-stream).
- * Find the glowing fish among the swimmers. Gentle, no pressure.
- * Visual attention game — no sound needed.
+ *
+ * v2 changes:
+ *   - ProgressRing shows how many glowing fish were found
+ *   - DialogueBox gives Lenny a warm voice
+ *   - ParticleBurst celebrates each find
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { ProgressRing } from '../games/fx/ProgressRing';
+import { DialogueBox } from '../games/fx/DialogueBox';
+import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
 
 interface Fish {
   x: number;
@@ -19,14 +25,13 @@ interface Fish {
 
 export class GlowFishScene extends Phaser.Scene {
   private fishG!: Phaser.GameObjects.Graphics;
-  private msgText!: Phaser.GameObjects.Text;
-  private scoreText!: Phaser.GameObjects.Text;
-
+  private ring!: ProgressRing;
+  private dialogue!: DialogueBox;
+  private burst!: ParticleBurst;
   private fishes: Fish[] = [];
   private glowIdx = 0;
   private found = 0;
   private readonly TARGET = 5;
-  private readonly FISH_COUNT = 5;
   private done = false;
 
   constructor() { super('glow-fish'); }
@@ -34,22 +39,23 @@ export class GlowFishScene extends Phaser.Scene {
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
-    /* stream background */
     this.add.rectangle(w / 2, h / 2, w, h, 0x10243e);
-
     this.fishG = this.add.graphics();
+    this.burst = new ParticleBurst(this);
 
-    this.msgText = this.add.text(w / 2, h * 0.08, 'הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִּינָה', {
-      fontFamily: 'Heebo, Arial', fontSize: '16px', color: '#fff6ec',
-    }).setOrigin(0.5);
+    /* progress ring top-right */
+    this.ring = new ProgressRing(this, { x: w - 40, y: 55, radius: 18 });
+    this.ring.setCounts(0, this.TARGET);
 
-    this.scoreText = this.add.text(w / 2, h * 0.14, '', {
-      fontFamily: 'Heebo, Arial', fontSize: '15px', color: '#ffd76a',
-    }).setOrigin(0.5);
+    /* Lenny introduces the game */
+    this.dialogue = new DialogueBox(this, { x: w / 2, y: h * 0.9, width: w * 0.85 });
+    this.dialogue.say([
+      'הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִּינָה.',
+      'מִצְאוּ אֶת הַדָּג הַזּוֹהֵר!',
+    ]);
 
     this.spawnFishes(w, h);
     this.pickGlowing();
-    this.updateScore();
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTap(p));
   }
@@ -57,8 +63,8 @@ export class GlowFishScene extends Phaser.Scene {
   private spawnFishes(w: number, h: number): void {
     const colors = [0x4dc9ff, 0x7dffb8, 0xffa552, 0xff8bd4, 0xb39ddb];
     this.fishes = [];
-    for (let i = 0; i < this.FISH_COUNT; i++) {
-      const baseY = h * 0.3 + (i / (this.FISH_COUNT - 1)) * h * 0.5;
+    for (let i = 0; i < 5; i++) {
+      const baseY = h * 0.28 + (i / 4) * h * 0.45;
       this.fishes.push({
         x: Math.random() * w,
         y: baseY,
@@ -77,26 +83,24 @@ export class GlowFishScene extends Phaser.Scene {
     this.fishes[this.glowIdx].glowing = true;
   }
 
-  private updateScore(): void {
-    this.scoreText.setText('מָצָאתָ: ' + this.found + ' / ' + this.TARGET);
-  }
-
   private onTap(p: Phaser.Input.Pointer): void {
     if (this.done) return;
+    this.dialogue.skip();
     const idx = this.hitTest(p.x, p.y);
     if (idx === null) return;
 
     if (this.fishes[idx].glowing) {
       this.found++;
-      this.updateScore();
+      this.ring.setCounts(this.found, this.TARGET);
+      this.burst.emit(sparkleBurst(this.fishes[idx].x, this.fishes[idx].y));
       if (this.found >= this.TARGET) {
         this.win();
       } else {
-        this.msgText.setText('וָאו! מָצָאתָ אוֹתוֹ!');
+        this.dialogue.say(['וָאו! מָצָאתָ אוֹתוֹ!']);
         this.pickGlowing();
       }
     } else {
-      this.msgText.setText('כִּמְעַט! נַסֶּה שׁוּב');
+      this.dialogue.say(['כִּמְעַט! נַסּוּ שׁוּב']);
     }
   }
 
@@ -108,11 +112,16 @@ export class GlowFishScene extends Phaser.Scene {
     return null;
   }
 
-  update(time: number): void {
+  update(time: number, delta: number): void {
     const t = time * 0.001;
+    const dt = delta / 1000;
     const w = this.scale.width;
     const g = this.fishG;
     g.clear();
+
+    this.burst.update(dt, 0, 0.99);
+    this.ring.update(dt);
+    this.dialogue.update(dt);
 
     /* bubbles rising */
     for (let i = 0; i < 10; i++) {
@@ -124,7 +133,7 @@ export class GlowFishScene extends Phaser.Scene {
 
     /* fishes swimming */
     for (const f of this.fishes) {
-      f.x += f.speed * (this.game.loop.delta / 1000);
+      f.x += f.speed * dt;
       if (f.x > w + 50) f.x = -50;
       f.y = f.baseY + Math.sin(t * 1.6 + f.phase) * 14;
       this.drawFish(g, f, t);
@@ -133,8 +142,6 @@ export class GlowFishScene extends Phaser.Scene {
 
   private drawFish(g: Phaser.GameObjects.Graphics, f: Fish, t: number): void {
     const r = 20;
-
-    /* glow halo for the glowing fish */
     if (f.glowing) {
       const pulse = 0.6 + 0.4 * Math.sin(t * 4);
       g.fillStyle(0xffd76a, 0.18 * pulse);
@@ -142,20 +149,14 @@ export class GlowFishScene extends Phaser.Scene {
       g.fillStyle(0xffd76a, 0.3 * pulse);
       g.fillCircle(f.x, f.y, r * 1.6);
     }
-
-    /* body */
     g.fillStyle(f.glowing ? 0xffd76a : f.color, 0.9);
     g.fillEllipse(f.x, f.y, r * 2, r * 1.3);
-
-    /* tail */
     const tail = Math.sin(t * 6 + f.phase) * 4;
     g.fillTriangle(
       f.x - r * 0.9, f.y,
       f.x - r * 1.6, f.y - 8 + tail,
       f.x - r * 1.6, f.y + 8 + tail
     );
-
-    /* eye */
     g.fillStyle(0xffffff, 1);
     g.fillCircle(f.x + r * 0.5, f.y - 3, 4);
     g.fillStyle(0x0a0416, 1);
@@ -164,8 +165,8 @@ export class GlowFishScene extends Phaser.Scene {
 
   private win(): void {
     this.done = true;
-    const w = this.scale.width, h = this.scale.height;
-    this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַדָּגִים מָצְאוּ אֶת הַמַּנְגִּינָה!');
+    this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַדָּגִים מָצְאוּ אֶת הַמַּנְגִּינָה!']);
+    this.burst.emit(confettiBurst(this.scale.width / 2, this.scale.height * 0.4));
 
     /* record progress for the garden */
     try {
@@ -178,6 +179,6 @@ export class GlowFishScene extends Phaser.Scene {
       }
     } catch { /* noop */ }
 
-    this.time.delayedCall(1800, () => this.scene.start('portal'));
+    this.time.delayedCall(2800, () => this.scene.start('portal'));
   }
 }
