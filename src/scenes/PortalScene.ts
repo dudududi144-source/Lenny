@@ -15,6 +15,7 @@ import { GardenSystem, GardenProgress, freshProgress } from '../portal/GardenSys
 import { AffirmationSystem } from '../portal/AffirmationSystem';
 
 export class PortalScene extends Phaser.Scene {
+  private parentIcon!: Phaser.GameObjects.Text;
   private mainG!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
 
