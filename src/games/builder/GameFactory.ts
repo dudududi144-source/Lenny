@@ -37,7 +37,7 @@ const KIND_TO_SCENE: Record<GameKind, string> = {
   'paint-fill': 'bee-paint',
   'rhythm-tap': 'drum-beat',
   'breath-guide': 'lenny-story',
-  'open-create': 'bee-paint', /* until a dedicated open scene exists */
+  'open-create': 'open-create', /* dedicated divergent-thinking scene */
 };
 
 export class GameFactory {
