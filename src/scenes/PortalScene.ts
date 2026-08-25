@@ -17,6 +17,7 @@ import { AffirmationSystem } from '../portal/AffirmationSystem';
 
 export class PortalScene extends Phaser.Scene {
   private parentIcon!: Phaser.GameObjects.Text;
+  private lennyImg!: Phaser.GameObjects.Image;
   private mainG!: Phaser.GameObjects.Graphics;
   private fxG!: Phaser.GameObjects.Graphics;
 
@@ -47,18 +48,25 @@ export class PortalScene extends Phaser.Scene {
   }
 
   create(): void {
-    /* illustrated background (replaces flat color) */
+    /* illustrated background — full presence, the art IS the world */
     const bgImg = this.add.image(this.scale.width / 2, this.scale.height / 2, 'garden-bg');
     bgImg.setDisplaySize(this.scale.width, this.scale.height);
-    bgImg.setAlpha(0.5);
+    bgImg.setAlpha(0.95);
+    bgImg.setDepth(0);
 
-    /* Lenny the star mascot near the path start */
-    const lenny = this.add.image(this.scale.width * 0.2, this.scale.height * 0.55, 'lenny');
-    lenny.setDisplaySize(90, 90);
-    this.tweens.add({ targets: lenny, y: lenny.y - 8, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    /* Lenny the star mascot — big, glowing, alive */
+    const glow = this.add.ellipse(this.scale.width * 0.5, this.scale.height * 0.78, 230, 230, 0xffd76a, 0.16);
+    glow.setDepth(4);
+    this.tweens.add({ targets: glow, scaleX: 1.18, scaleY: 1.18, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.lennyImg = this.add.image(this.scale.width * 0.5, this.scale.height * 0.78, 'lenny');
+    this.lennyImg.setDisplaySize(150, 150);
+    this.lennyImg.setDepth(5);
+    this.tweens.add({ targets: this.lennyImg, y: this.lennyImg.y - 10, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     this.mainG = this.add.graphics();
+    this.mainG.setDepth(2);
     this.fxG = this.add.graphics();
+    this.fxG.setDepth(8);
 
     this.theta = new ThetaPulse(THETA.freq);
     this.breath = new BreathSystem(BREATH);
