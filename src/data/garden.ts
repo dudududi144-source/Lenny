@@ -110,6 +110,7 @@ export const ZONES: ZoneDef[] = [
   },
   {
     id: 'feelings-garden',
+    gameScene: 'emotion-face',
     name: 'גַּן הָרְגָשׁוֹת',
     mission: 'הַצָּב עָצוּב וְלֹא יוֹדֵעַ לָמָּה. בּוֹא נְדַבֵּר אִתּוֹ!',
     insight: 'כָּל הָרְגָשׁוֹת הֵם בְּסֵדֶר. גַּם הָעֶצֶב.',
