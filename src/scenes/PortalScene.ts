@@ -108,10 +108,9 @@ export class PortalScene extends Phaser.Scene {
     if (this.progress.unlocked.includes(zoneId)) {
       this.progress.current = zoneId;
       this.saveProgress();
-      /* for now, the first zone's playable game is Lenny Star Jump */
-      if (zoneId === 'light-path') {
+      if (zone.gameScene) {
         this.showCenter(GARDEN_TEXT.playInvite);
-        this.time.delayedCall(300, () => this.scene.start('play'));
+        this.time.delayedCall(300, () => this.scene.start(zone.gameScene as string));
       } else {
         this.showCenter(zone.mission);
       }
