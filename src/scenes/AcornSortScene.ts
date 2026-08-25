@@ -33,10 +33,17 @@ export class AcornSortScene extends Phaser.Scene {
 
   constructor() { super('acorn-sort'); }
 
+  preload(): void {
+    this.load.image('garden-bg', 'art/garden-bg.png');
+  }
+
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
-    this.add.rectangle(w / 2, h / 2, w, h, 0x14301e);
+    /* illustrated background */
+    const _bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    _bg.setDisplaySize(w, h).setAlpha(0.5).setDepth(0);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x14301e, 0.45);
     this.acornG = this.add.graphics();
     this.burst = new ParticleBurst(this);
 
