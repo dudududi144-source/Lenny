@@ -1,16 +1,13 @@
-const V='lenny-v1';
-self.addEventListener('install',()=>{self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim());});
-self.addEventListener('fetch',e=>{
- const req=e.request;
- if(req.method!=='GET')return;
- const u=new URL(req.url);
- if(u.origin!==location.origin)return;
- e.respondWith(
-  fetch(req).then(res=>{
-   const cp=res.clone();
-   caches.open(V).then(c=>c.put(req,cp)).catch(()=>{});
-   return res;
-  }).catch(()=>caches.match(req).then(hit=>hit||caches.match('./index.html')))
- );
+// Self-destructing service worker.
+// Clears all stale caches from previous versions and unregisters,
+// so devices stuck on an old cached shell load the fresh site.
+self.addEventListener('install', (e) => { self.skipWaiting(); });
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+      .then(() => self.registration.unregister())
+  );
 });
+self.addEventListener('fetch', (e) => { /* network-only, no caching */ });
