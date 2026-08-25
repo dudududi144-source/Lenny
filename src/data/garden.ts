@@ -66,6 +66,7 @@ export const ZONES: ZoneDef[] = [
   },
   {
     id: 'attention-stream',
+    gameScene: 'glow-fish',
     name: 'נַחַל הַקֶּשֶׁב',
     mission: 'הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִּינָה. בּוֹא נַקְשִׁיב יַחַד!',
     insight: 'כְּשֶׁמַּקְשִׁיבִים, שׁוֹמְעִים דְּבָרִים יָפִים.',
