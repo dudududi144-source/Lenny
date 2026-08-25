@@ -46,6 +46,16 @@ export class PortalScene extends Phaser.Scene {
   }
 
   create(): void {
+    /* illustrated background (replaces flat color) */
+    const bgImg = this.add.image(this.scale.width / 2, this.scale.height / 2, 'garden-bg');
+    bgImg.setDisplaySize(this.scale.width, this.scale.height);
+    bgImg.setAlpha(0.5);
+
+    /* Lenny the star mascot near the path start */
+    const lenny = this.add.image(this.scale.width * 0.2, this.scale.height * 0.55, 'lenny');
+    lenny.setDisplaySize(90, 90);
+    this.tweens.add({ targets: lenny, y: lenny.y - 8, duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
     this.mainG = this.add.graphics();
     this.fxG = this.add.graphics();
 
