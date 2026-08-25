@@ -68,8 +68,7 @@ function buildGarden(): void {
     let lockHint = 'עוֹד מְעַט...';
     if (req) {
       const have = finishedCount(data, req.from);
-      lockHint = 'שַׂחֲקוּ בְּ' + zoneName(req.from) + ' ' + req.needed + ' פְּעָמִים כְּדֵי לִפְתֹּחַ';
-      if (req.needed === 1) lockHint = 'שַׂחֲקוּ פַּעַם אַחַת בְּ' + zoneName(req.from) + ' כְּדֵי לִפְתֹּחַ';
+      lockHint = zoneName(req.from) + ' ' + have + '/' + req.needed + ' — שַׂחֲקוּ שָׁם כְּדֵי לִפְתֹּחַ';
     }
     const node = document.createElement('button');
     node.className = 'zone' + (open ? '' : ' locked');
