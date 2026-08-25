@@ -11,5 +11,5 @@ export default tseslint.config(
       'no-empty': 'off',
     },
   },
-  { ignores: ['dist/', 'node_modules/', 'playwright-report/', 'test-results/', 'public/'] },
+  { ignores: ['dist/', 'node_modules/', 'playwright-report/', 'test-results/', 'public/', 'worker/'] },
 );
