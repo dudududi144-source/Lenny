@@ -1,7 +1,7 @@
 /* ============================================================
- * Portal Configuration — Single source of truth
- * All frequencies, colors, timings for the cognitive portal.
- * Theta-wave entrainment · Guided breath · Subliminal layer.
+ * Portal Configuration — Single source of truth.
+ * Language here follows docs/ETHICS.md: no medical/scientific
+ * overclaims, and nothing hidden from the child.
  * ============================================================ */
 
 export type PortalState =
@@ -12,14 +12,17 @@ export type PortalState =
   | 'MANDALA'
   | 'GALAXY';
 
-/* ---------- Theta-wave entrainment ---------- */
+/* ---------- Calming visual rhythm ----------
+ * A gentle pulsing light used purely for a soothing atmosphere.
+ * It makes NO medical or brainwave-entrainment claims (see ETHICS 4).
+ */
 export const THETA = {
-  freq: 6.0,
-  pulseAlpha: 0.25,
+  freq: 6.0,          /* gentle visual pulse rate (Hz) */
+  pulseAlpha: 0.25,   /* kept low for photosensitivity safety */
   ambientRate: 6,
 };
 
-/* ---------- Guided breath (4-2-4 box breathing, kid-friendly) ---------- */
+/* ---------- Guided breath (4-2-4), an invitation, never forced ---------- */
 export const BREATH = {
   inhale: 4.0,
   hold: 2.0,
@@ -49,20 +52,25 @@ export const COLORS = {
   locked: 0x3a3350,
 };
 
-/* ---------- Subliminal affirmation layer (proper Hebrew niqqud) ---------- */
-export const SUBLIMINAL = {
-  flashMs: 90,
-  minGapMs: 12000,
-  maxGapMs: 17000,
+/* ---------- Encouragement messages — VISIBLE, never hidden ----------
+ * Per ETHICS 5: these are shown clearly to the child for a few seconds.
+ * There is no subliminal / below-awareness content in this product.
+ */
+export const AFFIRMATIONS = {
+  /* how long the message stays on screen, clearly readable */
+  displayMs: 2500,
+  /* gap between messages so they feel calm, not spammy */
+  minGapMs: 14000,
+  maxGapMs: 20000,
   messages: [
     'אַתְּ מוּפְלָאָה',
     'הַלֵּב שֶׁלָּךְ חָכָם',
-    'הַדִּמְיוֹן אֵינוֹ נִגְמָר',
-    'כָּל נְשִׁימָה הִיא קֶסֶם',
+    'הַדִּמְיוֹן שֶׁלָּךְ גָּדוֹל',
+    'כָּל נְשִׁימָה מַרְגִּיעָה',
     'אַתְּ אוֹר קָטָן',
-    'אַתְּ חֲזָקָה',
-    'הָעוֹלָם מְחַכֶּה לָךְ',
+    'הָעוֹלָם שָׂמֵחַ שֶׁאַתְּ כָּאן',
     'אַתְּ מְיֻחֶדֶת',
+    'טוֹב שֶׁאַתְּ',
   ],
 };
 
@@ -75,9 +83,7 @@ export const LENNY = {
 
 /* ---------- Galaxy (home screen) ----------
  * Radii are fractions of min(width,height).
- * baseRadius + 8*ringGap = 0.46 -> outer ring fits within the
- * 420px-wide viewport (half width = 210px). This is the critical
- * fix so every one of the 9 rings stays visible and tappable.
+ * baseRadius + 8*ringGap = 0.46 so every ring stays on screen.
  */
 export const GALAXY = {
   rings: 9,
@@ -93,6 +99,6 @@ export const UI_TEXT = {
   subtitle: 'גַּן שֶׁל אוֹרוֹת',
   breathIntro: 'נִשְׁמוּ יַחַד',
   galaxyPrompt: 'נִגְעוּ בְּכוֹכָב זָהָב',
-  lockedMsg: 'הַכּוֹכָב עוֹד יִשָּׂן',
+  lockedMsg: 'הַכּוֹכָב עוֹד יָשֵׁן',
   tapToSkip: 'נִגְעוּ כְּדֵי לְהַמְשִׁיךְ',
 };
