@@ -99,6 +99,7 @@ export const ZONES: ZoneDef[] = [
   },
   {
     id: 'words-valley',
+    gameScene: 'find-letter',
     name: 'עֵמֶק הַמִּלִּים',
     mission: 'הָאַרְנֶבֶת אִבְּדָה אֶת הָאוֹתִיּוֹת. בּוֹא נִמְצָא אוֹתָן!',
     insight: 'אוֹתִיּוֹת קְטַנּוֹת מִתְחַבְּרוֹת לְמִלִּים גְּדוֹלוֹת.',
