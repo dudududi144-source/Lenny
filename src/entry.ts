@@ -113,18 +113,24 @@ function boot(): void {
   });
 }
 
+function stopAllScenes(): void {
+  if (!game) return;
+  // stop every active scene so only ONE runs at a time (no stacking)
+  game.scene.scenes.forEach((s) => { if (s.scene.isActive()) s.scene.stop(); });
+}
+
 function enterGame(sceneKey: string): void {
   boot();
   hide(garden());
   const tryStart = () => {
-    if (game && game.isRunning) game.scene.start(sceneKey);
+    if (game && game.isRunning) { stopAllScenes(); game.scene.start(sceneKey); }
     else setTimeout(tryStart, 80);
   };
   tryStart();
 }
 
 /* ---------- wiring ---------- */
-(window as any).__lennyBackToGarden = () => { buildGarden(); show(garden()); };
+(window as any).__lennyBackToGarden = () => { stopAllScenes(); buildGarden(); show(garden()); };
 document.getElementById('startBtn')?.addEventListener('click', () => {
   buildGarden();
   hide(hero());
