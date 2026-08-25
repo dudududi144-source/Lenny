@@ -10,6 +10,9 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { PlayerModel } from '../games/core/PlayerModel';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { CardFlipSystem } from '../games/fx/CardFlipSystem';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
@@ -79,6 +82,7 @@ export class MemoryPairsScene extends Phaser.Scene {
 
     this.grid.drawBacks();
 
+    this.roundStart = this.time.now;
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTap(p));
   }
 
@@ -135,6 +139,10 @@ export class MemoryPairsScene extends Phaser.Scene {
 
   private win(): void {
     this.done = true;
+    const secs = (this.time.now - this.roundStart) / 1000;
+    this.dda.outcome(true, Math.max(0.3, 1 - this.mistakes * 0.2));
+    this.pm.recordRound('memory-hill', true, secs);
+    this.signals.attempt('memory.pairs', true);
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַפַּרְפַּר נִזְכַּר בַּכֹּל!']);
 
     /* record progress for the garden */
