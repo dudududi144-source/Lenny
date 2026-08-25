@@ -24,6 +24,7 @@ export class FindLetterScene extends Phaser.Scene {
   constructor() { super('find-letter'); }
 
   preload(): void {
+    this.load.image('garden-bg', 'art/garden-bg.png');
     this.load.image('rabbit', 'art/rabbit.png');
   }
 
@@ -36,7 +37,10 @@ export class FindLetterScene extends Phaser.Scene {
     this.tweens.add({ targets: rb, y: rb.y - 6, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
     /* valley background */
-    this.add.rectangle(w / 2, h / 2, w, h, 0x2a1a3e);
+    /* illustrated background */
+    const _bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    _bg.setDisplaySize(w, h).setAlpha(0.5).setDepth(0);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x2a1a3e, 0.45);
 
     this.msgText = this.add.text(w / 2, h * 0.07, 'הָאַרְנֶבֶת אִבְּדָה אֶת הָאוֹתִיּוֹת', {
       fontFamily: 'Heebo, Arial', fontSize: '16px', color: '#fff6ec',
