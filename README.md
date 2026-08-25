@@ -1,43 +1,49 @@
-# Lenny - Gan shel Orot (Garden of Lights)
+# Lenny — Garden of Lights
 
-A calm cognitive portal for children. One playable game today (Lenny Star Jump), with a clear, honest structure for 144 games to come.
+A cognitive garden for children ages 4-7. Ten zones, each with its own
+game, all connected by a winding path that grows as the child plays.
 
-## Ethics first
+Bound by docs/ETHICS.md. World design in docs/GARDEN.md.
 
-This project is governed by **[docs/ETHICS.md](docs/ETHICS.md)**. Key points:
+---
 
-- No hidden / subliminal content. All encouragement is visible to the child.
-- No medical or brainwave-entrainment claims. It is a game, not a therapy.
-- No tracking, no ads, no purchases, no dark patterns.
-- All progress stays on the device.
+## The Garden (all 10 zones alive)
 
-## The Portal Flow
+| Zone | Game | Cognitive focus |
+|------|------|-----------------|
+| Light Path | Lenny Star Jump | movement + breath |
+| Memory Hill | Memory Pairs | working memory |
+| Attention Stream | Glowing Fish | visual attention |
+| Thinking Forest | Acorn Sort | logic + ordering |
+| Space Sky | Kite Match | spatial matching |
+| Words Valley | Find the Letter | letter recognition |
+| Feelings Garden | Turtle Emotions | emotion recognition |
+| Creativity Meadow | Bee Paints a Flower | creativity + color |
+| Rhythm Square | Drum Beat | timing + rhythm |
+| Breath Pool | Breathing exercise | regulation |
 
-VOID - SPARK - BREATH - REVEAL - MANDALA - GALAXY
+---
 
-| State | What happens |
-|-------|-------------|
-| VOID | Pure darkness - a calm reset |
-| SPARK | A golden point pulses gently |
-| BREATH | Optional guided 4-2-4 breathing circle |
-| REVEAL | 144 particles of light scatter outward |
-| MANDALA | The 9-petal category mandala blooms |
-| GALAXY | Home screen - 9 orbit rings of game stars |
+## The Reusable Game Library (the real asset)
 
-Tap anywhere during the intro to skip ahead. Tap a golden star to play.
+This repo is built as a library of strong, reusable systems so new
+games can be produced quickly and consistently. Every system below is
+config-driven, documented, and used by multiple scenes.
 
-## Architecture
+    src/games/fx/ParticleBurst.ts
+        object-pooled particle system + presets (bloom/sparkle/confetti)
 
-- src/data/games.ts - 144 games, 9 categories, 4 levels
-- src/data/portalConfig.ts - honest config (pulse / breath / colors / timings)
-- src/portal/ThetaPulse.ts - gentle visual pulse (calming, not medical)
-- src/portal/BreathSystem.ts - 4-2-4 guided breathing
-- src/portal/FractalBackground.ts - living star field + nebulae
-- src/portal/MandalaSystem.ts - 9-petal category mandala
-- src/portal/GalaxySystem.ts - 144-star orbital home screen
-- src/portal/AffirmationSystem.ts - VISIBLE encouragement messages
-- src/scenes/PortalScene.ts - state-machine conductor
-- src/scenes/PlayScene.ts - game #1 (Lenny Star Jump)
+    src/games/fx/RhythmEngine.ts
+        beat-timing + judgment engine (perfect/good/miss windows)
+
+Pattern for every new game:
+1. Create a scene in src/scenes/.
+2. Reuse the fx systems instead of re-implementing effects.
+3. Record progress to the garden via localStorage.
+4. Register the scene in src/main.ts.
+5. Link the zone in src/data/garden.ts (gameScene field).
+
+---
 
 ## Scripts
 
