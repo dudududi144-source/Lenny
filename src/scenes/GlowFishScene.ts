@@ -38,17 +38,22 @@ export class GlowFishScene extends Phaser.Scene {
 
   preload(): void {
     this.load.image('fish', 'art/fish.png');
+    this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
   create(): void {
     const w = this.scale.width, h = this.scale.height;
+
+    /* illustrated background */
+    const bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    bg.setDisplaySize(w, h).setAlpha(0.5);
 
     /* illustrated fish mascot */
     const fish = this.add.image(w * 0.15, h * 0.12, 'fish');
     fish.setDisplaySize(70, 70);
     this.tweens.add({ targets: fish, y: fish.y - 6, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-    this.add.rectangle(w / 2, h / 2, w, h, 0x10243e);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x10243e, 0.45);
     this.fishG = this.add.graphics();
     this.burst = new ParticleBurst(this);
 
