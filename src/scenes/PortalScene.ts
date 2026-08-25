@@ -6,6 +6,7 @@
 
 import Phaser from 'phaser';
 import { GameFactory } from '../games/builder/GameFactory';
+import { MemoryGarden } from '../games/core/MemoryGarden';
 import { gamesInZone } from '../games/builder/GameRegistry';
 import { PortalState, THETA, BREATH, TIMING, COLORS, LENNY, AFFIRMATIONS } from '../data/portalConfig';
 import { ZONES, getZone, GARDEN_TEXT, ZoneId } from '../data/garden';
@@ -88,6 +89,16 @@ export class PortalScene extends Phaser.Scene {
     this.affirmation = new AffirmationSystem(this.affirmationText, () => this.time.now);
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTouch(p));
+
+    /* Lenny's memory — greets based on real past events */
+    const memory = new MemoryGarden();
+    const greetLines = memory.greeting();
+    if (greetLines.length > 0) {
+      this.showCenter(greetLines[0]);
+      if (greetLines.length > 1) {
+        this.time.delayedCall(2500, () => this.showCenter(greetLines[1]));
+      }
+    }
 
     /* small parent icon top-left -> ParentLens */
     const w2 = this.scale.width;
