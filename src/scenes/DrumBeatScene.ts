@@ -35,11 +35,18 @@ export class DrumBeatScene extends Phaser.Scene {
 
   constructor() { super('drum-beat'); }
 
+  preload(): void {
+    this.load.image('garden-bg', 'art/garden-bg.png');
+  }
+
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
     /* rhythm square background */
-    this.add.rectangle(w / 2, h / 2, w, h, 0x2a1a30);
+    /* illustrated background */
+    const _bg = this.add.image(w / 2, h / 2, 'garden-bg');
+    _bg.setDisplaySize(w, h).setAlpha(0.5).setDepth(0);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x2a1a30, 0.45);
 
     this.drumG = this.add.graphics();
     this.burst = new ParticleBurst(this);
