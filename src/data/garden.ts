@@ -143,6 +143,7 @@ export const ZONES: ZoneDef[] = [
   },
   {
     id: 'breath-pool',
+    gameScene: 'lenny-story',
     name: 'בְּרֵכַת הַנְּשִׁימָה',
     mission: 'הַבּוּעוֹת רוֹצוֹת לָעוּף לְאַט. בּוֹא נִנְשֹׁם אִתָּן!',
     insight: 'נְשִׁימָה אֲרוּכָּה עוֹשָׂה שֶׁקֶט בַּפְּנִים.',
