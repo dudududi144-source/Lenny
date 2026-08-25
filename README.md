@@ -36,6 +36,15 @@ config-driven, documented, and used by multiple scenes.
     src/games/fx/RhythmEngine.ts
         beat-timing + judgment engine (perfect/good/miss windows)
 
+    src/games/fx/CardFlipSystem.ts
+        card grid + smooth tweened flip animation (memory games)
+
+    src/games/fx/DialogueBox.ts
+        Lenny speech bubble with typewriter reveal + line queue
+
+    src/games/fx/ProgressRing.ts
+        smooth animated progress ring (rounds, found-counts)
+
 Pattern for every new game:
 1. Create a scene in src/scenes/.
 2. Reuse the fx systems instead of re-implementing effects.
