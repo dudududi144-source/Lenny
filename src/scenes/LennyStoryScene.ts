@@ -13,6 +13,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
@@ -108,16 +109,7 @@ export class LennyStoryScene extends Phaser.Scene {
       'הַפָּנָסִים מְאִירִים אֶת הַבְּרֵכָה.',
     ]);
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['breath-pool'] = (prog.finished['breath-pool'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('breath-pool');
 
     this.time.delayedCall(3200, () => this.scene.start('portal'));
   }

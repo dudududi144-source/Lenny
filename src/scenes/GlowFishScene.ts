@@ -9,6 +9,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
@@ -182,16 +183,7 @@ export class GlowFishScene extends Phaser.Scene {
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַדָּגִים מָצְאוּ אֶת הַמַּנְגִּינָה!']);
     this.burst.emit(confettiBurst(this.scale.width / 2, this.scale.height * 0.4));
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['attention-stream'] = (prog.finished['attention-stream'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('attention-stream');
 
     this.time.delayedCall(2800, () => this.scene.start('portal'));
   }

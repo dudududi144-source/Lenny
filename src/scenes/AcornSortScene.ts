@@ -9,6 +9,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst } from '../games/fx/ParticleBurst';
@@ -167,16 +168,7 @@ export class AcornSortScene extends Phaser.Scene {
     this.done = true;
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַסְּנַאי מְאֻשָּׁר!']);
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['thinking-forest'] = (prog.finished['thinking-forest'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('thinking-forest');
 
     this.time.delayedCall(2600, () => this.scene.start('portal'));
   }

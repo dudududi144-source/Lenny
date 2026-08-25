@@ -15,6 +15,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 import { ParticleBurst, confettiBurst } from '../games/fx/ParticleBurst';
 import { DialogueBox } from '../games/fx/DialogueBox';
 
@@ -189,16 +190,7 @@ export class OpenEndedScene extends Phaser.Scene {
       'הַדְּבוֹרָה אוֹהֶבֶת אֶת הַיְּצִירָה שֶׁלְּךָ.',
     ]);
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['creativity-meadow'] = (prog.finished['creativity-meadow'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('creativity-meadow');
 
     this.time.delayedCall(3000, () => this.scene.start('portal'));
   }

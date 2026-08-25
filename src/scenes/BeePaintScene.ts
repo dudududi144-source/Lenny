@@ -11,6 +11,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 import { ParticleBurst, bloomBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 
 interface Petal {
@@ -126,16 +127,7 @@ export class BeePaintScene extends Phaser.Scene {
       this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַפֶּרַח פָּרַח!');
       this.burst.emit(confettiBurst(c.x, c.y));
 
-      /* record progress for the garden */
-      try {
-        const raw = localStorage.getItem('lenny-garden');
-        if (raw) {
-          const prog = JSON.parse(raw);
-          prog.finished = prog.finished || {};
-          prog.finished['creativity-meadow'] = (prog.finished['creativity-meadow'] || 0) + 1;
-          localStorage.setItem('lenny-garden', JSON.stringify(prog));
-        }
-      } catch { /* noop */ }
+            recordZoneFinish('creativity-meadow');
 
       this.time.delayedCall(2200, () => this.scene.start('portal'));
     }

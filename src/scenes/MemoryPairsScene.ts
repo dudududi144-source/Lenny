@@ -10,6 +10,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { PlayerModel } from '../games/core/PlayerModel';
 import { LearningSignals } from '../games/core/LearningSignals';
@@ -167,16 +168,7 @@ export class MemoryPairsScene extends Phaser.Scene {
     this.signals.attempt('memory.pairs', true);
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַפַּרְפַּר נִזְכַּר בַּכֹּל!']);
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['memory-hill'] = (prog.finished['memory-hill'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('memory-hill');
 
     this.time.delayedCall(2600, () => this.scene.start('portal'));
   }

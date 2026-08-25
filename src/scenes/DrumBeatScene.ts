@@ -12,6 +12,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 import { RhythmEngine } from '../games/fx/RhythmEngine';
 import { ParticleBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 
@@ -121,16 +122,7 @@ export class DrumBeatScene extends Phaser.Scene {
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַתֹּף חָזַר לְתַפְתֵּף!');
     this.burst.emit(confettiBurst(this.scale.width / 2, this.scale.height * 0.4));
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['rhythm-square'] = (prog.finished['rhythm-square'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('rhythm-square');
 
     void total; void hits;
     this.time.delayedCall(2400, () => this.scene.start('portal'));

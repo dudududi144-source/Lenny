@@ -5,6 +5,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 
 export class FindLetterScene extends Phaser.Scene {
   private msgText!: Phaser.GameObjects.Text;
@@ -134,16 +135,7 @@ export class FindLetterScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!');
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['words-valley'] = (prog.finished['words-valley'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('words-valley');
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }

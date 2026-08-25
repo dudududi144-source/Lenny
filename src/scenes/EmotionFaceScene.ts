@@ -5,6 +5,7 @@
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'calm';
 
@@ -204,16 +205,7 @@ export class EmotionFaceScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַצָּב מַרְגִּישׁ הַרְבֵּה יוֹתֵר טוֹב!');
 
-    /* record progress for the garden */
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      if (raw) {
-        const prog = JSON.parse(raw);
-        prog.finished = prog.finished || {};
-        prog.finished['feelings-garden'] = (prog.finished['feelings-garden'] || 0) + 1;
-        localStorage.setItem('lenny-garden', JSON.stringify(prog));
-      }
-    } catch { /* noop */ }
+        recordZoneFinish('feelings-garden');
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }

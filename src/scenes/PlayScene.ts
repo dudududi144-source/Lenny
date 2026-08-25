@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { recordZoneFinish } from '../games/core/ProgressStore';
 
 interface Platform { x: number; y: number; w: number; hue: number; }
 interface Star { x: number; y: number; taken: boolean; rot: number; }
@@ -348,12 +349,6 @@ export class PlayScene extends Phaser.Scene {
   private recordGardenProgress(): void {
     /* only meaningful runs count (collected at least 3 stars) */
     if (this.starCount < 3) return;
-    try {
-      const raw = localStorage.getItem('lenny-garden');
-      const prog = raw ? JSON.parse(raw) : { unlocked: ['light-path', 'breath-pool'], finished: {}, current: 'light-path' };
-      prog.finished = prog.finished || {};
-      prog.finished['light-path'] = (prog.finished['light-path'] || 0) + 1;
-      localStorage.setItem('lenny-garden', JSON.stringify(prog));
-    } catch { /* noop */ }
+recordZoneFinish('light-path');
   }
 }

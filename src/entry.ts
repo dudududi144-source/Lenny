@@ -19,7 +19,7 @@ import { DrumBeatScene } from './scenes/DrumBeatScene';
 import { LennyStoryScene } from './scenes/LennyStoryScene';
 import { OpenEndedScene } from './scenes/OpenEndedScene';
 import { ParentLensScene } from './scenes/ParentLensScene';
-import { LocalProgressStore, bloomLevel, isUnlocked, GardenData } from './games/core/ProgressStore';
+import { LocalProgressStore, bloomLevel, isUnlocked, finishedCount, unlockRequirement, zoneName, GardenData } from './games/core/ProgressStore';
 
 interface ZoneDef { id: string; name: string; desc: string; color: string; scene: string; }
 
@@ -63,7 +63,14 @@ function buildGarden(): void {
 
   ZONES.forEach((z, i) => {
     const open = isUnlocked(data, z.id);
-    const done = (data.finished && data.finished[z.id]) || (data.zones[z.id] ? data.zones[z.id].finished : 0) || 0;
+    const done = finishedCount(data, z.id);
+    const req = unlockRequirement(z.id);
+    let lockHint = 'עוֹד מְעַט...';
+    if (req) {
+      const have = finishedCount(data, req.from);
+      lockHint = 'שַׂחֲקוּ בְּ' + zoneName(req.from) + ' ' + req.needed + ' פְּעָמִים כְּדֵי לִפְתֹּחַ';
+      if (req.needed === 1) lockHint = 'שַׂחֲקוּ פַּעַם אַחַת בְּ' + zoneName(req.from) + ' כְּדֵי לִפְתֹּחַ';
+    }
     const node = document.createElement('button');
     node.className = 'zone' + (open ? '' : ' locked');
     node.style.setProperty('--zc', z.color);
@@ -72,7 +79,7 @@ function buildGarden(): void {
       '<span class="node"><span class="core"></span></span>' +
       '<span class="zone-text">' +
         '<span class="zone-name">' + z.name + '</span>' +
-        '<span class="zone-desc">' + (open ? (done>0 ? ('⭐ ' + done + ' · ' + z.desc) : z.desc) : 'עוֹד מְעַט...') + '</span>' +
+        '<span class="zone-desc">' + (open ? (done>0 ? ('⭐ ' + done + ' · ' + z.desc) : z.desc) : lockHint) + '</span>' +
       '</span>' +
       (open ? '' : '<span class="lock">🔒</span>');
     node.addEventListener('click', () => {
@@ -122,9 +129,11 @@ function stopAllScenes(): void {
 function enterGame(sceneKey: string): void {
   boot();
   hide(garden());
+  let attempts = 0;
   const tryStart = () => {
-    if (game && game.isRunning) { stopAllScenes(); game.scene.start(sceneKey); }
-    else setTimeout(tryStart, 80);
+    if (game && game.isRunning) { stopAllScenes(); game.scene.start(sceneKey); return; }
+    if (++attempts < 75) setTimeout(tryStart, 80);
+    else { const e = document.getElementById('errbar'); if (e) { e.style.display='block'; e.textContent='שגיאה: המשחק לא הצליח להיטען. רעננו את הדף.'; } show(garden()); }
   };
   tryStart();
 }
@@ -149,9 +158,11 @@ document.getElementById('parentLink')?.addEventListener('click', (e) => {
   e.preventDefault();
   boot();
   hide(hero()); hide(garden());
+  let attempts = 0;
   const trySwitch = () => {
-    if (game && game.isRunning) game.scene.start('parent-lens');
-    else setTimeout(trySwitch, 80);
+    if (game && game.isRunning) { game.scene.start('parent-lens'); return; }
+    if (++attempts < 75) setTimeout(trySwitch, 80);
+    else show(hero());
   };
   trySwitch();
 });
