@@ -1,38 +1,40 @@
 /* ============================================================
- * MemoryPairsScene — the second playable game.
- * Lives in Memory Hill (zone: memory-hill). Warm, gentle, no
- * pressure. Helping the butterfly remember where its flowers are.
+ * MemoryPairsScene — upgraded to use the reusable fx library.
+ * Lives in Memory Hill (zone: memory-hill).
+ *
+ * v2 changes:
+ *   - CardFlipSystem handles grid layout + smooth flip tweens
+ *   - ProgressRing shows pairs found so far
+ *   - DialogueBox gives Lenny a warm voice
+ *   - ParticleBurst celebrates each matched pair
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { CardFlipSystem } from '../games/fx/CardFlipSystem';
+import { ProgressRing } from '../games/fx/ProgressRing';
+import { DialogueBox } from '../games/fx/DialogueBox';
+import { ParticleBurst, bloomBurst } from '../games/fx/ParticleBurst';
 
 interface Card {
   pairId: number;
-  x: number;
-  y: number;
-  revealed: boolean;
-  matched: boolean;
   icon: string;
+  matched: boolean;
 }
 
 export class MemoryPairsScene extends Phaser.Scene {
+  private grid!: CardFlipSystem;
+  private ring!: ProgressRing;
+  private dialogue!: DialogueBox;
+  private burst!: ParticleBurst;
+  private cardG!: Phaser.GameObjects.Graphics;
+  private iconTexts: Map<number, Phaser.GameObjects.Text> = new Map();
   private cards: Card[] = [];
-  private cardGraphics!: Phaser.GameObjects.Graphics;
-  private iconTexts: Phaser.GameObjects.Text[] = [];
-  private msgText!: Phaser.GameObjects.Text;
-
   private firstPick: number | null = null;
   private lock = false;
   private foundPairs = 0;
-  private totalPairs = 6;
+  private readonly TOTAL_PAIRS = 6;
+  private done = false;
 
-  private readonly COLS = 4;
-  private readonly ROWS = 3;
-  private readonly CARD_W = 78;
-  private readonly CARD_H = 92;
-  private readonly GAP = 12;
-
-  /* garden-themed pairs */
   private readonly ICONS = ['🌸', '🦋', '🐟', '🌳', '☀️', '💗'];
 
   constructor() { super('memory-pairs'); }
@@ -40,144 +42,100 @@ export class MemoryPairsScene extends Phaser.Scene {
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
-    /* soft background */
     this.add.rectangle(w / 2, h / 2, w, h, 0x1a1040);
+    this.cardG = this.add.graphics();
+    this.burst = new ParticleBurst(this);
 
-    this.cardGraphics = this.add.graphics();
+    /* card grid: 4 cols x 3 rows in the middle area */
+    this.grid = new CardFlipSystem(this, {
+      rows: 3,
+      cols: 4,
+      areaX: w * 0.08,
+      areaY: h * 0.22,
+      areaW: w * 0.84,
+      areaH: h * 0.5,
+      gap: 10,
+    });
 
-    this.msgText = this.add.text(w / 2, h * 0.08, 'הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ', {
-      fontFamily: 'Heebo, Arial', fontSize: '16px', color: '#fff6ec',
-    }).setOrigin(0.5);
+    /* progress ring top-right */
+    this.ring = new ProgressRing(this, { x: w - 40, y: 55, radius: 18 });
+    this.ring.setCounts(0, this.TOTAL_PAIRS);
 
-    this.buildBoard(w, h);
+    /* Lenny introduces the game */
+    this.dialogue = new DialogueBox(this, { x: w / 2, y: h * 0.88, width: w * 0.85 });
+    this.dialogue.say([
+      'הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ.',
+      'בּוֹא נִמְצָא אֶת הַזּוּגוֹת!',
+    ]);
+
+    /* build shuffled card data */
+    const ids: number[] = [];
+    for (let i = 0; i < this.TOTAL_PAIRS; i++) ids.push(i, i);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    this.cards = ids.map((pairId) => ({ pairId, icon: this.ICONS[pairId], matched: false }));
+
+    this.grid.drawBacks();
+
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTap(p));
   }
 
-  private buildBoard(w: number, h: number): void {
-    /* prepare 12 cards: 6 pairs, shuffled */
-    const ids: number[] = [];
-    for (let i = 0; i < this.totalPairs; i++) { ids.push(i, i); }
-    this.shuffle(ids);
-
-    const boardW = this.COLS * this.CARD_W + (this.COLS - 1) * this.GAP;
-    const boardH = this.ROWS * this.CARD_H + (this.ROWS - 1) * this.GAP;
-    const startX = (w - boardW) / 2;
-    const startY = (h - boardH) / 2 + h * 0.04;
-
-    this.cards = [];
-    for (let i = 0; i < ids.length; i++) {
-      const col = i % this.COLS;
-      const row = Math.floor(i / this.COLS);
-      const x = startX + col * (this.CARD_W + this.GAP) + this.CARD_W / 2;
-      const y = startY + row * (this.CARD_H + this.GAP) + this.CARD_H / 2;
-      this.cards.push({
-        pairId: ids[i],
-        x, y,
-        revealed: false,
-        matched: false,
-        icon: this.ICONS[ids[i]],
-      });
-    }
-
-    /* icon texts (hidden until revealed) */
-    for (const c of this.cards) {
-      const t = this.add.text(c.x, c.y, c.icon, {
-        fontFamily: 'Arial', fontSize: '34px',
-      }).setOrigin(0.5).setVisible(false);
-      this.iconTexts.push(t);
-    }
-
-    this.render();
-  }
-
-  private shuffle(a: number[]): void {
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-  }
-
   private onTap(p: Phaser.Input.Pointer): void {
-    if (this.lock) return;
-    const idx = this.hitTest(p.x, p.y);
+    if (this.lock || this.done) return;
+    this.dialogue.skip();
+    const idx = this.grid.hitTest(p.x, p.y);
     if (idx === null) return;
-
     const card = this.cards[idx];
-    if (card.revealed || card.matched) return;
+    if (card.matched) return;
 
-    card.revealed = true;
-    this.iconTexts[idx].setVisible(true);
-    this.render();
+    this.grid.flipUp(idx, () => this.showIcon(idx));
 
     if (this.firstPick === null) {
       this.firstPick = idx;
     } else {
-      const first = this.cards[this.firstPick];
-      const second = card;
-      const firstIdx = this.firstPick;
+      const first = this.firstPick;
       this.firstPick = null;
-
-      if (first.pairId === second.pairId) {
-        first.matched = true;
-        second.matched = true;
-        this.foundPairs++;
-        this.render();
-        if (this.foundPairs >= this.totalPairs) this.win();
+      if (this.cards[first].pairId === card.pairId) {
+        this.lock = true;
+        this.time.delayedCall(500, () => {
+          this.cards[first].matched = true;
+          card.matched = true;
+          this.foundPairs++;
+          this.ring.setCounts(this.foundPairs, this.TOTAL_PAIRS);
+          const slot = this.grid.slots[idx];
+          this.burst.emit(bloomBurst(slot.x, slot.y));
+          this.lock = false;
+          if (this.foundPairs >= this.TOTAL_PAIRS) this.win();
+        });
       } else {
         this.lock = true;
-        this.time.delayedCall(700, () => {
-          first.revealed = false;
-          second.revealed = false;
-          this.iconTexts[firstIdx].setVisible(false);
-          this.iconTexts[idx].setVisible(false);
-          this.render();
+        this.time.delayedCall(800, () => {
+          this.grid.flipDown(first, () => this.hideIcon(first));
+          this.grid.flipDown(idx, () => this.hideIcon(idx));
           this.lock = false;
         });
       }
     }
   }
 
-  private hitTest(px: number, py: number): number | null {
-    for (let i = 0; i < this.cards.length; i++) {
-      const c = this.cards[i];
-      if (Math.abs(px - c.x) < this.CARD_W / 2 && Math.abs(py - c.y) < this.CARD_H / 2) {
-        return i;
-      }
-    }
-    return null;
+  private showIcon(idx: number): void {
+    const slot = this.grid.slots[idx];
+    const t = this.add.text(slot.x, slot.y, this.cards[idx].icon, {
+      fontFamily: 'Arial', fontSize: '30px',
+    }).setOrigin(0.5);
+    this.iconTexts.set(idx, t);
   }
 
-  private render(): void {
-    const g = this.cardGraphics;
-    g.clear();
-    for (const c of this.cards) {
-      const x = c.x - this.CARD_W / 2;
-      const y = c.y - this.CARD_H / 2;
-      if (c.matched) {
-        g.fillStyle(0x7dffb8, 0.16);
-        g.fillRoundedRect(x, y, this.CARD_W, this.CARD_H, 12);
-        g.lineStyle(2, 0x7dffb8, 0.5);
-        g.strokeRoundedRect(x, y, this.CARD_W, this.CARD_H, 12);
-      } else if (c.revealed) {
-        g.fillStyle(0x2a1a4a, 1);
-        g.fillRoundedRect(x, y, this.CARD_W, this.CARD_H, 12);
-        g.lineStyle(2, 0xffd76a, 0.8);
-        g.strokeRoundedRect(x, y, this.CARD_W, this.CARD_H, 12);
-      } else {
-        g.fillStyle(0x7c4dff, 0.85);
-        g.fillRoundedRect(x, y, this.CARD_W, this.CARD_H, 12);
-        g.lineStyle(2, 0xfff6ec, 0.3);
-        g.strokeRoundedRect(x, y, this.CARD_W, this.CARD_H, 12);
-      }
-    }
+  private hideIcon(idx: number): void {
+    const t = this.iconTexts.get(idx);
+    if (t) { t.destroy(); this.iconTexts.delete(idx); }
   }
 
   private win(): void {
-    const w = this.scale.width, h = this.scale.height;
-    this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַפַּרְפַּר נִזְכַּר!');
-    this.add.text(w / 2, h * 0.92, 'בּוֹא נַחֲזֹר לַגַּן', {
-      fontFamily: 'Heebo, Arial', fontSize: '18px', color: '#ffd76a',
-    }).setOrigin(0.5);
+    this.done = true;
+    this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַפַּרְפַּר נִזְכַּר בַּכֹּל!']);
 
     /* record progress for the garden */
     try {
@@ -190,6 +148,14 @@ export class MemoryPairsScene extends Phaser.Scene {
       }
     } catch { /* noop */ }
 
-    this.time.delayedCall(1600, () => this.scene.start('portal'));
+    this.time.delayedCall(2600, () => this.scene.start('portal'));
+  }
+
+  update(_time: number, delta: number): void {
+    const dt = delta / 1000;
+    this.burst.update(dt, 60, 0.985);
+    this.ring.update(dt);
+    this.dialogue.update(dt);
+    this.grid.drawBacks();
   }
 }
