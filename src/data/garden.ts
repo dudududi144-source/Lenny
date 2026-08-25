@@ -121,6 +121,7 @@ export const ZONES: ZoneDef[] = [
   },
   {
     id: 'creativity-meadow',
+    gameScene: 'bee-paint',
     name: 'אֲחוּ הַיְּצִירָה',
     mission: 'הַדְּבוֹרָה רוֹצָה לְצַיֵּר אֲבָל אֵין לָהּ צְבָעִים. בּוֹא נַעֲזֹר!',
     insight: 'אֵין דֶּרֶךְ אַחַת לְצַיֵּר. כָּל דֶּרֶךְ יָפָה.',
