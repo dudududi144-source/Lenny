@@ -1,24 +1,30 @@
 /* ============================================================
- * AcornSortScene — the fourth playable game.
+ * AcornSortScene — upgraded to use the reusable fx library.
  * Lives in Thinking Forest (zone: thinking-forest).
- * Help the squirrel sort acorns from small to big.
- * A gentle logic / ordering game.
+ *
+ * v2 changes:
+ *   - ProgressRing shows acorns sorted this round
+ *   - DialogueBox gives Lenny a warm voice
+ *   - ParticleBurst celebrates each correct acorn
  * ============================================================ */
 
 import Phaser from 'phaser';
+import { ProgressRing } from '../games/fx/ProgressRing';
+import { DialogueBox } from '../games/fx/DialogueBox';
+import { ParticleBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 
 interface Acorn {
   x: number;
   y: number;
-  size: number;      /* 1..4, 1 = smallest */
+  size: number;
   collected: boolean;
 }
 
 export class AcornSortScene extends Phaser.Scene {
   private acornG!: Phaser.GameObjects.Graphics;
-  private msgText!: Phaser.GameObjects.Text;
-  private roundText!: Phaser.GameObjects.Text;
-
+  private ring!: ProgressRing;
+  private dialogue!: DialogueBox;
+  private burst!: ParticleBurst;
   private acorns: Acorn[] = [];
   private nextSize = 1;
   private round = 1;
@@ -30,18 +36,20 @@ export class AcornSortScene extends Phaser.Scene {
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
-    /* forest background */
     this.add.rectangle(w / 2, h / 2, w, h, 0x14301e);
-
     this.acornG = this.add.graphics();
+    this.burst = new ParticleBurst(this);
 
-    this.msgText = this.add.text(w / 2, h * 0.08, 'הַסְּנַאי צָרִיךְ לְסַדֵּר אֶת הַבְּלוּטִים', {
-      fontFamily: 'Heebo, Arial', fontSize: '16px', color: '#fff6ec',
-    }).setOrigin(0.5);
+    /* progress ring top-right */
+    this.ring = new ProgressRing(this, { x: w - 40, y: 55, radius: 18 });
+    this.ring.setCounts(0, 4);
 
-    this.roundText = this.add.text(w / 2, h * 0.14, 'סִבּוּב 1 / 3', {
-      fontFamily: 'Heebo, Arial', fontSize: '15px', color: '#ffd76a',
-    }).setOrigin(0.5);
+    /* Lenny introduces the game */
+    this.dialogue = new DialogueBox(this, { x: w / 2, y: h * 0.9, width: w * 0.85 });
+    this.dialogue.say([
+      'הַסְּנַאי צָרִיךְ לְסַדֵּר אֶת הַבְּלוּטִים.',
+      'בּוֹא נְסַדֵּר מֵהַקָּטָן לַגָּדוֹל!',
+    ]);
 
     this.spawnRound(w, h);
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTap(p));
@@ -50,14 +58,13 @@ export class AcornSortScene extends Phaser.Scene {
   private spawnRound(w: number, h: number): void {
     this.acorns = [];
     this.nextSize = 1;
-    /* 4 acorns, sizes 1..4, placed in shuffled spots */
+    this.ring.setCounts(0, 4);
     const spots = [
       { x: w * 0.25, y: h * 0.35 },
       { x: w * 0.75, y: h * 0.35 },
       { x: w * 0.25, y: h * 0.6 },
       { x: w * 0.75, y: h * 0.6 },
     ];
-    /* shuffle spots */
     for (let i = spots.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [spots[i], spots[j]] = [spots[j], spots[i]];
@@ -65,12 +72,11 @@ export class AcornSortScene extends Phaser.Scene {
     for (let s = 1; s <= 4; s++) {
       this.acorns.push({ x: spots[s - 1].x, y: spots[s - 1].y, size: s, collected: false });
     }
-    this.roundText.setText('סִבּוּב ' + this.round + ' / ' + this.ROUNDS);
-    this.msgText.setText('בּוֹא נְסַדֵּר מֵהַקָּטָן לַגָּדוֹל');
   }
 
   private onTap(p: Phaser.Input.Pointer): void {
     if (this.done) return;
+    this.dialogue.skip();
     const idx = this.hitTest(p.x, p.y);
     if (idx === null) return;
     const a = this.acorns[idx];
@@ -79,19 +85,21 @@ export class AcornSortScene extends Phaser.Scene {
     if (a.size === this.nextSize) {
       a.collected = true;
       this.nextSize++;
+      this.ring.setCounts(this.nextSize - 1, 4);
+      this.burst.emit(sparkleBurst(a.x, a.y));
       if (this.nextSize > 4) {
         if (this.round >= this.ROUNDS) {
           this.win();
         } else {
           this.round++;
-          this.msgText.setText('וָאו! עוֹד סִבּוּב!');
+          this.dialogue.say(['וָאו! עוֹד סִבּוּב!']);
           this.time.delayedCall(800, () => this.spawnRound(this.scale.width, this.scale.height));
         }
       } else {
-        this.msgText.setText('כָּל הַכָּבוֹד! מַה הַבָּא?');
+        this.dialogue.say(['כָּל הַכָּבוֹד! מַה הַבָּא?']);
       }
     } else {
-      this.msgText.setText('נַסֶּה אֶת הַקָּטָן יוֹתֵר');
+      this.dialogue.say(['נַסּוּ אֶת הַקָּטָן יוֹתֵר']);
     }
   }
 
@@ -104,12 +112,17 @@ export class AcornSortScene extends Phaser.Scene {
     return null;
   }
 
-  update(): void {
+  update(_time: number, delta: number): void {
+    const dt = delta / 1000;
+    this.burst.update(dt, 0, 0.99);
+    this.ring.update(dt);
+    this.dialogue.update(dt);
+
     const g = this.acornG;
     g.clear();
-
-    /* basket at bottom */
     const w = this.scale.width, h = this.scale.height;
+
+    /* basket */
     g.fillStyle(0x8d5a3b, 0.9);
     g.fillRoundedRect(w / 2 - 60, h * 0.82, 120, 44, 10);
     g.lineStyle(2, 0xfff6ec, 0.3);
@@ -135,20 +148,17 @@ export class AcornSortScene extends Phaser.Scene {
   }
 
   private drawAcorn(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
-    /* body */
     g.fillStyle(0xc8873a, 1);
     g.fillEllipse(x, y + r * 0.2, r * 1.6, r * 1.8);
-    /* cap */
     g.fillStyle(0x8d5a3b, 1);
     g.fillEllipse(x, y - r * 0.5, r * 1.7, r * 0.9);
-    /* stem */
     g.lineStyle(2, 0x5a3a20, 1);
     g.lineBetween(x, y - r * 0.9, x, y - r * 1.1);
   }
 
   private win(): void {
     this.done = true;
-    this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַסְּנַאי מְאֻשָּׁר!');
+    this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַסְּנַאי מְאֻשָּׁר!']);
 
     /* record progress for the garden */
     try {
@@ -161,6 +171,6 @@ export class AcornSortScene extends Phaser.Scene {
       }
     } catch { /* noop */ }
 
-    this.time.delayedCall(1800, () => this.scene.start('portal'));
+    this.time.delayedCall(2600, () => this.scene.start('portal'));
   }
 }
