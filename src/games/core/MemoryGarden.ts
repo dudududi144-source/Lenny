@@ -19,6 +19,7 @@
 import { PlayerModel } from './PlayerModel';
 
 const ZONE_NAMES: Record<string, string> = {
+  'light-path': 'שְׁבִיל הָאוֹר',
   'memory-hill': 'גִּבְעַת הַזִּכָּרוֹן',
   'attention-stream': 'נַחַל הַקֶּשֶׁב',
   'thinking-forest': 'יַעַר הַחֲשִׁיבָה',
@@ -58,7 +59,7 @@ export class MemoryGarden {
 
     /* celebrate lights lit */
     const strengths = this.pm.strengths();
-    if (strengths.length > 0) {
+    if (strengths.length > 0 && ZONE_NAMES[strengths[0]]) {
       lines.push('אַתְּ מַצְלִיחָה מְאוֹד בְּ' + ZONE_NAMES[strengths[0]] + '!');
     }
 
