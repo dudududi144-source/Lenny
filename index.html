@@ -89,9 +89,11 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
 .zone.locked .node .core{background:#55506a;box-shadow:none;animation:none;}
 .zone.shake{animation:shake .4s ease;}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+#errbar{position:fixed;left:0;right:0;bottom:0;z-index:99;display:none;background:#c0392b;color:#fff;font-size:13px;padding:8px 12px;font-family:'Heebo',sans-serif;direction:rtl;white-space:pre-wrap;}
 </style>
 </head>
 <body>
+<div id="errbar"></div>
   <div class="stars" aria-hidden="true"></div>
   <div id="hero">
     <header class="topbar">
@@ -127,5 +129,6 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
   </div>
   <div id="game"></div>
   <script type="module" src="/src/entry.ts"></script>
+<script>window.addEventListener('error',function(e){var b=document.getElementById('errbar');if(b){b.style.display='block';b.textContent='שגיאה: '+(e.message||'')+' @ '+(e.filename||'').split('/').pop()+':'+(e.lineno||'');}});</script>
 </body>
 </html>
