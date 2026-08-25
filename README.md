@@ -45,6 +45,12 @@ config-driven, documented, and used by multiple scenes.
     src/games/fx/ProgressRing.ts
         smooth animated progress ring (rounds, found-counts)
 
+    src/games/fx/DragDropSystem.ts
+        drag-and-drop with drop validation + snap-back animation
+
+    src/games/fx/ColorMixSystem.ts
+        pure color-mixing helpers (primaries -> secondaries)
+
 Pattern for every new game:
 1. Create a scene in src/scenes/.
 2. Reuse the fx systems instead of re-implementing effects.
