@@ -11,6 +11,7 @@ import { BeePaintScene } from './scenes/BeePaintScene';
 import { DrumBeatScene } from './scenes/DrumBeatScene';
 import { LennyStoryScene } from './scenes/LennyStoryScene';
 import { OpenEndedScene } from './scenes/OpenEndedScene';
+import { ParentLensScene } from './scenes/ParentLensScene';
 
 /* Lenny — Garden of Lights. Portal opens first; each zone leads to its games. */
 new Phaser.Game({
@@ -23,5 +24,5 @@ new Phaser.Game({
     width: 420,
     height: 720,
   },
-  scene: [PortalScene, PlayScene, MemoryPairsScene, GlowFishScene, AcornSortScene, KiteMatchScene, FindLetterScene, EmotionFaceScene, BeePaintScene, DrumBeatScene, LennyStoryScene, OpenEndedScene],
+  scene: [PortalScene, PlayScene, MemoryPairsScene, GlowFishScene, AcornSortScene, KiteMatchScene, FindLetterScene, EmotionFaceScene, BeePaintScene, DrumBeatScene, LennyStoryScene, OpenEndedScene, ParentLensScene],
 });
