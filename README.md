@@ -51,6 +51,18 @@ config-driven, documented, and used by multiple scenes.
     src/games/fx/ColorMixSystem.ts
         pure color-mixing helpers (primaries -> secondaries)
 
+    src/games/core/AdaptiveDifficulty.ts
+        DDA engine: EMA skill estimate, streak momentum, frustration cooldown
+
+    src/games/core/PlayerModel.ts
+        persistent per-child cognitive profile (strengths, gaps, tempo)
+
+    src/games/core/LearningSignals.ts
+        measures learning beyond win/lose (errors, hints, mastery)
+
+    src/games/core/SkillGraph.ts
+        dependency-aware skill map (what unlocks what)
+
 Pattern for every new game:
 1. Create a scene in src/scenes/.
 2. Reuse the fx systems instead of re-implementing effects.
