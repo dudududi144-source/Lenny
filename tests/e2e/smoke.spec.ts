@@ -6,18 +6,33 @@ test('hero loads with title and CTA', async ({ page }) => {
   await expect(page.locator('#startBtn')).toBeVisible();
 });
 
-test('tapping start boots the game canvas', async ({ page }) => {
+test('start reveals the garden journey map', async ({ page }) => {
   await page.goto('/');
   await page.click('#startBtn');
-  await page.waitForSelector('canvas', { timeout: 10000 });
-  const canvas = page.locator('canvas');
-  await expect(canvas).toBeVisible();
+  await expect(page.locator('#garden')).toBeVisible();
+  await expect(page.locator('#garden')).not.toHaveClass(/hidden/);
+  // zones rendered
+  const zones = page.locator('.zone');
+  await expect(zones.first()).toBeVisible();
 });
 
-test('hero hides after start', async ({ page }) => {
+test('tapping an open zone boots a Phaser game', async ({ page }) => {
   await page.goto('/');
   await page.click('#startBtn');
+  await page.waitForSelector('.zone', { timeout: 5000 });
+  // first zone (light-path) is unlocked by default
+  await page.locator('.zone').first().click();
   await page.waitForSelector('canvas', { timeout: 10000 });
-  const hero = page.locator('#hero');
-  await expect(hero).toHaveClass(/hidden/);
+  await expect(page.locator('canvas')).toBeVisible();
+});
+
+test('locked zone does not boot a game', async ({ page }) => {
+  await page.goto('/');
+  await page.click('#startBtn');
+  await page.waitForSelector('.zone', { timeout: 5000 });
+  // memory-hill is 2nd and locked by default
+  await page.locator('.zone').nth(1).click();
+  // canvas should NOT appear
+  const canvasCount = await page.locator('canvas').count();
+  expect(canvasCount).toBe(0);
 });
