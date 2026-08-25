@@ -83,6 +83,19 @@ function buildGarden(): void {
   });
 }
 
+
+/* Minimal bridge scene: when a mini-game ends it calls scene.start('portal');
+   this scene immediately hands control back to the HTML garden map so the
+   player sees the garden grow. Connects games -> garden -> hero. */
+class PortalExitScene extends Phaser.Scene {
+  constructor() { super('portal'); }
+  create(): void {
+    const fn = (window as any).__lennyBackToGarden as undefined | (() => void);
+    if (fn) fn();
+    this.scene.stop();
+  }
+}
+
 /* ---------- Phaser (only for a real mini-game) ---------- */
 let game: Phaser.Game | null = null;
 function boot(): void {
@@ -95,7 +108,7 @@ function boot(): void {
     scene: [
       PlayScene, MemoryPairsScene, GlowFishScene, AcornSortScene, KiteMatchScene,
       FindLetterScene, EmotionFaceScene, BeePaintScene, DrumBeatScene,
-      LennyStoryScene, OpenEndedScene, ParentLensScene,
+      LennyStoryScene, OpenEndedScene, ParentLensScene, PortalExitScene,
     ],
   });
 }
@@ -111,6 +124,7 @@ function enterGame(sceneKey: string): void {
 }
 
 /* ---------- wiring ---------- */
+(window as any).__lennyBackToGarden = () => { buildGarden(); show(garden()); };
 document.getElementById('startBtn')?.addEventListener('click', () => {
   buildGarden();
   hide(hero());
