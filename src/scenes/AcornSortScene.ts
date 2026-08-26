@@ -17,6 +17,7 @@ import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 import { DragDropSystem } from '../games/fx/DragDropSystem';
+import { GameSpec } from '../games/builder/GameSpec';
 
 export class AcornSortScene extends Phaser.Scene {
   private acornG!: Phaser.GameObjects.Graphics;
@@ -27,9 +28,15 @@ export class AcornSortScene extends Phaser.Scene {
   private placedCount = 0;
   private round = 1;
   private readonly ROUNDS = 3;
+  private acornCount = 4;
+  private spec: GameSpec | null = null;
   private done = false;
 
   constructor() { super('acorn-sort'); }
+
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
 
   preload(): void {
     showLoader(this);
@@ -37,6 +44,7 @@ export class AcornSortScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.acornCount = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 5) : 4;
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated background */
@@ -69,7 +77,7 @@ export class AcornSortScene extends Phaser.Scene {
 
   private spawnRound(w: number, h: number): void {
     this.placedCount = 0;
-    this.ring.setCounts(0, 4);
+    this.ring.setCounts(0, this.acornCount);
 
     this.drag = new DragDropSystem(this, {
       isValidDrop: (itemId: string, targetId: string) =>
@@ -79,18 +87,22 @@ export class AcornSortScene extends Phaser.Scene {
     });
 
     /* scatter the 4 acorns (shuffled) across the upper area */
-    const xs = [0.18, 0.4, 0.62, 0.84];
+    const xs: number[] = [];
+    for (let i = 0; i < this.acornCount; i++) {
+      xs.push(0.14 + (this.acornCount > 1 ? (i * 0.72) / (this.acornCount - 1) : 0.5));
+    }
     for (let i = xs.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [xs[i], xs[j]] = [xs[j], xs[i]];
     }
-    for (let s = 1; s <= 4; s++) {
+    for (let s = 1; s <= this.acornCount; s++) {
       this.drag.addItem('acorn-' + s, w * xs[s - 1], h * 0.28);
     }
 
     /* drop circles along the bottom, left -> right = small -> large */
-    for (let n = 1; n <= 4; n++) {
-      this.drag.addTarget('slot-' + n, w * (0.14 + (n - 1) * 0.24), h * 0.66, 44);
+    for (let k = 1; k <= this.acornCount; k++) {
+      const sx = 0.14 + (this.acornCount > 1 ? ((k - 1) * 0.72) / (this.acornCount - 1) : 0.5);
+      this.drag.addTarget('slot-' + k, w * sx, h * 0.66, 44);
     }
   }
 
@@ -98,9 +110,9 @@ export class AcornSortScene extends Phaser.Scene {
     this.placedCount++;
     const it = this.drag.items.find((i) => i.id === itemId);
     if (it) this.burst.emit(sparkleBurst(it.x, it.y));
-    this.ring.setCounts(this.placedCount, 4);
+    this.ring.setCounts(this.placedCount, this.acornCount);
 
-    if (this.placedCount >= 4) {
+    if (this.placedCount >= this.acornCount) {
       if (this.round >= this.ROUNDS) {
         this.win();
       } else {
