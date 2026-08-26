@@ -19,7 +19,8 @@ import { DrumBeatScene } from './scenes/DrumBeatScene';
 import { LennyStoryScene } from './scenes/LennyStoryScene';
 import { OpenEndedScene } from './scenes/OpenEndedScene';
 import { ParentLensScene } from './scenes/ParentLensScene';
-import { LocalProgressStore, bloomLevel, isUnlocked, finishedCount, unlockRequirement, zoneName, GardenData } from './games/core/ProgressStore';
+import { LocalProgressStore, bloomLevel, isUnlocked, finishedCount, unlockRequirement, zoneName, consumeNewZones, GardenData } from './games/core/ProgressStore';
+import { GARDEN_TEXT } from './data/garden';
 
 interface ZoneDef { id: string; name: string; desc: string; color: string; scene: string; }
 
@@ -55,12 +56,23 @@ function hide(el: HTMLElement | null): void {
   el.classList.add('hidden');
 }
 
+let toastTimer: number | undefined;
+function showToast(msg: string): void {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.remove('hidden');
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => t.classList.add('hidden'), 2800);
+}
+
 /* ---------- build the garden journey ---------- */
 function buildGarden(): void {
   const path = document.getElementById('path');
   if (!path) return;
   path.innerHTML = '';
   const data = loadGarden();
+  const fresh = consumeNewZones();
 
   ZONES.forEach((z, i) => {
     const open = isUnlocked(data, z.id);
@@ -86,8 +98,18 @@ function buildGarden(): void {
       if (!open) { node.classList.add('shake'); setTimeout(()=>node.classList.remove('shake'),400); return; }
       enterGame(z.scene);
     });
+    if (fresh.includes(z.id)) {
+      node.classList.add('fresh');
+      const nb = document.createElement('span');
+      nb.className = 'new-badge';
+      nb.textContent = 'חָדָשׁ!';
+      node.appendChild(nb);
+    }
     path.appendChild(node);
   });
+
+  /* celebrate freshly-unlocked zones once */
+  if (fresh.length > 0) showToast(GARDEN_TEXT.newZone);
 }
 
 
