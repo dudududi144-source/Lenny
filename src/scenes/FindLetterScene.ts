@@ -8,6 +8,7 @@ import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
+import { GameSpec } from '../games/builder/GameSpec';
 
 export class FindLetterScene extends Phaser.Scene {
   private msgText!: Phaser.GameObjects.Text;
@@ -18,7 +19,8 @@ export class FindLetterScene extends Phaser.Scene {
 
   private targetIdx = 0;
   private found = 0;
-  private readonly TARGET = 5;
+  private TARGET = 5;
+  private spec: GameSpec | null = null;
   private done = false;
   private lock = false;
 
@@ -27,6 +29,10 @@ export class FindLetterScene extends Phaser.Scene {
 
   constructor() { super('find-letter'); }
 
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
+
   preload(): void {
     showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
@@ -34,6 +40,7 @@ export class FindLetterScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated rabbit companion */
