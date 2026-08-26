@@ -20,6 +20,7 @@ export class FindLetterScene extends Phaser.Scene {
   private found = 0;
   private readonly TARGET = 5;
   private done = false;
+  private lock = false;
 
   /* basic Hebrew letters, no niqqud, for easy recognition */
   private readonly LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ח', 'ט', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ', 'ק', 'ר', 'ש', 'ת'];
@@ -108,7 +109,7 @@ export class FindLetterScene extends Phaser.Scene {
   }
 
   private onTap(p: Phaser.Input.Pointer): void {
-    if (this.done) return;
+    if (this.done || this.lock) return;
     const idx = this.hitTest(p.x, p.y);
     if (idx === null) return;
 
@@ -118,8 +119,9 @@ export class FindLetterScene extends Phaser.Scene {
       if (this.found >= this.TARGET) {
         this.win();
       } else {
+        this.lock = true;
         this.msgText.setText('וָאו! מָצָאתָ אוֹתָהּ!');
-        this.time.delayedCall(500, () => this.newRound(this.scale.width, this.scale.height));
+        this.time.delayedCall(500, () => { this.lock = false; this.newRound(this.scale.width, this.scale.height); });
       }
     } else {
       this.msgText.setText('כִּמְעַט! נַסֶּה שׁוּב');
