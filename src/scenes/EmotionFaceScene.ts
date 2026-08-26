@@ -6,6 +6,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'calm';
 
@@ -41,6 +42,7 @@ export class EmotionFaceScene extends Phaser.Scene {
   constructor() { super('emotion-face'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
