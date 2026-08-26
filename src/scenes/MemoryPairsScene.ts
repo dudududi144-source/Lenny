@@ -65,6 +65,12 @@ export class MemoryPairsScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.foundPairs = 0;
+    this.done = false;
+    this.mistakes = 0;
+    this.consecutiveMiss = 0;
+    this.firstPick = null;
+    this.lock = false;
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated background */
