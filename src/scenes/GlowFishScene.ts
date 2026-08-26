@@ -52,6 +52,8 @@ export class GlowFishScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.found = 0;
+    this.done = false;
     const itemCount = (this.spec && this.spec.params.itemCount) ? this.spec.params.itemCount : 5;
     this.TARGET = itemCount;
     this.fishCount = itemCount;
