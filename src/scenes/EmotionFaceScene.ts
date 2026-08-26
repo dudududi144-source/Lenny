@@ -7,6 +7,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { GameSpec } from '../games/builder/GameSpec';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'calm';
 
@@ -21,7 +22,8 @@ export class EmotionFaceScene extends Phaser.Scene {
   private options: Emotion[] = [];
   private correctIdx = 0;
   private found = 0;
-  private readonly TARGET = 5;
+  private TARGET = 5;
+  private spec: GameSpec | null = null;
   private done = false;
   private lock = false;
 
@@ -42,12 +44,17 @@ export class EmotionFaceScene extends Phaser.Scene {
 
   constructor() { super('emotion-face'); }
 
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
+
   preload(): void {
     showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
   create(): void {
+    this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     const w = this.scale.width, h = this.scale.height;
 
     /* feelings garden background */
