@@ -6,6 +6,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
 
 export class FindLetterScene extends Phaser.Scene {
@@ -26,6 +27,7 @@ export class FindLetterScene extends Phaser.Scene {
   constructor() { super('find-letter'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
     this.load.image('rabbit', 'art/rabbit.png');
   }
