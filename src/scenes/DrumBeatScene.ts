@@ -50,6 +50,11 @@ export class DrumBeatScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.started = false;
+    this.done = false;
+    this.perfects = 0;
+    this.goods = 0;
+    this.clock = 0;
     this.beatCount = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 8;
     const w = this.scale.width, h = this.scale.height;
 
