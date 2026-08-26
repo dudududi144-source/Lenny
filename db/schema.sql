@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 CREATE TABLE IF NOT EXISTS gardens (
   profile_id TEXT PRIMARY KEY REFERENCES profiles(id),
+  data TEXT,
   lights INTEGER NOT NULL DEFAULT 0,
   updated_at INTEGER NOT NULL
 );
