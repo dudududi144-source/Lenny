@@ -17,6 +17,7 @@
 import Phaser from 'phaser';
 import { PlayerModel } from '../games/core/PlayerModel';
 import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
+import { LearningSignals } from '../games/core/LearningSignals';
 
 export class ParentLensScene extends Phaser.Scene {
   private pm!: PlayerModel;
@@ -86,6 +87,16 @@ export class ParentLensScene extends Phaser.Scene {
     /* skill progress */
     const prog = Math.round(this.skills.progress() * 100);
     line('הִתְקַדְּמוּת בְּמִיּוּמָנוּיוֹת: ' + prog + '%', 16, '#ffd76a');
+
+    /* learning signal - how the child learns, not just win rate */
+    const ls = new LearningSignals();
+    const sum = ls.summarize();
+    if (sum.attempts > 0) {
+      const acc = Math.round((100 * sum.correct) / sum.attempts);
+      line('נִסְיוֹנוֹת: ' + sum.attempts + ' · הַצְלָחָה: ' + acc + '%', 15, '#4dc9ff');
+      if (sum.masteredSkills.length > 0) line('מְיוּמָנוּיוֹת שֶׁנִּרְכְּשׁוּ: ' + sum.masteredSkills.length, 14, '#ffd76a');
+      if (sum.retries > 0) line('חָזְרוּ וְנִסּוּ: ' + sum.retries + ' פְּעָמִים — הַתְמָדָה יָפָה', 14, '#fff6ec');
+    }
 
     /* guidance */
     y += 10;
