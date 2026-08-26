@@ -6,6 +6,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 
 export class KiteMatchScene extends Phaser.Scene {
   private kiteG!: Phaser.GameObjects.Graphics;
@@ -23,6 +24,7 @@ export class KiteMatchScene extends Phaser.Scene {
   constructor() { super('kite-match'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
