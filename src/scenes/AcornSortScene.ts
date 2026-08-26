@@ -44,6 +44,8 @@ export class AcornSortScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.round = 1;
+    this.done = false;
     this.acornCount = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 5) : 4;
     const w = this.scale.width, h = this.scale.height;
 
