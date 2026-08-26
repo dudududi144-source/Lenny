@@ -21,6 +21,8 @@ import { OpenEndedScene } from './scenes/OpenEndedScene';
 import { ParentLensScene } from './scenes/ParentLensScene';
 import { LocalProgressStore, bloomLevel, isUnlocked, finishedCount, unlockRequirement, zoneName, consumeNewZones, GardenData } from './games/core/ProgressStore';
 import { GARDEN_TEXT } from './data/garden';
+import { gamesInZone } from './games/builder/GameRegistry';
+import { GameFactory } from './games/builder/GameFactory';
 
 interface ZoneDef { id: string; name: string; desc: string; color: string; scene: string; }
 
@@ -96,7 +98,16 @@ function buildGarden(): void {
       (open ? '' : '<span class="lock">🔒</span>');
     node.addEventListener('click', () => {
       if (!open) { node.classList.add('shake'); setTimeout(()=>node.classList.remove('shake'),400); return; }
-      enterGame(z.scene);
+      /* The Game Builder: zones with several registered games advance through
+         them as the child completes the zone (this is what makes the 'games as
+         data' registry real - e.g. open-create was previously unreachable). */
+      const specs = gamesInZone(z.id);
+      if (specs.length > 0) {
+        const spec = specs[Math.min(done, specs.length - 1)];
+        enterGame(GameFactory.sceneKey(spec));
+      } else {
+        enterGame(z.scene);
+      }
     });
     if (fresh.includes(z.id)) {
       node.classList.add('fresh');
