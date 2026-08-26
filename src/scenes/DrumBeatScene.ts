@@ -16,6 +16,7 @@ import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { RhythmEngine } from '../games/fx/RhythmEngine';
 import { ParticleBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
+import { GameSpec } from '../games/builder/GameSpec';
 
 export class DrumBeatScene extends Phaser.Scene {
   private drumG!: Phaser.GameObjects.Graphics;
@@ -29,6 +30,8 @@ export class DrumBeatScene extends Phaser.Scene {
   private perfects = 0;
   private goods = 0;
   private clock = 0;
+  private beatCount = 8;
+  private spec: GameSpec | null = null;
 
   /* layout */
   private hitY = 0;
@@ -37,12 +40,17 @@ export class DrumBeatScene extends Phaser.Scene {
 
   constructor() { super('drum-beat'); }
 
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
+
   preload(): void {
     showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
   create(): void {
+    this.beatCount = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 8;
     const w = this.scale.width, h = this.scale.height;
 
     /* rhythm square background */
@@ -66,7 +74,7 @@ export class DrumBeatScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     /* gentle tempo for kids */
-    this.engine = new RhythmEngine({ bpm: 78, beats: 8, leadIn: 2.0 });
+    this.engine = new RhythmEngine({ bpm: 78, beats: this.beatCount, leadIn: 2.0 });
 
     this.msgText.setText('בּוֹא נַתְחִיל לְתַפְתֵּף!');
     this.time.delayedCall(1200, () => {
@@ -157,7 +165,7 @@ export class DrumBeatScene extends Phaser.Scene {
     const t = this.engine.elapsed(this.clock);
     const beatInterval = 60 / 78;
     const leadIn = 2.0;
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < this.beatCount; i++) {
       const beatT = leadIn + i * beatInterval;
       /* progress 0..1 of the fall */
       const p = 1 - (beatT - t) / this.FALL_TIME;
