@@ -14,6 +14,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
@@ -39,6 +40,7 @@ export class LennyStoryScene extends Phaser.Scene {
   constructor() { super('lenny-story'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
