@@ -40,6 +40,9 @@ export class FindLetterScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.found = 0;
+    this.done = false;
+    this.lock = false;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     const w = this.scale.width, h = this.scale.height;
 
