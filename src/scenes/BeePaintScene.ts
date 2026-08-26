@@ -1,19 +1,18 @@
 /* ============================================================
- * BeePaintScene — the eighth playable game.
+ * BeePaintScene — paint the flower, now with REAL color mixing.
  * Lives in Creativity Meadow (zone: creativity-meadow).
  *
- * The bee wants to paint a flower. The child picks colors and
- * fills each petal. Every filled petal blooms with particles.
- * A full flower triggers a confetti celebration.
- *
- * This is the first game built on the reusable ParticleBurst
- * system — the exemplar pattern for all future games.
+ * v2 changes:
+ *   - Built on ColorMixSystem: the bee only has the 3 primaries.
+ *     Tap two primaries to mix orange / green / purple, then paint
+ *     the petals. Mixing is the creative discovery of this game.
  * ============================================================ */
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { ParticleBurst, bloomBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
+import { Primary, MixedColor, mixPrimaries, colorHex, blendHex } from '../games/fx/ColorMixSystem';
 
 interface Petal {
   angle: number;      /* position around the flower center */
@@ -28,9 +27,13 @@ export class BeePaintScene extends Phaser.Scene {
 
   private petals: Petal[] = [];
   private readonly PETALS = 5;
-  private palette: number[] = [0xf2549a, 0xffd76a, 0x4dc9ff, 0x7dffb8, 0x7c4dff, 0xffa552];
-  private selectedColor = 0xf2549a;
-  private paletteSpots: { x: number; y: number; color: number }[] = [];
+
+  private primaries: Primary[] = ['red', 'yellow', 'blue'];
+  private selectedColor = colorHex('red');
+  private mixPick: Primary | null = null;
+  private mixedUnlocked: MixedColor[] = [];
+  private primarySpots: { x: number; y: number; color: Primary }[] = [];
+  private mixedSpots: { x: number; y: number; color: MixedColor }[] = [];
   private beeAngle = 0;
   private done = false;
 
@@ -44,7 +47,6 @@ export class BeePaintScene extends Phaser.Scene {
   create(): void {
     const w = this.scale.width, h = this.scale.height;
 
-    /* meadow background */
     /* illustrated background */
     const _bg = this.add.image(w / 2, h / 2, 'garden-bg');
     _bg.setDisplaySize(w, h).setAlpha(0.5).setDepth(0);
@@ -62,14 +64,16 @@ export class BeePaintScene extends Phaser.Scene {
       this.petals.push({ angle: (i / this.PETALS) * Math.PI * 2, color: 0, filled: false });
     }
 
-    /* color palette at the bottom */
-    this.paletteSpots = [];
-    for (let i = 0; i < this.palette.length; i++) {
-      this.paletteSpots.push({
-        x: w * (0.15 + (i / (this.palette.length - 1)) * 0.7),
-        y: h * 0.88,
-        color: this.palette[i],
-      });
+    /* primary palette (row 1) */
+    this.primarySpots = [];
+    for (let i = 0; i < this.primaries.length; i++) {
+      this.primarySpots.push({ x: w * (0.25 + i * 0.25), y: h * 0.78, color: this.primaries[i] });
+    }
+    /* mixed-color slots (row 2), revealed as the child mixes */
+    const mixed: MixedColor[] = ['orange', 'green', 'purple'];
+    this.mixedSpots = [];
+    for (let i = 0; i < mixed.length; i++) {
+      this.mixedSpots.push({ x: w * (0.25 + i * 0.25), y: h * 0.9, color: mixed[i] });
     }
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTap(p));
@@ -79,16 +83,48 @@ export class BeePaintScene extends Phaser.Scene {
     return { x: this.scale.width / 2, y: this.scale.height * 0.42 };
   }
 
+  private colorNameHe(c: MixedColor): string {
+    const names: Record<MixedColor, string> = {
+      red: 'אָדֹם', yellow: 'צָהֹב', blue: 'כָּחֹל',
+      orange: 'כָּתֹם', green: 'יָרֹק', purple: 'סָגֹל',
+    };
+    return names[c];
+  }
+
   private onTap(p: Phaser.Input.Pointer): void {
     if (this.done) return;
-    const w = this.scale.width, h = this.scale.height;
 
-    /* tap palette -> pick color */
-    for (const spot of this.paletteSpots) {
-      if (Math.hypot(p.x - spot.x, p.y - spot.y) < 30) {
-        this.selectedColor = spot.color;
+    /* tap an unlocked mixed color -> select it */
+    for (const spot of this.mixedSpots) {
+      if (this.mixedUnlocked.includes(spot.color) && Math.hypot(p.x - spot.x, p.y - spot.y) < 30) {
+        this.selectedColor = colorHex(spot.color);
+        this.mixPick = null;
         this.burst.emit(sparkleBurst(spot.x, spot.y));
-        this.msgText.setText('צֶבַע יָפֶה! עַכְשָׁיו בּוֹא נְמַלֵּא עָלֶה');
+        this.msgText.setText('צֶבַע מְעֹרָב! בּוֹא נְמַלֵּא עָלֶה');
+        return;
+      }
+    }
+
+    /* tap a primary -> select, or mix with the previous pick */
+    for (const spot of this.primarySpots) {
+      if (Math.hypot(p.x - spot.x, p.y - spot.y) < 30) {
+        this.burst.emit(sparkleBurst(spot.x, spot.y));
+        if (this.mixPick === null) {
+          this.mixPick = spot.color;
+          this.selectedColor = colorHex(spot.color);
+          this.msgText.setText('בּוֹא נְעַרְבֵּב! בַּחֲרוּ עוֹד צֶבַע, אוֹ צַיְּרוּ עָלֶה');
+        } else if (this.mixPick === spot.color) {
+          this.mixPick = null;
+          this.selectedColor = colorHex(spot.color);
+          this.msgText.setText('צֶבַע יָפֶה! בּוֹא נְמַלֵּא עָלֶה');
+        } else {
+          const result = mixPrimaries(this.mixPick, spot.color);
+          this.mixPick = null;
+          this.selectedColor = colorHex(result);
+          if (!this.mixedUnlocked.includes(result)) this.mixedUnlocked.push(result);
+          this.burst.emit(bloomBurst(spot.x, spot.y - 30));
+          this.msgText.setText('וָאו! יָצַרְנוּ ' + this.colorNameHe(result) + '!');
+        }
         return;
       }
     }
@@ -101,7 +137,6 @@ export class BeePaintScene extends Phaser.Scene {
       if (!petal.filled) {
         petal.filled = true;
         petal.color = this.selectedColor;
-        /* bloom effect at the petal position */
         const px = c.x + Math.cos(petal.angle) * 55;
         const py = c.y + Math.sin(petal.angle) * 55;
         this.burst.emit(bloomBurst(px, py));
@@ -129,7 +164,7 @@ export class BeePaintScene extends Phaser.Scene {
       this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַפֶּרַח פָּרַח!');
       this.burst.emit(confettiBurst(c.x, c.y));
 
-            recordZoneFinish('creativity-meadow');
+      recordZoneFinish('creativity-meadow');
 
       this.time.delayedCall(2200, () => this.scene.start('portal'));
     }
@@ -147,7 +182,6 @@ export class BeePaintScene extends Phaser.Scene {
   private drawFlower(t: number): void {
     const g = this.flowerG;
     const c = this.flowerCenter();
-    g.clear();
 
     /* stem */
     g.lineStyle(5, 0x4caf6e, 1);
@@ -185,33 +219,53 @@ export class BeePaintScene extends Phaser.Scene {
     const bx = c.x + Math.cos(this.beeAngle) * 110;
     const by = c.y + Math.sin(this.beeAngle) * 80 + Math.sin(t * 3) * 6;
 
-    /* wings */
     const flap = Math.sin(t * 18) * 4;
     g.fillStyle(0xffffff, 0.5);
     g.fillEllipse(bx - 4, by - 12 + flap, 12, 8);
     g.fillEllipse(bx + 4, by - 12 - flap, 12, 8);
 
-    /* body */
     g.fillStyle(0xffd76a, 1);
     g.fillEllipse(bx, by, 20, 14);
-    /* stripes */
     g.fillStyle(0x0a0416, 0.8);
     g.fillRect(bx - 5, by - 7, 3, 14);
     g.fillRect(bx + 2, by - 7, 3, 14);
-    /* eye */
     g.fillStyle(0x0a0416, 1);
     g.fillCircle(bx + 7, by - 2, 2);
   }
 
   private drawPalette(): void {
     const g = this.flowerG;
-    for (const spot of this.paletteSpots) {
-      const isSel = spot.color === this.selectedColor;
-      g.fillStyle(spot.color, 1);
-      g.fillCircle(spot.x, spot.y, isSel ? 22 : 17);
-      if (isSel) {
-        g.lineStyle(3, 0xfff6ec, 0.9);
-        g.strokeCircle(spot.x, spot.y, 24);
+
+    /* primaries (row 1) */
+    for (const spot of this.primarySpots) {
+      const hex = colorHex(spot.color);
+      const isSel = hex === this.selectedColor && this.mixPick === null;
+      const isArmed = this.mixPick === spot.color;
+      g.fillStyle(hex, 1);
+      g.fillCircle(spot.x, spot.y, isSel || isArmed ? 22 : 17);
+      if (isSel) { g.lineStyle(3, 0xfff6ec, 0.9); g.strokeCircle(spot.x, spot.y, 25); }
+      if (isArmed) {
+        /* gentle pulsing ring shows this color is waiting to be mixed */
+        const glow = blendHex(hex, 0xffffff, 0.5);
+        g.lineStyle(3, glow, 0.9);
+        g.strokeCircle(spot.x, spot.y, 26);
+      }
+    }
+
+    /* mixed colors (row 2) - revealed once discovered */
+    for (const spot of this.mixedSpots) {
+      const unlocked = this.mixedUnlocked.includes(spot.color);
+      if (unlocked) {
+        const hex = colorHex(spot.color);
+        const isSel = hex === this.selectedColor;
+        g.fillStyle(hex, 1);
+        g.fillCircle(spot.x, spot.y, isSel ? 20 : 15);
+        if (isSel) { g.lineStyle(3, 0xfff6ec, 0.9); g.strokeCircle(spot.x, spot.y, 23); }
+      } else {
+        g.lineStyle(2, 0xfff6ec, 0.25);
+        g.strokeCircle(spot.x, spot.y, 15);
+        g.fillStyle(0xfff6ec, 0.25);
+        g.fillCircle(spot.x, spot.y, 3);
       }
     }
   }
