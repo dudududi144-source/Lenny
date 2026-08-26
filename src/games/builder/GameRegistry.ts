@@ -104,6 +104,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'match-kites-2',
+    kind: 'match-shadow',
+    zone: 'space-sky',
+    category: 'spatial',
+    skills: ['spatial.matching', 'spatial.memory'],
+    narrative: {
+      intro: ['עַכְשָׁיו יֵשׁ יוֹתֵר עִפְעוֹפִים בַּשָּׁמַיִם!', 'חַבְּרוּ כָּל אֶחָד לַצֵּל שֶׁלּוֹ.'],
+      win: 'כָּל הָעִפְעוֹפִים מָצְאוּ אֶת הַצֵּל! מַדְהִים!',
+      encourage: 'תִּסְתַּכְּלוּ בַּצֶּבַע שֶׁל הַצֵּל.',
+    },
+    params: { itemCount: 6 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'find-letter-1',
     kind: 'letter-find',
     zone: 'words-valley',
