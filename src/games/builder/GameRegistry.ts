@@ -209,6 +209,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'drum-beat-2',
+    kind: 'rhythm-tap',
+    zone: 'rhythm-square',
+    category: 'rhythm',
+    skills: ['rhythm.timing', 'rhythm.sequence'],
+    narrative: {
+      intro: ['הַתֹּף רוֹצֶה עוֹד קֶצֶב!', 'בּוֹא נְתַפְתֵּף יַחַד לְקֶצֶב הָאָרֹךְ.'],
+      win: 'וָאו! הַתֹּף מְתַפְתֵּף בְּקֶצֶב מֻשְׁלָם!',
+      encourage: 'תִּשְׁמְעוּ אֶת הַקֶּצֶב.',
+    },
+    params: { rounds: 12, speed: 78 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'breath-lanterns-1',
     kind: 'breath-guide',
     zone: 'breath-pool',
