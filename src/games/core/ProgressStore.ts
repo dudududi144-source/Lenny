@@ -16,6 +16,7 @@
 
 import { ZONES as GARDEN_ZONES } from '../../data/garden';
 import { PlayerModel } from './PlayerModel';
+import { LearningSignals } from './LearningSignals';
 
 export interface ZoneProg { finished: number; unlocked: boolean; }
 export interface GardenData {
@@ -151,6 +152,10 @@ export function recordZoneFinish(zone: string, seconds: number = 20): string[] {
   /* feed the cognitive profile so the ParentLens sees EVERY zone,
      not just the ones that wire PlayerModel manually */
   try { new PlayerModel().recordRound(zone, true, seconds); } catch { /* noop */ }
+
+  /* log a learning signal so the ParentLens sees growth from EVERY game,
+     not only the scenes that wire LearningSignals manually */
+  try { new LearningSignals().attempt(zone, true); } catch { /* noop */ }
 
   /* remember freshly-unlocked zones so the garden can celebrate them */
   if (newlyUnlocked.length > 0) {
