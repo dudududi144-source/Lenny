@@ -65,7 +65,7 @@ export class PlayScene extends Phaser.Scene {
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (this.state === 'menu') { this.startGame(); return; }
       if (this.state === 'over') { this.showMenu(); return; }
-      this.inputDir = p.x < w / 2 ? -1 : 1;
+      this.inputDir = p.x < this.scale.width / 2 ? -1 : 1;
     });
     this.input.on('pointerup', () => { this.inputDir = 0; });
 
@@ -147,8 +147,8 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  update(time: number): void {
-    const dt = Math.min(this.game.loop.delta / 1000, 0.033);
+  update(time: number, delta: number): void {
+    const dt = Math.min(delta / 1000, 0.033);
     const w = this.scale.width, h = this.scale.height;
 
     if (this.state === 'play') this.updatePlay(dt, w, h);
@@ -350,6 +350,6 @@ export class PlayScene extends Phaser.Scene {
     /* count any run with at least one star so the journey never stalls
        for young players (3-star gate previously blocked the whole chain) */
     if (this.starCount < 1) return;
-recordZoneFinish('light-path');
+    recordZoneFinish('light-path');
   }
 }
