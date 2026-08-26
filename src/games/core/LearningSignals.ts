@@ -40,11 +40,34 @@ export interface SessionSummary {
   masteredSkills: string[];
 }
 
+const SIG_KEY = 'lenny-signals-v1';
+
 export class LearningSignals {
   private events: LearningEvent[] = [];
   private correctSkills: Record<string, number> = {};
   private readonly MASTERY_AFTER = 3;
   private readonly CAP = 400;
+
+  constructor() {
+    this.load();
+  }
+
+  private load(): void {
+    try {
+      const raw = localStorage.getItem(SIG_KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s && Array.isArray(s.events)) this.events = s.events;
+        if (s && s.correctSkills) this.correctSkills = s.correctSkills;
+      }
+    } catch { /* fresh */ }
+  }
+
+  private save(): void {
+    try {
+      localStorage.setItem(SIG_KEY, JSON.stringify({ events: this.events, correctSkills: this.correctSkills }));
+    } catch { /* noop */ }
+  }
 
   /** Log an answer attempt. */
   attempt(skill: string, correct: boolean, reactionMs?: number): void {
@@ -112,5 +135,6 @@ export class LearningSignals {
   private push(e: LearningEvent): void {
     this.events.push(e);
     if (this.events.length > this.CAP) this.events.shift();
+    this.save();
   }
 }
