@@ -23,6 +23,7 @@ export class EmotionFaceScene extends Phaser.Scene {
   private found = 0;
   private readonly TARGET = 5;
   private done = false;
+  private lock = false;
 
   private readonly LABELS: Record<Emotion, string> = {
     happy: 'שָׂמֵחַ',
@@ -114,7 +115,7 @@ export class EmotionFaceScene extends Phaser.Scene {
   }
 
   private onTap(p: Phaser.Input.Pointer): void {
-    if (this.done) return;
+    if (this.done || this.lock) return;
     const idx = this.hitTest(p.x, p.y);
     if (idx === null) return;
 
@@ -124,8 +125,10 @@ export class EmotionFaceScene extends Phaser.Scene {
       if (this.found >= this.TARGET) {
         this.win();
       } else {
+        this.lock = true;
         this.msgText.setText('כֵּן! הַצָּב מַרְגִּישׁ ' + this.LABELS[this.current]);
         this.time.delayedCall(700, () => {
+          this.lock = false;
           this.msgText.setText('מַה הַצָּב מַרְגִּישׁ עַכְשָׁו?');
           this.newRound(this.scale.width, this.scale.height);
         });
