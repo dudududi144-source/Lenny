@@ -18,6 +18,7 @@ import { BeePaintScene } from './scenes/BeePaintScene';
 import { DrumBeatScene } from './scenes/DrumBeatScene';
 import { LennyStoryScene } from './scenes/LennyStoryScene';
 import { OpenEndedScene } from './scenes/OpenEndedScene';
+import { SequenceEchoScene } from './scenes/SequenceEchoScene';
 import { ParentLensScene } from './scenes/ParentLensScene';
 import { LocalProgressStore, bloomLevel, isUnlocked, finishedCount, unlockRequirement, zoneName, consumeNewZones, GardenData } from './games/core/ProgressStore';
 import { GARDEN_TEXT } from './data/garden';
@@ -148,7 +149,7 @@ function boot(): void {
     scene: [
       PlayScene, MemoryPairsScene, GlowFishScene, AcornSortScene, KiteMatchScene,
       FindLetterScene, EmotionFaceScene, BeePaintScene, DrumBeatScene,
-      LennyStoryScene, OpenEndedScene, ParentLensScene, PortalExitScene,
+      LennyStoryScene, OpenEndedScene, SequenceEchoScene, ParentLensScene, PortalExitScene,
     ],
   });
 }
