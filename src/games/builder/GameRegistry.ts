@@ -224,6 +224,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'breath-lanterns-2',
+    kind: 'breath-guide',
+    zone: 'breath-pool',
+    category: 'breath',
+    skills: ['breath.regulation', 'attention.focus'],
+    narrative: {
+      intro: ['הַלַּיְלָה יֵשׁ יוֹתֵר פָּנָסִים לְהַדְלִיק!', 'נִשְׁמוּ לְאַט וְגַעוּ בְּכָל אֶחָד.'],
+      win: 'כָּל הַפָּנָסִים מְאִירִים! הַבְּרֵכָה זוֹהֶרֶת.',
+      encourage: 'נְשִׁימָה רַכָּה, בְּלִי לְהַקְשִׁיב.',
+    },
+    params: { itemCount: 5 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'open-create-1',
     kind: 'open-create',
     zone: 'creativity-meadow',
