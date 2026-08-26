@@ -7,6 +7,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { GameSpec } from '../games/builder/GameSpec';
 
 export class KiteMatchScene extends Phaser.Scene {
   private kiteG!: Phaser.GameObjects.Graphics;
@@ -16,12 +17,17 @@ export class KiteMatchScene extends Phaser.Scene {
   private shadowSpots: { x: number; y: number; color: number; matched: boolean }[] = [];
   private selectedKite: number | null = null;
   private matchedCount = 0;
-  private readonly TOTAL = 4;
+  private TOTAL = 4;
+  private spec: GameSpec | null = null;
   private done = false;
 
-  private readonly COLORS = [0xf2549a, 0x4dc9ff, 0xffd76a, 0x7dffb8];
+  private readonly COLORS = [0xf2549a, 0x4dc9ff, 0xffd76a, 0x7dffb8, 0xffa552, 0xb39ddb];
 
   constructor() { super('kite-match'); }
+
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
 
   preload(): void {
     showLoader(this);
@@ -29,6 +35,7 @@ export class KiteMatchScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.TOTAL = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 6) : 4;
     const w = this.scale.width, h = this.scale.height;
 
     /* sky background */
@@ -48,28 +55,32 @@ export class KiteMatchScene extends Phaser.Scene {
   }
 
   private buildBoard(w: number, h: number): void {
+    const n = this.TOTAL;
+    const topY = h * 0.22;
+    const spanY = h * 0.56;
+    const yFor = (k: number) => topY + (n > 1 ? (k * spanY) / (n - 1) : 0);
     /* kites on the left */
     this.kiteSpots = [];
-    for (let i = 0; i < this.TOTAL; i++) {
+    for (let i = 0; i < n; i++) {
       this.kiteSpots.push({
         x: w * 0.25,
-        y: h * 0.25 + i * h * 0.16,
-        color: this.COLORS[i],
+        y: yFor(i),
+        color: this.COLORS[i % this.COLORS.length],
         matched: false,
       });
     }
     /* shadows on the right, shuffled order */
-    const order = [0, 1, 2, 3];
+    const order = Array.from({ length: n }, (_, i) => i);
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [order[i], order[j]] = [order[j], order[i]];
     }
     this.shadowSpots = [];
-    for (let i = 0; i < this.TOTAL; i++) {
+    for (let i = 0; i < n; i++) {
       this.shadowSpots.push({
         x: w * 0.75,
-        y: h * 0.25 + order[i] * h * 0.16,
-        color: this.COLORS[i],
+        y: yFor(order[i]),
+        color: this.COLORS[i % this.COLORS.length],
         matched: false,
       });
     }
