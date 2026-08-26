@@ -28,7 +28,8 @@ export type GameKind =
   | 'emotion-name'      /* name the feeling shown */
   | 'letter-find'       /* find a target letter */
   | 'breath-guide'      /* slow breathing with lights */
-  | 'open-create';      /* no right answer — pure creation */
+  | 'open-create'       /* no right answer — pure creation */
+  | 'sequence-echo';    /* watch a growing pattern, repeat it back (working memory) */
 
 export interface GameNarrative {
   /* Lenny's intro line(s) */
