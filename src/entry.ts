@@ -44,6 +44,7 @@ function loadGarden(): GardenData { return store.load(); }
 /* ---------- screens ---------- */
 const hero = () => document.getElementById('hero');
 const garden = () => document.getElementById('garden');
+const gameBackBtn = () => document.getElementById('gameBackBtn');
 
 function show(el: HTMLElement | null): void {
   if (!el) return;
@@ -128,6 +129,7 @@ function stopAllScenes(): void {
 function enterGame(sceneKey: string): void {
   boot();
   hide(garden());
+  show(gameBackBtn());
   let attempts = 0;
   const tryStart = () => {
     if (game && game.isRunning) { stopAllScenes(); game.scene.start(sceneKey); return; }
@@ -138,7 +140,7 @@ function enterGame(sceneKey: string): void {
 }
 
 /* ---------- wiring ---------- */
-(window as any).__lennyBackToGarden = () => { stopAllScenes(); buildGarden(); show(garden()); };
+(window as any).__lennyBackToGarden = () => { stopAllScenes(); buildGarden(); show(garden()); hide(gameBackBtn()); };
 document.getElementById('startBtn')?.addEventListener('click', () => {
   buildGarden();
   hide(hero());
@@ -152,6 +154,12 @@ document.getElementById('continueBtn')?.addEventListener('click', () => {
 document.getElementById('backBtn')?.addEventListener('click', () => {
   hide(garden());
   show(hero());
+});
+document.getElementById('gameBackBtn')?.addEventListener('click', () => {
+  stopAllScenes();
+  buildGarden();
+  show(garden());
+  hide(gameBackBtn());
 });
 document.getElementById('parentLink')?.addEventListener('click', (e) => {
   e.preventDefault();
