@@ -31,6 +31,7 @@ export interface ProgressStore {
 }
 
 const KEY = 'lenny-garden';
+const NEW_KEY = 'lenny-new-zones';
 export const DEFAULT_UNLOCKED = ['light-path', 'breath-pool'];
 
 export function freshGarden(): GardenData {
@@ -151,5 +152,28 @@ export function recordZoneFinish(zone: string, seconds: number = 20): string[] {
      not just the ones that wire PlayerModel manually */
   try { new PlayerModel().recordRound(zone, true, seconds); } catch { /* noop */ }
 
+  /* remember freshly-unlocked zones so the garden can celebrate them */
+  if (newlyUnlocked.length > 0) {
+    try {
+      const raw = localStorage.getItem(NEW_KEY);
+      const pending: string[] = raw ? JSON.parse(raw) : [];
+      for (const z of newlyUnlocked) if (!pending.includes(z)) pending.push(z);
+      localStorage.setItem(NEW_KEY, JSON.stringify(pending));
+    } catch { /* noop */ }
+  }
+
   return newlyUnlocked;
+}
+
+/* Read + clear the freshly-unlocked zones so the garden can celebrate them once. */
+export function consumeNewZones(): string[] {
+  try {
+    const raw = localStorage.getItem(NEW_KEY);
+    if (raw) {
+      const list = JSON.parse(raw) as string[];
+      localStorage.removeItem(NEW_KEY);
+      return Array.isArray(list) ? list : [];
+    }
+  } catch { /* noop */ }
+  return [];
 }
