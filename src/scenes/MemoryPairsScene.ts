@@ -11,6 +11,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { PlayerModel } from '../games/core/PlayerModel';
 import { LearningSignals } from '../games/core/LearningSignals';
@@ -51,6 +52,7 @@ export class MemoryPairsScene extends Phaser.Scene {
   constructor() { super('memory-pairs'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('butterfly', 'art/butterfly.png');
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
