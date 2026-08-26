@@ -13,7 +13,6 @@ import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
-import { PlayerModel } from '../games/core/PlayerModel';
 import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 import { CardFlipSystem } from '../games/fx/CardFlipSystem';
@@ -30,7 +29,6 @@ interface Card {
 export class MemoryPairsScene extends Phaser.Scene {
   /* cognitive core engines */
   private dda = new AdaptiveDifficulty('memory-hill');
-  private pm = new PlayerModel();
   private signals = new LearningSignals();
   private roundStart = 0;
   private mistakes = 0;
@@ -201,11 +199,10 @@ export class MemoryPairsScene extends Phaser.Scene {
     this.done = true;
     const secs = (this.time.now - this.roundStart) / 1000;
     this.dda.outcome(true, Math.max(0.3, 1 - this.mistakes * 0.2));
-    this.pm.recordRound('memory-hill', true, secs);
     this.signals.attempt('memory.pairs', true);
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַפַּרְפַּר נִזְכַּר בַּכֹּל!']);
 
-        recordZoneFinish('memory-hill');
+    recordZoneFinish('memory-hill', secs);
 
     this.time.delayedCall(2600, () => this.scene.start('portal'));
   }

@@ -32,6 +32,7 @@ export class OpenEndedScene extends Phaser.Scene {
   private color = 0xf2549a;
   private brush = 6;
   private strokes = 0;
+  private done = false;
   private palette: number[] = [0xf2549a, 0xffd76a, 0x4dc9ff, 0x7dffb8, 0x7c4dff, 0xffa552, 0xfff6ec];
   private sizes: number[] = [4, 8, 14];
   private praises: string[] = [
@@ -52,6 +53,7 @@ export class OpenEndedScene extends Phaser.Scene {
   create(): void {
     this.drawing = false;
     this.strokes = 0;
+    this.done = false;
     const w = this.scale.width, h = this.scale.height;
 
     /* soft meadow background */
@@ -83,6 +85,7 @@ export class OpenEndedScene extends Phaser.Scene {
   }
 
   private onDown(p: Phaser.Input.Pointer): void {
+    if (this.done) return;
     /* check palette taps first */
     if (this.handlePaletteTap(p)) return;
     /* check done button */
@@ -151,8 +154,8 @@ export class OpenEndedScene extends Phaser.Scene {
 
   private handleDoneTap(p: Phaser.Input.Pointer): boolean {
     const w = this.scale.width, h = this.scale.height;
-    const bx = w * 0.5, by = h * 0.06;
-    if (Math.hypot(p.x - bx, p.y - by) < 30) {
+    const bx = w * 0.5, by = h * 0.03 + 13;
+    if (Math.hypot(p.x - bx, p.y - by) < 34) {
       this.finish();
       return true;
     }
@@ -192,6 +195,8 @@ export class OpenEndedScene extends Phaser.Scene {
   }
 
   private finish(): void {
+    if (this.done) return;
+    this.done = true;
     const w = this.scale.width, h = this.scale.height;
     this.burst.emit(confettiBurst(w / 2, h / 2));
     this.dialogue.say([
