@@ -45,6 +45,10 @@ export class BeePaintScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.done = false;
+    this.petals = [];
+    this.mixedUnlocked = [];
+    this.mixPick = null;
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated background */
