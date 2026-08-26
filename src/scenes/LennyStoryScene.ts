@@ -18,6 +18,7 @@ import { showLoader } from '../games/fx/Loader';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
+import { GameSpec } from '../games/builder/GameSpec';
 
 interface Lantern {
   x: number;
@@ -33,11 +34,16 @@ export class LennyStoryScene extends Phaser.Scene {
   private burst!: ParticleBurst;
   private lanterns: Lantern[] = [];
   private litCount = 0;
-  private readonly TOTAL = 3;
+  private TOTAL = 3;
+  private spec: GameSpec | null = null;
   private done = false;
   private lastTap = 0;
 
   constructor() { super('lenny-story'); }
+
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
 
   preload(): void {
     showLoader(this);
@@ -45,6 +51,7 @@ export class LennyStoryScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.TOTAL = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 5) : 3;
     const w = this.scale.width, h = this.scale.height;
 
     /* calm night pool background */
@@ -59,7 +66,7 @@ export class LennyStoryScene extends Phaser.Scene {
     /* three lanterns floating over the pool */
     for (let i = 0; i < this.TOTAL; i++) {
       this.lanterns.push({
-        x: w * (0.25 + i * 0.25),
+        x: w * ((i + 1) / (this.TOTAL + 1)),
         y: h * 0.45,
         lit: false,
         glow: 0,
