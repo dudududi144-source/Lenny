@@ -27,18 +27,12 @@ test('first game (light-path) boots AND actually runs without errors', async ({ 
   await canvas.waitFor({ timeout: 10000 });
   await expect(canvas).toBeVisible();
 
-  /* tap the canvas to start the run (menu -> play), then let it simulate a bit */
+  /* tap to start the run (menu -> play), then let the game simulate a few frames */
   const box = await canvas.boundingBox();
   if (box) {
-    await page.mouse.click(box.x + box.width / 2, box.height / 2);
-    await page.waitForTimeout(300);
-    /* steer left/right like a player holding a side */
-    await page.mouse.move(box.x + box.width * 0.2, box.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(700);
-    await page.mouse.up();
+    await page.touchscreen.tap(box.x + box.width / 2, box.height / 2);
+    await page.waitForTimeout(900);
   }
-  await page.waitForTimeout(300);
 
   expect(pageErrors, 'game threw a runtime error: ' + pageErrors.join(' | ')).toHaveLength(0);
 });
