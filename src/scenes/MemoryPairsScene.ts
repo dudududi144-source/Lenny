@@ -44,7 +44,7 @@ export class MemoryPairsScene extends Phaser.Scene {
   private firstPick: number | null = null;
   private lock = false;
   private foundPairs = 0;
-  private readonly TOTAL_PAIRS = 6;
+  private totalPairs = 6;
   private done = false;
 
   private readonly ICONS = ['🌸', '🦋', '🐟', '🌳', '☀️', '💗'];
@@ -74,10 +74,20 @@ export class MemoryPairsScene extends Phaser.Scene {
     this.cardG = this.add.graphics();
     this.burst = new ParticleBurst(this);
 
-    /* card grid: 4 cols x 3 rows in the middle area */
+    /* adaptive difficulty: DDA tier picks how many pairs to show */
+    const layouts: { pairs: number; rows: number; cols: number }[] = [
+      { pairs: 3, rows: 2, cols: 3 },
+      { pairs: 4, rows: 2, cols: 4 },
+      { pairs: 6, rows: 3, cols: 4 },
+      { pairs: 6, rows: 3, cols: 4 },
+    ];
+    const layout = layouts[this.dda.tier()];
+    this.totalPairs = layout.pairs;
+
+    /* card grid sized to the adaptive pair count */
     this.grid = new CardFlipSystem(this, {
-      rows: 3,
-      cols: 4,
+      rows: layout.rows,
+      cols: layout.cols,
       areaX: w * 0.08,
       areaY: h * 0.22,
       areaW: w * 0.84,
@@ -87,7 +97,7 @@ export class MemoryPairsScene extends Phaser.Scene {
 
     /* progress ring top-right */
     this.ring = new ProgressRing(this, { x: w - 40, y: 55, radius: 18 });
-    this.ring.setCounts(0, this.TOTAL_PAIRS);
+    this.ring.setCounts(0, this.totalPairs);
 
     /* Lenny introduces the game */
     this.dialogue = new DialogueBox(this, { x: w / 2, y: h * 0.88, width: w * 0.85 });
@@ -98,7 +108,7 @@ export class MemoryPairsScene extends Phaser.Scene {
 
     /* build shuffled card data */
     const ids: number[] = [];
-    for (let i = 0; i < this.TOTAL_PAIRS; i++) ids.push(i, i);
+    for (let i = 0; i < this.totalPairs; i++) ids.push(i, i);
     for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
@@ -132,11 +142,11 @@ export class MemoryPairsScene extends Phaser.Scene {
           this.cards[first].matched = true;
           card.matched = true;
           this.foundPairs++;
-          this.ring.setCounts(this.foundPairs, this.TOTAL_PAIRS);
+          this.ring.setCounts(this.foundPairs, this.totalPairs);
           const slot = this.grid.slots[idx];
           this.burst.emit(bloomBurst(slot.x, slot.y));
           this.lock = false;
-          if (this.foundPairs >= this.TOTAL_PAIRS) this.win();
+          if (this.foundPairs >= this.totalPairs) this.win();
         });
       } else {
         this.mistakes++;
