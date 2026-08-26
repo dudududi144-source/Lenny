@@ -104,7 +104,7 @@ function buildGarden(): void {
       const specs = gamesInZone(z.id);
       if (specs.length > 0) {
         const spec = specs[Math.min(done, specs.length - 1)];
-        enterGame(GameFactory.sceneKey(spec));
+        enterGame(GameFactory.sceneKey(spec), spec);
       } else {
         enterGame(z.scene);
       }
@@ -159,13 +159,13 @@ function stopAllScenes(): void {
   game.scene.scenes.forEach((s) => { if (s.scene.isActive()) s.scene.stop(); });
 }
 
-function enterGame(sceneKey: string): void {
+function enterGame(sceneKey: string, spec?: unknown): void {
   boot();
   hide(garden());
   show(gameBackBtn());
   let attempts = 0;
   const tryStart = () => {
-    if (game && game.isRunning) { stopAllScenes(); game.scene.start(sceneKey); return; }
+    if (game && game.isRunning) { stopAllScenes(); game.scene.start(sceneKey, spec ? { spec } : undefined); return; }
     if (++attempts < 75) setTimeout(tryStart, 80);
     else { const e = document.getElementById('errbar'); if (e) { e.style.display='block'; e.textContent='שגיאה: המשחק לא הצליח להיטען. רעננו את הדף.'; } show(garden()); }
   };
