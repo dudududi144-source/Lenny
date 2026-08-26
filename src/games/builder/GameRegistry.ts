@@ -59,6 +59,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'find-fish-2',
+    kind: 'find-target',
+    zone: 'attention-stream',
+    category: 'attention',
+    skills: ['attention.visual', 'attention.sustained'],
+    narrative: {
+      intro: ['עַכְשָׁיו יֵשׁ יוֹתֵר דָּגִים בַּנַּחַל!', 'מִי מֵהֶם זוֹהֵר?'],
+      win: 'מָצָאתָ אֶת כֻּלָּם! הַדָּגִים שְׂמֵחִים!',
+      encourage: 'תִּסְתַּכֵּל בְּרַכּוּת, הַזֹּהַר שָׁם.',
+    },
+    params: { itemCount: 7, speed: 1 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'sort-acorns-1',
     kind: 'sort-order',
     zone: 'thinking-forest',
