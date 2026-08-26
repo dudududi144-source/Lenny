@@ -48,6 +48,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.best = parseInt(localStorage.getItem('lenny_best') || '0', 10);
 
+    this.bgStars = [];
     for (let i = 0; i < 40; i++) {
       this.bgStars.push({
         x: Math.random() * w,
@@ -142,7 +143,7 @@ export class PlayScene extends Phaser.Scene {
     const hue = [200, 280, 330, 45][Math.floor(Math.random() * 4)];
     this.platforms.push({ x, y, w: this.PLAT_W, hue });
 
-    if (Math.random() < 0.22) {
+    if (Math.random() < 0.42) {
       this.stars.push({ x: x + this.PLAT_W / 2, y: y - 38, taken: false, rot: Math.random() * Math.PI });
     }
   }
@@ -187,7 +188,7 @@ export class PlayScene extends Phaser.Scene {
     for (const s of this.stars) {
       if (!s.taken) {
         const dx = this.px - s.x, dy = this.py - s.y;
-        if (dx * dx + dy * dy < 32 * 32) {
+        if (dx * dx + dy * dy < 44 * 44) {
           s.taken = true;
           this.starCount++;
           this.score += 50;
