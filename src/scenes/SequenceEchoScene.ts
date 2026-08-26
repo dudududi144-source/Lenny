@@ -50,6 +50,10 @@ export class SequenceEchoScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.round = 1;
+    this.state = 'idle';
+    this.sequence = [];
+    this.inputIndex = 0;
     this.totalRounds = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 3;
     const w = this.scale.width, h = this.scale.height;
 
