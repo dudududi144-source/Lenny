@@ -34,6 +34,7 @@ export class MemoryPairsScene extends Phaser.Scene {
   private signals = new LearningSignals();
   private roundStart = 0;
   private mistakes = 0;
+  private consecutiveMiss = 0;
   private spec: GameSpec | null = null;
 
   private grid!: CardFlipSystem;
@@ -146,6 +147,7 @@ export class MemoryPairsScene extends Phaser.Scene {
       const first = this.firstPick;
       this.firstPick = null;
       if (this.cards[first].pairId === card.pairId) {
+        this.consecutiveMiss = 0;
         this.lock = true;
         this.time.delayedCall(500, () => {
           this.cards[first].matched = true;
@@ -159,8 +161,13 @@ export class MemoryPairsScene extends Phaser.Scene {
         });
       } else {
         this.mistakes++;
+        this.consecutiveMiss++;
         this.signals.attempt('memory.pairs', false);
-        this.dialogue.say(['כִּמְעַט! נַסּוּ שׁוּב']);
+        const hint = this.dda.suggestHint(this.consecutiveMiss);
+        const hintText = (hint === 'clear' || hint === 'show')
+          ? 'נַסּוּ לִזְכֹּר אֵיפֹה הָיָה הַקֹּלֶף הָרִאשׁוֹן'
+          : 'כִּמְעַט! נַסּוּ שׁוּב';
+        this.dialogue.say([hintText]);
         this.lock = true;
         this.time.delayedCall(800, () => {
           this.grid.flipDown(first, () => this.hideIcon(first));
