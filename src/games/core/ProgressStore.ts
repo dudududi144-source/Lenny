@@ -15,6 +15,7 @@
  * ============================================================ */
 
 import { ZONES as GARDEN_ZONES } from '../../data/garden';
+import { PlayerModel } from './PlayerModel';
 
 export interface ZoneProg { finished: number; unlocked: boolean; }
 export interface GardenData {
@@ -124,7 +125,7 @@ export function recordFinish(data: GardenData, zone: string): GardenData {
  * newly-reachable zone, and saves. Returns newly-unlocked zone ids
  * so callers can celebrate.
  * ============================================================ */
-export function recordZoneFinish(zone: string): string[] {
+export function recordZoneFinish(zone: string, seconds: number = 20): string[] {
   const store = new LocalProgressStore();
   const before = store.load();
 
@@ -145,5 +146,10 @@ export function recordZoneFinish(zone: string): string[] {
     }
   }
   store.save(data);
+
+  /* feed the cognitive profile so the ParentLens sees EVERY zone,
+     not just the ones that wire PlayerModel manually */
+  try { new PlayerModel().recordRound(zone, true, seconds); } catch { /* noop */ }
+
   return newlyUnlocked;
 }
