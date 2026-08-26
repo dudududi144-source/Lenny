@@ -50,6 +50,8 @@ export class OpenEndedScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.drawing = false;
+    this.strokes = 0;
     const w = this.scale.width, h = this.scale.height;
 
     /* soft meadow background */
