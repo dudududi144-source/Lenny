@@ -10,6 +10,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst } from '../games/fx/ParticleBurst';
@@ -35,6 +36,7 @@ export class AcornSortScene extends Phaser.Scene {
   constructor() { super('acorn-sort'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
