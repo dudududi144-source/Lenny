@@ -93,6 +93,12 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
 .name-input{margin-top:14px;padding:10px 18px;border-radius:999px;border:1.5px solid rgba(255,214,106,.4);background:rgba(26,16,64,.6);color:#fff6ec;font-family:'Heebo',sans-serif;font-size:16px;text-align:center;outline:none;width:min(240px,70vw)}
 .name-input::placeholder{color:rgba(255,246,236,.5)}
 .name-input:focus{border-color:rgba(255,214,106,.8)}
+.toast{position:fixed;top:16%;left:50%;transform:translateX(-50%);z-index:40;background:rgba(42,26,74,.95);color:#ffd76a;font-family:'Heebo',sans-serif;font-size:18px;padding:14px 30px;border-radius:16px;border:2px solid rgba(255,214,106,.6);box-shadow:0 4px 24px rgba(0,0,0,.5);transition:opacity .4s,transform .4s;text-align:center;max-width:86vw}
+.toast.hidden{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(-12px)}
+.zone{position:relative}
+.new-badge{position:absolute;top:-9px;left:-9px;background:#f2549a;color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.45);z-index:2}
+.zone.fresh .node{animation:freshPulse 1.3s ease-in-out infinite}
+@keyframes freshPulse{0%,100%{filter:drop-shadow(0 0 0 rgba(255,214,106,0))}50%{filter:drop-shadow(0 0 11px rgba(255,214,106,.95))}}
 #gameBackBtn{position:fixed;top:14px;left:14px;z-index:12;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,214,106,.55);background:rgba(42,26,74,.88);color:#ffd76a;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .3s,transform .3s;box-shadow:0 2px 12px rgba(0,0,0,.4);font-family:'Heebo',sans-serif}
 #gameBackBtn.hidden{opacity:0;pointer-events:none;transform:scale(.7)}
 </style>
@@ -135,6 +141,7 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
   </div>
   <div id="game"></div>
   <button id="gameBackBtn" class="hidden" aria-label="חזרה לגן">✕</button>
+  <div id="toast" class="toast hidden" role="status"></div>
   <script type="module" src="/src/entry.ts"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 <script>window.addEventListener('error',function(e){var b=document.getElementById('errbar');if(b){b.style.display='block';b.textContent='שגיאה: '+(e.message||'')+' @ '+(e.filename||'').split('/').pop()+':'+(e.lineno||'');}});</script>
