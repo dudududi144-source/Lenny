@@ -119,6 +119,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'find-letter-2',
+    kind: 'letter-find',
+    zone: 'words-valley',
+    category: 'language',
+    skills: ['language.letter-recognition', 'language.scanning'],
+    narrative: {
+      intro: ['יֵשׁ עוֹד הַרְבֵּה אוֹתִיּוֹת לִמְצֹא!', 'בּוֹא נַמְשִׁיךְ!'],
+      win: 'הָאַרְנֶבֶת מָצְאָה אֶת כֻּלָּן! אַלּוּף!',
+      encourage: 'תִּסְתַּכֵּל בַּצּוּרָה שֶׁל הָאוֹת.',
+    },
+    params: { itemCount: 6, rounds: 7 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'emotion-turtle-1',
     kind: 'emotion-name',
     zone: 'feelings-garden',
