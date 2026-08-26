@@ -6,6 +6,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
 
 export class FindLetterScene extends Phaser.Scene {
   private msgText!: Phaser.GameObjects.Text;
@@ -136,6 +137,13 @@ export class FindLetterScene extends Phaser.Scene {
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!');
 
         recordZoneFinish('words-valley');
+
+    /* advance the literacy path so the ParentLens skill progress grows */
+    try {
+      const skills = new SkillGraph(LITERACY_GRAPH);
+      const next = skills.frontier();
+      if (next.length > 0) skills.acquire(next[0]);
+    } catch { /* noop */ }
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }
