@@ -11,6 +11,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { GameSpec } from '../games/builder/GameSpec';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
@@ -33,10 +34,16 @@ export class GlowFishScene extends Phaser.Scene {
   private fishes: Fish[] = [];
   private glowIdx = 0;
   private found = 0;
-  private readonly TARGET = 5;
+  private TARGET = 5;
+  private fishCount = 5;
+  private spec: GameSpec | null = null;
   private done = false;
 
   constructor() { super('glow-fish'); }
+
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
 
   preload(): void {
     showLoader(this);
@@ -45,6 +52,9 @@ export class GlowFishScene extends Phaser.Scene {
   }
 
   create(): void {
+    const itemCount = (this.spec && this.spec.params.itemCount) ? this.spec.params.itemCount : 5;
+    this.TARGET = itemCount;
+    this.fishCount = itemCount;
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated background */
@@ -66,10 +76,10 @@ export class GlowFishScene extends Phaser.Scene {
 
     /* Lenny introduces the game */
     this.dialogue = new DialogueBox(this, { x: w / 2, y: h * 0.9, width: w * 0.85 });
-    this.dialogue.say([
-      'הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִּינָה.',
-      'מִצְאוּ אֶת הַדָּג הַזּוֹהֵר!',
-    ]);
+    const intro = (this.spec && this.spec.narrative.intro.length > 0)
+      ? this.spec.narrative.intro
+      : ['הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִּינָה.', 'מִצְאוּ אֶת הַדָּג הַזּוֹהֵר!'];
+    this.dialogue.say(intro);
 
     this.spawnFishes(w, h);
     this.pickGlowing();
@@ -80,8 +90,9 @@ export class GlowFishScene extends Phaser.Scene {
   private spawnFishes(w: number, h: number): void {
     const colors = [0x4dc9ff, 0x7dffb8, 0xffa552, 0xff8bd4, 0xb39ddb];
     this.fishes = [];
-    for (let i = 0; i < 5; i++) {
-      const baseY = h * 0.28 + (i / 4) * h * 0.45;
+    const n = this.fishCount;
+    for (let i = 0; i < n; i++) {
+      const baseY = h * 0.28 + (i / Math.max(1, n - 1)) * h * 0.45;
       this.fishes.push({
         x: Math.random() * w,
         y: baseY,
