@@ -13,6 +13,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 import { RhythmEngine } from '../games/fx/RhythmEngine';
 import { ParticleBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 
@@ -37,6 +38,7 @@ export class DrumBeatScene extends Phaser.Scene {
   constructor() { super('drum-beat'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
