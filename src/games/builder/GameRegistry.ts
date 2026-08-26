@@ -89,6 +89,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'sort-acorns-2',
+    kind: 'sort-order',
+    zone: 'thinking-forest',
+    category: 'logic',
+    skills: ['logic.ordering', 'logic.size', 'motor.planning'],
+    narrative: {
+      intro: ['עַכְשָׁיו יֵשׁ יוֹתֵר בְּלוּטִים לְסַדֵּר!', 'גִּרְרוּ אוֹתָם מֵהַקָּטָן לַגָּדוֹל.'],
+      win: 'הַסְּנַאי סִדֵּר אֶת כֻּלָּם! אַלּוּף!',
+      encourage: 'אֵיזֶה בְּלוּט קָטָן יוֹתֵר?',
+    },
+    params: { itemCount: 5 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'match-kites-1',
     kind: 'match-shadow',
     zone: 'space-sky',
