@@ -56,6 +56,15 @@ export class ParentLensScene extends Phaser.Scene {
     const days = Math.max(1, Math.round((Date.now() - snap.firstSeen) / 86400000));
     line('יָמִים בַּגַּן: ' + days, 16, '#ffd76a');
 
+    /* favorite zone + solver tempo - honest signals from PlayerModel */
+    const fav = this.pm.interest();
+    if (fav) {
+      line('הָאֵזוֹר הָאַהוּב: ' + this.zoneLabel(fav), 15, '#4dc9ff');
+      const t = this.pm.tempo(fav);
+      const tempoLabel = t === 'fast' ? 'מָהִיר וְדַיָּק' : t === 'steady' ? 'יַצִּיב' : t === 'careful' ? 'זָהִיר וּמְדֻיָּק' : '';
+      if (tempoLabel) line('סְגְנוֹן פִּתְרוֹן: ' + tempoLabel, 14, '#fff6ec');
+    }
+
     /* strengths */
     if (strengths.length > 0) {
       line('חֳזָקוֹת:', 16, '#7dffb8');
