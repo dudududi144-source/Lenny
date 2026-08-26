@@ -90,6 +90,8 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
 .zone.shake{animation:shake .4s ease;}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 #errbar{position:fixed;left:0;right:0;bottom:0;z-index:99;display:none;background:#c0392b;color:#fff;font-size:13px;padding:8px 12px;font-family:'Heebo',sans-serif;direction:rtl;white-space:pre-wrap;}
+#gameBackBtn{position:fixed;top:14px;left:14px;z-index:12;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,214,106,.55);background:rgba(42,26,74,.88);color:#ffd76a;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .3s,transform .3s;box-shadow:0 2px 12px rgba(0,0,0,.4);font-family:'Heebo',sans-serif}
+#gameBackBtn.hidden{opacity:0;pointer-events:none;transform:scale(.7)}
 </style>
 </head>
 <body>
@@ -128,6 +130,7 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
     <div id="path"></div>
   </div>
   <div id="game"></div>
+  <button id="gameBackBtn" class="hidden" aria-label="חזרה לגן">✕</button>
   <script type="module" src="/src/entry.ts"></script>
 <script>window.addEventListener('error',function(e){var b=document.getElementById('errbar');if(b){b.style.display='block';b.textContent='שגיאה: '+(e.message||'')+' @ '+(e.filename||'').split('/').pop()+':'+(e.lineno||'');}});</script>
 </body>
