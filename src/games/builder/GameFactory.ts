@@ -38,6 +38,7 @@ const KIND_TO_SCENE: Record<GameKind, string> = {
   'rhythm-tap': 'drum-beat',
   'breath-guide': 'lenny-story',
   'open-create': 'open-create', /* dedicated divergent-thinking scene */
+  'sequence-echo': 'sequence-echo', /* working-memory pattern recall */
 };
 
 export class GameFactory {
