@@ -44,6 +44,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'sequence-echo-1',
+    kind: 'sequence-echo',
+    zone: 'memory-hill',
+    category: 'memory',
+    skills: ['memory.working', 'memory.sequence', 'attention.focus'],
+    narrative: {
+      intro: ['הַגּוּפִים הַזּוֹהֲרִים יָאִירוּ בְּסֵדֶר קָסוּם.', 'הִסְתַּכְּלוּ, אַחַר כָּךְ חַזְרוּ עַל הַסֵּדֶר!'],
+      win: 'זָכַרְתָּ אֶת כָּל הַסְּדָרִים! הַגַּן זוֹרֵחַ בִּזְכוּתְךָ!',
+      encourage: 'כִּמְעַט! בּוֹאוּ נִרְאֶה אֶת הַסֵּדֶר עוֹד פַּעַם.',
+    },
+    params: { rounds: 3 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'find-fish-1',
     kind: 'find-target',
     zone: 'attention-stream',
