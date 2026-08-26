@@ -51,6 +51,10 @@ export class LennyStoryScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.litCount = 0;
+    this.done = false;
+    this.lastTap = 0;
+    this.lanterns = [];
     this.TOTAL = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 5) : 3;
     const w = this.scale.width, h = this.scale.height;
 
