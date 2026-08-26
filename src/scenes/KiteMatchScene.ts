@@ -142,7 +142,7 @@ export class KiteMatchScene extends Phaser.Scene {
 
     /* shadows */
     for (const s of this.shadowSpots) {
-      this.drawShadow(g, s.x, s.y, s.matched);
+      this.drawShadow(g, s.x, s.y, s.color, s.matched);
     }
   }
 
@@ -174,15 +174,18 @@ export class KiteMatchScene extends Phaser.Scene {
     g.strokePath();
   }
 
-  private drawShadow(g: Phaser.GameObjects.Graphics, x: number, y: number, matched: boolean): void {
-    const alpha = matched ? 0.15 : 0.5;
-    g.fillStyle(0x0a0416, alpha);
-    g.fillPoints([
+  private drawShadow(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number, matched: boolean): void {
+    const pts = [
       { x, y: y - 26 },
       { x: x + 20, y },
       { x, y: y + 26 },
       { x: x - 20, y },
-    ], true);
+    ];
+    /* tinted silhouette so the child can actually match by color (was all-identical black = pure guessing) */
+    g.fillStyle(color, matched ? 0.22 : 0.55);
+    g.fillPoints(pts, true);
+    g.fillStyle(0x0a0416, matched ? 0.12 : 0.35);
+    g.fillPoints(pts, true);
     if (matched) {
       g.lineStyle(2, 0x7dffb8, 0.8);
       g.strokePoints([
