@@ -139,6 +139,9 @@ export class MemoryPairsScene extends Phaser.Scene {
           if (this.foundPairs >= this.TOTAL_PAIRS) this.win();
         });
       } else {
+        this.mistakes++;
+        this.signals.attempt('memory.pairs', false);
+        this.dialogue.say(['כִּמְעַט! נַסּוּ שׁוּב']);
         this.lock = true;
         this.time.delayedCall(800, () => {
           this.grid.flipDown(first, () => this.hideIcon(first));
