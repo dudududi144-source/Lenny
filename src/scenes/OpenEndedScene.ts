@@ -16,6 +16,7 @@
 
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
+import { showLoader } from '../games/fx/Loader';
 import { ParticleBurst, confettiBurst } from '../games/fx/ParticleBurst';
 import { DialogueBox } from '../games/fx/DialogueBox';
 
@@ -44,6 +45,7 @@ export class OpenEndedScene extends Phaser.Scene {
   constructor() { super('open-create'); }
 
   preload(): void {
+    showLoader(this);
     this.load.image('garden-bg', 'art/garden-bg.png');
   }
 
