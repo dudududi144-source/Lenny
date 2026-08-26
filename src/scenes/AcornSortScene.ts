@@ -1,11 +1,13 @@
 /* ============================================================
- * AcornSortScene — upgraded to use the reusable fx library.
+ * AcornSortScene — a drag-and-drop sorting game.
  * Lives in Thinking Forest (zone: thinking-forest).
  *
- * v2 changes:
- *   - ProgressRing shows acorns sorted this round
- *   - DialogueBox gives Lenny a warm voice
- *   - ParticleBurst celebrates each correct acorn
+ * v3 changes:
+ *   - Now a REAL drag-and-drop game on top of DragDropSystem
+ *     (was tap-to-select). Dragging exercises motor planning and
+ *     makes the "small -> large" ordering tangible.
+ *   - Drop targets show a faint size hint so the order is readable.
+ *   - Failed drops snap back home with a gentle tween.
  * ============================================================ */
 
 import Phaser from 'phaser';
@@ -14,21 +16,15 @@ import { showLoader } from '../games/fx/Loader';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst } from '../games/fx/ParticleBurst';
-
-interface Acorn {
-  x: number;
-  y: number;
-  size: number;
-  collected: boolean;
-}
+import { DragDropSystem } from '../games/fx/DragDropSystem';
 
 export class AcornSortScene extends Phaser.Scene {
   private acornG!: Phaser.GameObjects.Graphics;
   private ring!: ProgressRing;
   private dialogue!: DialogueBox;
   private burst!: ParticleBurst;
-  private acorns: Acorn[] = [];
-  private nextSize = 1;
+  private drag!: DragDropSystem;
+  private placedCount = 0;
   private round = 1;
   private readonly ROUNDS = 3;
   private done = false;
@@ -52,74 +48,69 @@ export class AcornSortScene extends Phaser.Scene {
 
     /* progress ring top-right */
     this.ring = new ProgressRing(this, { x: w - 40, y: 55, radius: 18 });
-    this.ring.setCounts(0, 4);
 
     /* Lenny introduces the game */
     this.dialogue = new DialogueBox(this, { x: w / 2, y: h * 0.9, width: w * 0.85 });
     this.dialogue.say([
       'הַסְּנַאי צָרִיךְ לְסַדֵּר אֶת הַבְּלוּטִים.',
-      'בּוֹא נְסַדֵּר מֵהַקָּטָן לַגָּדוֹל!',
+      'גִּרְרוּ כָּל בְּלוּט לָעִגוּל שֶׁבַּגֹּדֶל שֶׁלּוֹ!',
     ]);
 
     this.spawnRound(w, h);
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.onTap(p));
+
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (this.done) return;
+      this.dialogue.skip();
+      this.drag.pointerDown(p.x, p.y);
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.drag.pointerMove(p.x, p.y));
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => this.drag.pointerUp(p.x, p.y));
   }
 
   private spawnRound(w: number, h: number): void {
-    this.acorns = [];
-    this.nextSize = 1;
+    this.placedCount = 0;
     this.ring.setCounts(0, 4);
-    const spots = [
-      { x: w * 0.25, y: h * 0.35 },
-      { x: w * 0.75, y: h * 0.35 },
-      { x: w * 0.25, y: h * 0.6 },
-      { x: w * 0.75, y: h * 0.6 },
-    ];
-    for (let i = spots.length - 1; i > 0; i--) {
+
+    this.drag = new DragDropSystem(this, {
+      isValidDrop: (itemId: string, targetId: string) =>
+        itemId.split('-')[1] === targetId.split('-')[1],
+      onDrop: (itemId: string) => this.onCorrectDrop(itemId),
+      onReject: () => this.dialogue.say(['נַסּוּ שׁוּב — אֵיזֶה עִגוּל מַתְאִים?']),
+    });
+
+    /* scatter the 4 acorns (shuffled) across the upper area */
+    const xs = [0.18, 0.4, 0.62, 0.84];
+    for (let i = xs.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [spots[i], spots[j]] = [spots[j], spots[i]];
+      [xs[i], xs[j]] = [xs[j], xs[i]];
     }
     for (let s = 1; s <= 4; s++) {
-      this.acorns.push({ x: spots[s - 1].x, y: spots[s - 1].y, size: s, collected: false });
+      this.drag.addItem('acorn-' + s, w * xs[s - 1], h * 0.28);
+    }
+
+    /* drop circles along the bottom, left -> right = small -> large */
+    for (let n = 1; n <= 4; n++) {
+      this.drag.addTarget('slot-' + n, w * (0.14 + (n - 1) * 0.24), h * 0.66, 44);
     }
   }
 
-  private onTap(p: Phaser.Input.Pointer): void {
-    if (this.done) return;
-    this.dialogue.skip();
-    const idx = this.hitTest(p.x, p.y);
-    if (idx === null) return;
-    const a = this.acorns[idx];
-    if (a.collected) return;
+  private onCorrectDrop(itemId: string): void {
+    this.placedCount++;
+    const it = this.drag.items.find((i) => i.id === itemId);
+    if (it) this.burst.emit(sparkleBurst(it.x, it.y));
+    this.ring.setCounts(this.placedCount, 4);
 
-    if (a.size === this.nextSize) {
-      a.collected = true;
-      this.nextSize++;
-      this.ring.setCounts(this.nextSize - 1, 4);
-      this.burst.emit(sparkleBurst(a.x, a.y));
-      if (this.nextSize > 4) {
-        if (this.round >= this.ROUNDS) {
-          this.win();
-        } else {
-          this.round++;
-          this.dialogue.say(['וָאו! עוֹד סִבּוּב!']);
-          this.time.delayedCall(800, () => this.spawnRound(this.scale.width, this.scale.height));
-        }
+    if (this.placedCount >= 4) {
+      if (this.round >= this.ROUNDS) {
+        this.win();
       } else {
-        this.dialogue.say(['כָּל הַכָּבוֹד! מַה הַבָּא?']);
+        this.round++;
+        this.dialogue.say(['וָאו! עוֹד סִבּוּב!']);
+        this.time.delayedCall(800, () => this.spawnRound(this.scale.width, this.scale.height));
       }
     } else {
-      this.dialogue.say(['נַסּוּ אֶת הַקָּטָן יוֹתֵר']);
+      this.dialogue.say(['כָּל הַכָּבוֹד! מַה הַבָּא?']);
     }
-  }
-
-  private hitTest(px: number, py: number): number | null {
-    for (let i = 0; i < this.acorns.length; i++) {
-      const a = this.acorns[i];
-      if (a.collected) continue;
-      if (Math.hypot(px - a.x, py - a.y) < 36) return i;
-    }
-    return null;
   }
 
   update(_time: number, delta: number): void {
@@ -130,39 +121,30 @@ export class AcornSortScene extends Phaser.Scene {
 
     const g = this.acornG;
     g.clear();
-    const w = this.scale.width, h = this.scale.height;
 
-    /* basket */
-    g.fillStyle(0x8d5a3b, 0.9);
-    g.fillRoundedRect(w / 2 - 60, h * 0.82, 120, 44, 10);
-    g.lineStyle(2, 0xfff6ec, 0.3);
-    g.strokeRoundedRect(w / 2 - 60, h * 0.82, 120, 44, 10);
-
-    /* collected acorns in basket */
-    let placed = 0;
-    for (const a of this.acorns) {
-      if (a.collected) {
-        const bx = w / 2 - 40 + placed * 26;
-        const by = h * 0.82 + 22;
-        this.drawAcorn(g, bx, by, a.size * 3);
-        placed++;
-      }
+    /* drop circles with a faint size hint */
+    for (const t of this.drag.targets) {
+      const n = parseInt(t.id.split('-')[1], 10);
+      const active = this.drag.activeDrag() !== null;
+      g.lineStyle(2.5, t.occupied ? 0x7dffb8 : 0xfff6ec, t.occupied ? 0.8 : (active ? 0.6 : 0.35));
+      g.strokeCircle(t.x, t.y, t.radius);
+      if (!t.occupied) this.drawAcorn(g, t.x, t.y, n * 3, 0.22);
     }
 
-    /* remaining acorns */
-    for (const a of this.acorns) {
-      if (!a.collected) {
-        this.drawAcorn(g, a.x, a.y, a.size * 6);
-      }
+    /* acorns (dragging one drawn a bit bigger for feedback) */
+    for (const it of this.drag.items) {
+      const size = parseInt(it.id.split('-')[1], 10);
+      const dragging = this.drag.activeDrag() === it.id;
+      this.drawAcorn(g, it.x, it.y, size * (dragging ? 7 : 6), 1);
     }
   }
 
-  private drawAcorn(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
-    g.fillStyle(0xc8873a, 1);
+  private drawAcorn(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, alpha: number): void {
+    g.fillStyle(0xc8873a, alpha);
     g.fillEllipse(x, y + r * 0.2, r * 1.6, r * 1.8);
-    g.fillStyle(0x8d5a3b, 1);
+    g.fillStyle(0x8d5a3b, alpha);
     g.fillEllipse(x, y - r * 0.5, r * 1.7, r * 0.9);
-    g.lineStyle(2, 0x5a3a20, 1);
+    g.lineStyle(2, 0x5a3a20, alpha);
     g.lineBetween(x, y - r * 0.9, x, y - r * 1.1);
   }
 
@@ -170,7 +152,7 @@ export class AcornSortScene extends Phaser.Scene {
     this.done = true;
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַסְּנַאי מְאֻשָּׁר!']);
 
-        recordZoneFinish('thinking-forest');
+    recordZoneFinish('thinking-forest');
 
     this.time.delayedCall(2600, () => this.scene.start('portal'));
   }
