@@ -35,6 +35,9 @@ export class KiteMatchScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.matchedCount = 0;
+    this.selectedKite = null;
+    this.done = false;
     this.TOTAL = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 6) : 4;
     const w = this.scale.width, h = this.scale.height;
 
