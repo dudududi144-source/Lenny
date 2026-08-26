@@ -25,9 +25,9 @@ export function showLoader(scene: Phaser.Scene): void {
   }).setOrigin(0.5).setDepth(999);
 
   /* gentle pulse while waiting */
-  scene.tweens.add({ targets: dot, scale: 1.4, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+  const pulse = scene.tweens.add({ targets: dot, scale: 1.4, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-  const cleanup = () => { bg.destroy(); dot.destroy(); label.destroy(); };
+  const cleanup = () => { pulse.stop(); bg.destroy(); dot.destroy(); label.destroy(); };
   scene.load.on('complete', cleanup);
   scene.load.on('loaderror', cleanup);
 }
