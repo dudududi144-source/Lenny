@@ -136,6 +136,7 @@ h1{font-size:clamp(56px,14vmin,104px);font-weight:700;line-height:.95;letter-spa
   <div id="game"></div>
   <button id="gameBackBtn" class="hidden" aria-label="חזרה לגן">✕</button>
   <script type="module" src="/src/entry.ts"></script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 <script>window.addEventListener('error',function(e){var b=document.getElementById('errbar');if(b){b.style.display='block';b.textContent='שגיאה: '+(e.message||'')+' @ '+(e.filename||'').split('/').pop()+':'+(e.lineno||'');}});</script>
 </body>
 </html>
