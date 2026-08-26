@@ -70,6 +70,11 @@ export class OpenEndedScene extends Phaser.Scene {
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => this.onMove(p));
     this.input.on('pointerup', () => this.onUp());
 
+    /* visible label on the done button so kids know what it does */
+    this.add.text(w * 0.5, h * 0.03 + 13, 'סִיַּמְתִּי ✓', {
+      fontFamily: 'Heebo, Arial', fontSize: '14px', color: '#0e1030',
+    }).setOrigin(0.5);
+
     this.drawPalette();
   }
 
