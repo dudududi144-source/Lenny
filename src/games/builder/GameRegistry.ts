@@ -149,6 +149,21 @@ export const GAME_REGISTRY: GameSpec[] = [
     openEnded: false,
   },
   {
+    id: 'emotion-turtle-2',
+    kind: 'emotion-name',
+    zone: 'feelings-garden',
+    category: 'emotion',
+    skills: ['emotion.recognition', 'emotion.empathy'],
+    narrative: {
+      intro: ['הַצָּב מַרְגִּישׁ הַרְבֵּה רְגָשׁוֹת הַיּוֹם.', 'בּוֹא נְזַהֶה אוֹתָם יַחַד!'],
+      win: 'זִהִיתָ אֶת כָּל הָרְגָשׁוֹת! הַצָּב מַרְגִּישׁ שֶׁמְּבִינִים אוֹתוֹ.',
+      encourage: 'תִּסְתַּכֵּל בַּפָּנִים שֶׁלּוֹ.',
+    },
+    params: { rounds: 7 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
     id: 'paint-flower-1',
     kind: 'paint-fill',
     zone: 'creativity-meadow',
