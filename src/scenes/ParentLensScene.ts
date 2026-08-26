@@ -32,7 +32,11 @@ export class ParentLensScene extends Phaser.Scene {
 
     /* calm background */
     this.add.rectangle(w / 2, h / 2, w, h, 0x0e1030);
+    this.showGate();
+  }
 
+  private showDashboard(): void {
+    const w = this.scale.width, h = this.scale.height;
     const titleStyle = { fontFamily: 'Heebo, Arial', fontSize: '22px', color: '#ffd76a' };
 
     this.add.text(w / 2, h * 0.06, 'פִּנַּת הַהוֹרִים', titleStyle).setOrigin(0.5);
@@ -115,6 +119,53 @@ export class ParentLensScene extends Phaser.Scene {
       backgroundColor: '#ffd76a', padding: { x: 16, y: 8 },
     }).setOrigin(0.5).setInteractive();
     backBtn.on('pointerdown', () => this.scene.start('portal'));
+  }
+
+  /* Parent gate (docs/ETHICS.md): the child's data dashboard is for
+     parents. A small multiplication question is hard for ages 4-7 but
+     trivial for an adult, so kids bounce off harmlessly. */
+  private showGate(): void {
+    const w = this.scale.width, h = this.scale.height;
+    const a = 6 + Math.floor(Math.random() * 4);
+    const b = 4 + Math.floor(Math.random() * 4);
+    const correct = a * b;
+    const gateObjects: Phaser.GameObjects.Text[] = [];
+
+    gateObjects.push(this.add.text(w / 2, h * 0.16, 'פִּנַּת הַהוֹרִים', {
+      fontFamily: 'Heebo, Arial', fontSize: '24px', color: '#ffd76a',
+    }).setOrigin(0.5));
+    gateObjects.push(this.add.text(w / 2, h * 0.26, 'אֵזוֹר זֶה הוּא לִמְבֻגָּרִים בִּלְבַד', {
+      fontFamily: 'Heebo, Arial', fontSize: '15px', color: '#fff6ec',
+    }).setOrigin(0.5));
+    gateObjects.push(this.add.text(w / 2, h * 0.4, 'כַּמָּה זֶה ' + a + ' × ' + b + '?', {
+      fontFamily: 'Heebo, Arial', fontSize: '28px', color: '#fff6ec',
+    }).setOrigin(0.5));
+
+    const opts = [correct, correct + a, Math.max(1, correct - b)];
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    for (let i = 0; i < opts.length; i++) {
+      const btn = this.add.text(w * (0.25 + i * 0.25), h * 0.55, String(opts[i]), {
+        fontFamily: 'Heebo, Arial', fontSize: '24px', color: '#0e1030',
+        backgroundColor: '#7c4dff', padding: { x: 20, y: 12 },
+      }).setOrigin(0.5).setInteractive();
+      gateObjects.push(btn);
+      btn.on('pointerdown', () => {
+        if (opts[i] === correct) {
+          for (const o of gateObjects) o.destroy();
+          this.showDashboard();
+        } else {
+          this.scene.start('portal');
+        }
+      });
+    }
+    const back = this.add.text(w / 2, h * 0.9, 'חֲזָרָה', {
+      fontFamily: 'Heebo, Arial', fontSize: '15px', color: '#fff6ec',
+    }).setOrigin(0.5).setInteractive();
+    gateObjects.push(back);
+    back.on('pointerdown', () => this.scene.start('portal'));
   }
 
   private zoneLabel(zone: string): string {
