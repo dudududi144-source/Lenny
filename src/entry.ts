@@ -190,3 +190,17 @@ try {
     if (cont && s && s.finished && Object.keys(s.finished).length > 0) cont.hidden = false;
   }
 } catch { /* fresh */ }
+
+/* child name personalization */
+const nameInput = document.getElementById('nameInput') as HTMLInputElement | null;
+if (nameInput) {
+  try { nameInput.value = localStorage.getItem('lenny-name') || ''; } catch { /* noop */ }
+  const personalize = (): void => {
+    const n = nameInput.value.trim();
+    try { if (n) localStorage.setItem('lenny-name', n); else localStorage.removeItem('lenny-name'); } catch { /* noop */ }
+    const g = document.getElementById('greeting');
+    if (g && n) g.textContent = 'שָׁלוֹם ' + n + '! בָּא לְךָ לְשַׂחֵק?';
+  };
+  if (nameInput.value.trim()) personalize();
+  nameInput.addEventListener('input', personalize);
+}
