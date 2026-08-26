@@ -15,6 +15,7 @@ import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { PlayerModel } from '../games/core/PlayerModel';
 import { LearningSignals } from '../games/core/LearningSignals';
+import { GameSpec } from '../games/builder/GameSpec';
 import { CardFlipSystem } from '../games/fx/CardFlipSystem';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
@@ -33,6 +34,7 @@ export class MemoryPairsScene extends Phaser.Scene {
   private signals = new LearningSignals();
   private roundStart = 0;
   private mistakes = 0;
+  private spec: GameSpec | null = null;
 
   private grid!: CardFlipSystem;
   private ring!: ProgressRing;
@@ -50,6 +52,10 @@ export class MemoryPairsScene extends Phaser.Scene {
   private readonly ICONS = ['🌸', '🦋', '🐟', '🌳', '☀️', '💗'];
 
   constructor() { super('memory-pairs'); }
+
+  init(data: { spec?: GameSpec }): void {
+    this.spec = (data && data.spec) ? data.spec : null;
+  }
 
   preload(): void {
     showLoader(this);
@@ -81,7 +87,10 @@ export class MemoryPairsScene extends Phaser.Scene {
       { pairs: 6, rows: 3, cols: 4 },
       { pairs: 6, rows: 3, cols: 4 },
     ];
-    const layout = layouts[this.dda.tier()];
+    /* a GameSpec variant can author the pair count; otherwise DDA adapts it */
+    const specPairs = (this.spec && this.spec.params) ? this.spec.params.itemCount : undefined;
+    const bySpec = specPairs ? layouts.find((l) => l.pairs === specPairs) : undefined;
+    const layout = bySpec || layouts[Math.min(this.dda.tier(), layouts.length - 1)];
     this.totalPairs = layout.pairs;
 
     /* card grid sized to the adaptive pair count */
@@ -101,10 +110,10 @@ export class MemoryPairsScene extends Phaser.Scene {
 
     /* Lenny introduces the game */
     this.dialogue = new DialogueBox(this, { x: w / 2, y: h * 0.88, width: w * 0.85 });
-    this.dialogue.say([
-      'הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ.',
-      'בּוֹא נִמְצָא אֶת הַזּוּגוֹת!',
-    ]);
+    const intro = (this.spec && this.spec.narrative && this.spec.narrative.intro.length > 0)
+      ? this.spec.narrative.intro
+      : ['הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ.', 'בּוֹא נִמְצָא אֶת הַזּוּגוֹת!'];
+    this.dialogue.say(intro);
 
     /* build shuffled card data */
     const ids: number[] = [];
