@@ -7,6 +7,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { GameSpec } from '../games/builder/GameSpec';
 
 export class KiteMatchScene extends Phaser.Scene {
@@ -20,6 +21,10 @@ export class KiteMatchScene extends Phaser.Scene {
   private TOTAL = 4;
   private spec: GameSpec | null = null;
   private done = false;
+
+  /* cognitive core: DDA drives the kite count when no spec provides one */
+  private dda = new AdaptiveDifficulty('space-sky');
+  private wrongSinceLastMatch = 0;
 
   private readonly COLORS = [0xf2549a, 0x4dc9ff, 0xffd76a, 0x7dffb8, 0xffa552, 0xb39ddb];
 
@@ -38,7 +43,13 @@ export class KiteMatchScene extends Phaser.Scene {
     this.matchedCount = 0;
     this.selectedKite = null;
     this.done = false;
-    this.TOTAL = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 6) : 4;
+    this.wrongSinceLastMatch = 0;
+    /* a GameSpec variant authors the count; otherwise DDA adapts it:
+       kites = 3 + floor(level * 5), clamped to the palette so every
+       kite keeps a unique, matchable color */
+    this.TOTAL = (this.spec && this.spec.params.itemCount)
+      ? Math.min(this.spec.params.itemCount, 6)
+      : Math.min(3 + Math.floor(this.dda.level() * 5), this.COLORS.length);
     const w = this.scale.width, h = this.scale.height;
 
     /* sky background */
@@ -111,12 +122,17 @@ export class KiteMatchScene extends Phaser.Scene {
           shadow.matched = true;
           this.matchedCount++;
           this.selectedKite = null;
+          /* one completed match = one DDA round; score reflects its cleanliness */
+          this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastMatch * 0.2));
+          this.wrongSinceLastMatch = 0;
           if (this.matchedCount >= this.TOTAL) {
             this.win();
           } else {
             this.msgText.setText('וָאו! הִתְאֲמָה מֻשְׁלֶמֶת!');
           }
         } else {
+          this.wrongSinceLastMatch++;
+          this.dda.outcome(false);
           this.msgText.setText('נַסֶּה צֵל אַחֵר');
         }
       }
