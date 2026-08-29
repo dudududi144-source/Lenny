@@ -11,6 +11,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { GameSpec } from '../games/builder/GameSpec';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
@@ -39,6 +40,10 @@ export class GlowFishScene extends Phaser.Scene {
   private spec: GameSpec | null = null;
   private done = false;
 
+  /* cognitive core: DDA drives the distractor count when no spec provides one */
+  private dda = new AdaptiveDifficulty('attention-stream');
+  private wrongSinceLastFind = 0;
+
   constructor() { super('glow-fish'); }
 
   init(data: { spec?: GameSpec }): void {
@@ -54,7 +59,13 @@ export class GlowFishScene extends Phaser.Scene {
   create(): void {
     this.found = 0;
     this.done = false;
-    const itemCount = (this.spec && this.spec.params.itemCount) ? this.spec.params.itemCount : 5;
+    this.wrongSinceLastFind = 0;
+    const level = this.dda.level();
+    /* a GameSpec variant authors the count; otherwise DDA adapts it:
+       distractors = 3 + floor(level * 6), plus the one glowing fish */
+    const itemCount = (this.spec && this.spec.params.itemCount)
+      ? this.spec.params.itemCount
+      : 3 + Math.floor(level * 6) + 1;
     this.TARGET = itemCount;
     this.fishCount = itemCount;
     const w = this.scale.width, h = this.scale.height;
@@ -123,6 +134,10 @@ export class GlowFishScene extends Phaser.Scene {
       this.found++;
       this.ring.setCounts(this.found, this.TARGET);
       this.burst.emit(sparkleBurst(this.fishes[idx].x, this.fishes[idx].y));
+      /* one completed find = one DDA round; score reflects its cleanliness */
+      const score = Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2);
+      this.dda.outcome(true, score);
+      this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
       } else {
@@ -130,6 +145,8 @@ export class GlowFishScene extends Phaser.Scene {
         this.pickGlowing();
       }
     } else {
+      this.wrongSinceLastFind++;
+      this.dda.outcome(false);
       this.dialogue.say(['כִּמְעַט! נַסּוּ שׁוּב']);
     }
   }
