@@ -14,6 +14,7 @@ import { showLoader } from '../games/fx/Loader';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { GameSpec } from '../games/builder/GameSpec';
 
 interface Orb {
@@ -37,6 +38,9 @@ export class SequenceEchoScene extends Phaser.Scene {
   private litOrb = -1;
   private flashT = 0;
   private spec: GameSpec | null = null;
+
+  /* cognitive core: DDA drives how long the echo sequence grows */
+  private dda = new AdaptiveDifficulty('memory-hill');
 
   constructor() { super('sequence-echo'); }
 
@@ -92,7 +96,10 @@ export class SequenceEchoScene extends Phaser.Scene {
   private startRound(): void {
     if (this.state === 'done') return;
     this.sequence = [];
-    const len = this.round + 1; /* round 1 -> 2 steps, round 2 -> 3, ... */
+    /* the pattern still grows by one each round, but the DDA level
+       caps its length: len = min(round + 1, 2 + floor(level * 4)) */
+    const cap = 2 + Math.floor(this.dda.level() * 4);
+    const len = Math.min(this.round + 1, cap);
     for (let i = 0; i < len; i++) {
       this.sequence.push(Math.floor(Math.random() * this.orbs.length));
     }
@@ -136,6 +143,7 @@ export class SequenceEchoScene extends Phaser.Scene {
         this.roundComplete();
       }
     } else {
+      this.dda.outcome(false); /* wrong echo = a failed attempt */
       this.dialogue.say(['כִּמְעַט! בּוֹאוּ נִרְאֶה אֶת הַסֵּדֶר עוֹד פַּעַם.']);
       this.time.delayedCall(900, () => this.playSequence());
       this.state = 'idle';
@@ -146,6 +154,8 @@ export class SequenceEchoScene extends Phaser.Scene {
     this.ring.setCounts(this.round, this.totalRounds);
     const c = { x: this.scale.width / 2, y: this.scale.height * 0.46 };
     this.burst.emit(confettiBurst(c.x, c.y));
+    /* a fully echoed pattern = one DDA round, clean win */
+    this.dda.outcome(true, 1);
     if (this.round >= this.totalRounds) {
       this.win();
     } else {
