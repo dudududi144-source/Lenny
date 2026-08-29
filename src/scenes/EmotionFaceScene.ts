@@ -7,6 +7,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { GameSpec } from '../games/builder/GameSpec';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'calm';
@@ -26,6 +27,11 @@ export class EmotionFaceScene extends Phaser.Scene {
   private spec: GameSpec | null = null;
   private done = false;
   private lock = false;
+
+  /* cognitive core: DDA drives how many emotion options are shown */
+  private dda = new AdaptiveDifficulty('feelings-garden');
+  private wrongSinceLastCorrect = 0;
+  private optionCount = 3;
 
   private readonly LABELS: Record<Emotion, string> = {
     happy: 'שָׂמֵחַ',
@@ -57,7 +63,10 @@ export class EmotionFaceScene extends Phaser.Scene {
     this.found = 0;
     this.done = false;
     this.lock = false;
+    this.wrongSinceLastCorrect = 0;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
+    /* DDA adapts the option count: options = 2 + floor(level * 3) (2..5) */
+    this.optionCount = Math.min(5, Math.max(2, 2 + Math.floor(this.dda.level() * 3)));
     const w = this.scale.width, h = this.scale.height;
 
     /* feelings garden background */
@@ -76,12 +85,11 @@ export class EmotionFaceScene extends Phaser.Scene {
       fontFamily: 'Heebo, Arial', fontSize: '15px', color: '#fff6ec',
     }).setOrigin(0.5);
 
-    /* three option buttons at the bottom */
-    this.optionSpots = [
-      { x: w * 0.2, y: h * 0.78 },
-      { x: w * 0.5, y: h * 0.78 },
-      { x: w * 0.8, y: h * 0.78 },
-    ];
+    /* option buttons at the bottom, evenly spaced for the adaptive count */
+    this.optionSpots = [];
+    for (let i = 0; i < this.optionCount; i++) {
+      this.optionSpots.push({ x: w * ((i + 1) / (this.optionCount + 1)), y: h * 0.78 });
+    }
 
     this.newRound(w, h);
     this.updateScore();
@@ -89,12 +97,12 @@ export class EmotionFaceScene extends Phaser.Scene {
   }
 
   private newRound(w: number, h: number): void {
-    /* pick the current emotion + 2 distractors */
+    /* pick the current emotion + (optionCount - 1) distractors */
     const all: Emotion[] = ['happy', 'sad', 'angry', 'surprised', 'calm'];
     this.current = all[Math.floor(Math.random() * all.length)];
     const others = all.filter((e) => e !== this.current);
     const picked: Emotion[] = [this.current];
-    while (picked.length < 3) {
+    while (picked.length < this.optionCount) {
       const idx = Math.floor(Math.random() * others.length);
       picked.push(others[idx]);
       others.splice(idx, 1);
@@ -110,7 +118,7 @@ export class EmotionFaceScene extends Phaser.Scene {
     /* rebuild option texts */
     for (const t of this.optionTexts) t.destroy();
     this.optionTexts = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < this.optionCount; i++) {
       const spot = this.optionSpots[i];
       const t = this.add.text(spot.x, spot.y, this.LABELS[this.options[i]], {
         fontFamily: 'Heebo, Arial', fontSize: '16px', color: '#fff6ec',
@@ -132,6 +140,9 @@ export class EmotionFaceScene extends Phaser.Scene {
     if (idx === this.correctIdx) {
       this.found++;
       this.updateScore();
+      /* one named emotion = one DDA round; score reflects its cleanliness */
+      this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastCorrect * 0.2));
+      this.wrongSinceLastCorrect = 0;
       if (this.found >= this.TARGET) {
         this.win();
       } else {
@@ -144,6 +155,8 @@ export class EmotionFaceScene extends Phaser.Scene {
         });
       }
     } else {
+      this.wrongSinceLastCorrect++;
+      this.dda.outcome(false);
       this.msgText.setText('נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב');
     }
   }
