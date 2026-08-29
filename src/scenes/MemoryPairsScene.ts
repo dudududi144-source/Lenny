@@ -30,6 +30,7 @@ export class MemoryPairsScene extends Phaser.Scene {
   /* cognitive core engines */
   private dda = new AdaptiveDifficulty('memory-hill');
   private signals = new LearningSignals();
+  private seenCards = new Set<number>();
   private roundStart = 0;
   private mistakes = 0;
   private consecutiveMiss = 0;
@@ -69,6 +70,7 @@ export class MemoryPairsScene extends Phaser.Scene {
     this.consecutiveMiss = 0;
     this.firstPick = null;
     this.lock = false;
+    this.seenCards = new Set<number>();
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated background */
@@ -157,6 +159,7 @@ export class MemoryPairsScene extends Phaser.Scene {
           this.cards[first].matched = true;
           card.matched = true;
           this.foundPairs++;
+          this.signals.attempt('memory.pairs', true); /* per matched pair */
           this.ring.setCounts(this.foundPairs, this.totalPairs);
           const slot = this.grid.slots[idx];
           this.burst.emit(bloomBurst(slot.x, slot.y));
@@ -166,7 +169,11 @@ export class MemoryPairsScene extends Phaser.Scene {
       } else {
         this.mistakes++;
         this.consecutiveMiss++;
+        /* error taxonomy: both cards previously seen = a memory slip
+           (near-miss of remembering); otherwise a plain wrong pair */
+        const memorySlip = this.seenCards.has(first) && this.seenCards.has(idx);
         this.signals.attempt('memory.pairs', false);
+        this.signals.errorKind('memory.pairs', memorySlip ? 'near-miss' : 'wrong-pair');
         const hint = this.dda.suggestHint(this.consecutiveMiss);
         const hintText = (hint === 'clear' || hint === 'show')
           ? 'נַסּוּ לִזְכֹּר אֵיפֹה הָיָה הַקֹּלֶף הָרִאשׁוֹן'
@@ -183,6 +190,7 @@ export class MemoryPairsScene extends Phaser.Scene {
   }
 
   private showIcon(idx: number): void {
+    this.seenCards.add(idx); /* the child has now seen this card */
     const slot = this.grid.slots[idx];
     const t = this.add.text(slot.x, slot.y, this.cards[idx].icon, {
       fontFamily: 'Arial', fontSize: '30px',
@@ -199,7 +207,6 @@ export class MemoryPairsScene extends Phaser.Scene {
     this.done = true;
     const secs = (this.time.now - this.roundStart) / 1000;
     this.dda.outcome(true, Math.max(0.3, 1 - this.mistakes * 0.2));
-    this.signals.attempt('memory.pairs', true);
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַפַּרְפַּר נִזְכַּר בַּכֹּל!']);
 
     recordZoneFinish('memory-hill', secs);

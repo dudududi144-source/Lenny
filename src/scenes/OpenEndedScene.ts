@@ -45,7 +45,7 @@ export class OpenEndedScene extends Phaser.Scene {
 
   private roundStart = 0;
 
-    constructor() { super('open-create'); }
+  constructor() { super('open-create'); }
 
   preload(): void {
     showLoader(this);

@@ -16,6 +16,7 @@ import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { RhythmEngine } from '../games/fx/RhythmEngine';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { ParticleBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 import { GameSpec } from '../games/builder/GameSpec';
 
@@ -37,6 +38,7 @@ export class DrumBeatScene extends Phaser.Scene {
 
   /* cognitive core: DDA drives the tempo when no spec provides one */
   private dda = new AdaptiveDifficulty('rhythm-square');
+  private signals = new LearningSignals();
 
   /* layout */
   private hitY = 0;
@@ -45,7 +47,7 @@ export class DrumBeatScene extends Phaser.Scene {
 
   private roundStart = 0;
 
-    constructor() { super('drum-beat'); }
+  constructor() { super('drum-beat'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -117,6 +119,14 @@ export class DrumBeatScene extends Phaser.Scene {
     } else {
       this.showGrade('נַסֶּה לְהַקְשִׁיב לַקֶּצֶב', 0xfff6ec);
       this.dda.outcome(false); /* off-beat tap = a failed attempt */
+      this.signals.attempt('rhythm.timing', false);
+      /* error taxonomy: classify the miss by where it landed relative
+         to the beat map (early vs late vs nowhere near) */
+      const up = this.engine.upcoming(this.clock, 30);
+      let kind = 'missed';
+      if (up.length > 0 && up[0] <= 0.28) kind = 'too-early';
+      else if (up.length === 0) kind = 'too-late';
+      this.signals.errorKind('rhythm.timing', kind);
     }
 
     /* drum pulse feedback */
@@ -153,6 +163,7 @@ export class DrumBeatScene extends Phaser.Scene {
 
     /* pattern completed: one DDA round, scored by timing accuracy */
     this.dda.outcome(true, Math.max(0.3, hits / Math.max(1, total)));
+    this.signals.attempt('rhythm.timing', true);
 
         const secs = (this.time.now - this.roundStart) / 1000;
         /* real elapsed seconds feed the PlayerModel tempo signal */

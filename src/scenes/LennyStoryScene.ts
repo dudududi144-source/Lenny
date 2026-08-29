@@ -41,7 +41,7 @@ export class LennyStoryScene extends Phaser.Scene {
 
   private roundStart = 0;
 
-    constructor() { super('lenny-story'); }
+  constructor() { super('lenny-story'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;

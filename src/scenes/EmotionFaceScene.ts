@@ -8,6 +8,7 @@ import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'calm';
@@ -30,8 +31,16 @@ export class EmotionFaceScene extends Phaser.Scene {
 
   /* cognitive core: DDA drives how many emotion options are shown */
   private dda = new AdaptiveDifficulty('feelings-garden');
+  private signals = new LearningSignals();
   private wrongSinceLastCorrect = 0;
   private optionCount = 3;
+
+  /* emotion pairs children most often confuse */
+  private readonly SIMILAR: [Emotion, Emotion][] = [
+    ['sad', 'angry'],
+    ['happy', 'calm'],
+    ['surprised', 'angry'],
+  ];
 
   private readonly LABELS: Record<Emotion, string> = {
     happy: 'שָׂמֵחַ',
@@ -50,7 +59,7 @@ export class EmotionFaceScene extends Phaser.Scene {
 
   private roundStart = 0;
 
-    constructor() { super('emotion-face'); }
+  constructor() { super('emotion-face'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -145,6 +154,7 @@ export class EmotionFaceScene extends Phaser.Scene {
       this.updateScore();
       /* one named emotion = one DDA round; score reflects its cleanliness */
       this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastCorrect * 0.2));
+      this.signals.attempt('emotion.recognition', true);
       this.wrongSinceLastCorrect = 0;
       if (this.found >= this.TARGET) {
         this.win();
@@ -160,6 +170,14 @@ export class EmotionFaceScene extends Phaser.Scene {
     } else {
       this.wrongSinceLastCorrect++;
       this.dda.outcome(false);
+      this.signals.attempt('emotion.recognition', false);
+      /* error taxonomy: was the wrong pick a commonly-confused pair? */
+      const picked = this.options[idx];
+      const similar = this.SIMILAR.some(
+        ([a, b]) =>
+          (a === picked && b === this.current) || (b === picked && a === this.current),
+      );
+      this.signals.errorKind('emotion.recognition', similar ? 'confused-similar-emotions' : 'wrong-emotion');
       this.msgText.setText('נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב');
     }
   }

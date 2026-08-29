@@ -8,6 +8,7 @@ import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
 import { GameSpec } from '../games/builder/GameSpec';
 
@@ -28,6 +29,7 @@ export class FindLetterScene extends Phaser.Scene {
 
   /* cognitive core: DDA drives distractor similarity */
   private dda = new AdaptiveDifficulty('words-valley');
+  private signals = new LearningSignals();
   private wrongSinceLastFind = 0;
 
   /* visually confusable Hebrew letter pairs (task-spec taxonomy);
@@ -43,7 +45,7 @@ export class FindLetterScene extends Phaser.Scene {
 
   private roundStart = 0;
 
-    constructor() { super('find-letter'); }
+  constructor() { super('find-letter'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -155,6 +157,7 @@ export class FindLetterScene extends Phaser.Scene {
       this.updateScore();
       /* one found letter = one DDA round; score reflects its cleanliness */
       this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2));
+      this.signals.attempt('language.letter-recognition', true);
       this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
@@ -166,8 +169,24 @@ export class FindLetterScene extends Phaser.Scene {
     } else {
       this.wrongSinceLastFind++;
       this.dda.outcome(false);
+      this.signals.attempt('language.letter-recognition', false);
+      this.signals.errorKind(
+        'language.letter-recognition',
+        this.getLetterErrorKind(this.targetLetter, this.letterTexts[idx].text),
+      );
       this.msgText.setText('כִּמְעַט! נַסֶּה שׁוּב');
     }
+  }
+
+  /** Map a tapped letter to a specific confusion category. */
+  private getLetterErrorKind(target: string, tapped: string): string {
+    void target;
+    const confusables: Record<string, string> = {
+      'ב': 'confused-bet-kaf', 'כ': 'confused-bet-kaf',
+      'מ': 'confused-mem-samech', 'ס': 'confused-mem-samech',
+      'ד': 'confused-dalet-resh', 'ר': 'confused-dalet-resh',
+    };
+    return confusables[tapped] || 'wrong-letter';
   }
 
   private hitTest(px: number, py: number): number | null {

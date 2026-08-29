@@ -15,6 +15,7 @@ import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 
 interface Orb {
@@ -41,10 +42,11 @@ export class SequenceEchoScene extends Phaser.Scene {
 
   /* cognitive core: DDA drives how long the echo sequence grows */
   private dda = new AdaptiveDifficulty('memory-hill');
+  private signals = new LearningSignals();
 
   private roundStart = 0;
 
-    constructor() { super('sequence-echo'); }
+  constructor() { super('sequence-echo'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -143,10 +145,17 @@ export class SequenceEchoScene extends Phaser.Scene {
       this.inputIndex++;
       this.burst.emit(sparkleBurst(this.orbs[idx].x, this.orbs[idx].y));
       if (this.inputIndex >= this.sequence.length) {
+        this.signals.attempt('memory.working', true);
         this.roundComplete();
       }
     } else {
       this.dda.outcome(false); /* wrong echo = a failed attempt */
+      this.signals.attempt('memory.working', false);
+      /* error taxonomy: the right orb at the wrong time = wrong
+         position; an orb that is not next at all = wrong item */
+      const remaining = this.sequence.slice(this.inputIndex);
+      const kind = remaining.includes(idx) ? 'wrong-position' : 'wrong-item';
+      this.signals.errorKind('memory.working', kind);
       this.dialogue.say(['כִּמְעַט! בּוֹאוּ נִרְאֶה אֶת הַסֵּדֶר עוֹד פַּעַם.']);
       this.time.delayedCall(900, () => this.playSequence());
       this.state = 'idle';

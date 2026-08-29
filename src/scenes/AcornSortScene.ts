@@ -18,6 +18,7 @@ import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 import { DragDropSystem } from '../games/fx/DragDropSystem';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 
 export class AcornSortScene extends Phaser.Scene {
@@ -35,11 +36,12 @@ export class AcornSortScene extends Phaser.Scene {
 
   /* cognitive core: DDA drives the acorn count when no spec provides one */
   private dda = new AdaptiveDifficulty('thinking-forest');
+  private signals = new LearningSignals();
   private rejectsThisRound = 0;
 
   private roundStart = 0;
 
-    constructor() { super('acorn-sort'); }
+  constructor() { super('acorn-sort'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -101,6 +103,10 @@ export class AcornSortScene extends Phaser.Scene {
       onReject: () => {
         this.rejectsThisRound++;
         this.dda.outcome(false);
+        this.signals.attempt('logic.ordering', false);
+        /* error taxonomy: a rejected drop in a size-ordering game is
+           an ordering mistake */
+        this.signals.errorKind('logic.ordering', 'wrong-order');
         this.dialogue.say(['נַסּוּ שׁוּב — אֵיזֶה עִגוּל מַתְאִים?']);
       },
     });
@@ -137,6 +143,7 @@ export class AcornSortScene extends Phaser.Scene {
     if (this.placedCount >= this.acornCount) {
       /* a completed round = one DDA round; score reflects its cleanliness */
       this.dda.outcome(true, Math.max(0.3, 1 - this.rejectsThisRound * 0.2));
+      this.signals.attempt('logic.ordering', true);
       if (this.round >= this.ROUNDS) {
         this.win();
       } else {

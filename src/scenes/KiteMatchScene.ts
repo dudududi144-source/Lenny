@@ -8,6 +8,7 @@ import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 
 export class KiteMatchScene extends Phaser.Scene {
@@ -24,13 +25,14 @@ export class KiteMatchScene extends Phaser.Scene {
 
   /* cognitive core: DDA drives the kite count when no spec provides one */
   private dda = new AdaptiveDifficulty('space-sky');
+  private signals = new LearningSignals();
   private wrongSinceLastMatch = 0;
 
   private readonly COLORS = [0xf2549a, 0x4dc9ff, 0xffd76a, 0x7dffb8, 0xffa552, 0xb39ddb];
 
   private roundStart = 0;
 
-    constructor() { super('kite-match'); }
+  constructor() { super('kite-match'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -127,6 +129,7 @@ export class KiteMatchScene extends Phaser.Scene {
           this.selectedKite = null;
           /* one completed match = one DDA round; score reflects its cleanliness */
           this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastMatch * 0.2));
+          this.signals.attempt('spatial.matching', true);
           this.wrongSinceLastMatch = 0;
           if (this.matchedCount >= this.TOTAL) {
             this.win();
@@ -136,6 +139,13 @@ export class KiteMatchScene extends Phaser.Scene {
         } else {
           this.wrongSinceLastMatch++;
           this.dda.outcome(false);
+          this.signals.attempt('spatial.matching', false);
+          /* error taxonomy: a shadow tapped with no kite selected =
+             shape confusion; with a kite selected = wrong shadow */
+          this.signals.errorKind(
+            'spatial.matching',
+            this.selectedKite === null ? 'wrong-shape' : 'wrong-shadow',
+          );
           this.msgText.setText('נַסֶּה צֵל אַחֵר');
         }
       }

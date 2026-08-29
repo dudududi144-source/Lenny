@@ -12,6 +12,7 @@ import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
@@ -42,11 +43,12 @@ export class GlowFishScene extends Phaser.Scene {
 
   /* cognitive core: DDA drives the distractor count when no spec provides one */
   private dda = new AdaptiveDifficulty('attention-stream');
+  private signals = new LearningSignals();
   private wrongSinceLastFind = 0;
 
   private roundStart = 0;
 
-    constructor() { super('glow-fish'); }
+  constructor() { super('glow-fish'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -140,6 +142,7 @@ export class GlowFishScene extends Phaser.Scene {
       /* one completed find = one DDA round; score reflects its cleanliness */
       const score = Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2);
       this.dda.outcome(true, score);
+      this.signals.attempt('attention.visual', true);
       this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
@@ -150,6 +153,13 @@ export class GlowFishScene extends Phaser.Scene {
     } else {
       this.wrongSinceLastFind++;
       this.dda.outcome(false);
+      this.signals.attempt('attention.visual', false);
+      /* error taxonomy: repeated misses around the glowing fish =
+         tapping too broadly; a single wrong fish = a wrong pick */
+      this.signals.errorKind(
+        'attention.visual',
+        this.wrongSinceLastFind >= 3 ? 'too-many-taps' : 'wrong-fish',
+      );
       this.dialogue.say(['כִּמְעַט! נַסּוּ שׁוּב']);
     }
   }

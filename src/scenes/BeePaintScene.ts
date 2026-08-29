@@ -43,7 +43,7 @@ export class BeePaintScene extends Phaser.Scene {
 
   private roundStart = 0;
 
-    constructor() { super('bee-paint'); }
+  constructor() { super('bee-paint'); }
 
   preload(): void {
     showLoader(this);
