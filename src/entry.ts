@@ -211,8 +211,6 @@ try {
   const raw = localStorage.getItem('lenny-garden');
   if (raw) {
     const s = JSON.parse(raw);
-    const firstSeen = s && s.firstSeen ? s.firstSeen : Date.now();
-    const days = Math.round((Date.now() - firstSeen) / 86400000);
     const g = document.getElementById('greeting');
     const bloom = bloomLevel(store.load());
     const badge = document.querySelector('.badge .dot') as HTMLElement | null;
