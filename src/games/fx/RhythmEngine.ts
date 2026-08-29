@@ -69,6 +69,16 @@ export class RhythmEngine {
     for (let i = 0; i < this.judged.length; i++) this.judged[i] = false;
   }
 
+  /** The configured BPM (lets scenes keep their drawing in sync). */
+  get bpm(): number {
+    return this.cfg.bpm;
+  }
+
+  /** Seconds before the first beat (lets scenes keep drawing in sync). */
+  get leadIn(): number {
+    return this.cfg.leadIn;
+  }
+
   /** Elapsed pattern time in seconds. */
   elapsed(now: number): number {
     return this.running ? now - this.startTime : 0;

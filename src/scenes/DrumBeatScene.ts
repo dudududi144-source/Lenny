@@ -15,6 +15,7 @@ import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { RhythmEngine } from '../games/fx/RhythmEngine';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { ParticleBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 import { GameSpec } from '../games/builder/GameSpec';
 
@@ -31,7 +32,11 @@ export class DrumBeatScene extends Phaser.Scene {
   private goods = 0;
   private clock = 0;
   private beatCount = 8;
+  private bpm = 78;
   private spec: GameSpec | null = null;
+
+  /* cognitive core: DDA drives the tempo when no spec provides one */
+  private dda = new AdaptiveDifficulty('rhythm-square');
 
   /* layout */
   private hitY = 0;
@@ -56,6 +61,11 @@ export class DrumBeatScene extends Phaser.Scene {
     this.goods = 0;
     this.clock = 0;
     this.beatCount = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 8;
+    /* tempo: spec-authored speed (BPM) wins; otherwise DDA adapts it:
+       bpm = 70 + floor(level * 40) */
+    this.bpm = (this.spec && this.spec.params.speed)
+      ? this.spec.params.speed
+      : 70 + Math.floor(this.dda.level() * 40);
     const w = this.scale.width, h = this.scale.height;
 
     /* rhythm square background */
@@ -78,8 +88,8 @@ export class DrumBeatScene extends Phaser.Scene {
       fontFamily: 'Heebo, Arial', fontSize: '22px', color: '#ffd76a',
     }).setOrigin(0.5);
 
-    /* gentle tempo for kids */
-    this.engine = new RhythmEngine({ bpm: 78, beats: this.beatCount, leadIn: 2.0 });
+    /* gentle tempo for kids, adaptive when un-spec'd */
+    this.engine = new RhythmEngine({ bpm: this.bpm, beats: this.beatCount, leadIn: 2.0 });
 
     this.msgText.setText('בּוֹא נַתְחִיל לְתַפְתֵּף!');
     this.time.delayedCall(1200, () => {
@@ -103,6 +113,7 @@ export class DrumBeatScene extends Phaser.Scene {
       this.showGrade('יוֹפִי!', 0x7dffb8);
     } else {
       this.showGrade('נַסֶּה לְהַקְשִׁיב לַקֶּצֶב', 0xfff6ec);
+      this.dda.outcome(false); /* off-beat tap = a failed attempt */
     }
 
     /* drum pulse feedback */
@@ -137,6 +148,9 @@ export class DrumBeatScene extends Phaser.Scene {
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַתֹּף חָזַר לְתַפְתֵּף!');
     this.burst.emit(confettiBurst(this.scale.width / 2, this.scale.height * 0.4));
 
+    /* pattern completed: one DDA round, scored by timing accuracy */
+    this.dda.outcome(true, Math.max(0.3, hits / Math.max(1, total)));
+
         recordZoneFinish('rhythm-square');
 
     void total; void hits;
@@ -166,10 +180,10 @@ export class DrumBeatScene extends Phaser.Scene {
     const w = this.scale.width;
     if (!this.started) return;
 
-    /* draw falling notes that are on screen */
+    /* draw falling notes that are on screen (synced to the engine's tempo) */
     const t = this.engine.elapsed(this.clock);
-    const beatInterval = 60 / 78;
-    const leadIn = 2.0;
+    const beatInterval = 60 / this.engine.bpm;
+    const leadIn = this.engine.leadIn;
     for (let i = 0; i < this.beatCount; i++) {
       const beatT = leadIn + i * beatInterval;
       /* progress 0..1 of the fall */
