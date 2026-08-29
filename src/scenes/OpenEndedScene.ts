@@ -216,7 +216,7 @@ export class OpenEndedScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     const dt = delta / 1000;
-    this.burst.update(dt, 0, 0.99);
+    this.burst.update(dt);
     this.dialogue.update(dt);
   }
 }

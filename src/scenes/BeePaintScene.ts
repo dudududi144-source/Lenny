@@ -193,7 +193,7 @@ export class BeePaintScene extends Phaser.Scene {
   update(time: number): void {
     const dt = this.game.loop.delta / 1000;
     const t = time * 0.001;
-    this.burst.update(dt, 60, 0.99);
+    this.burst.update(dt);
     this.drawFlower(t);
     this.drawBee(t);
     this.drawPalette();

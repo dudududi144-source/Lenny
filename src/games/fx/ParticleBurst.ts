@@ -52,6 +52,11 @@ export class ParticleBurst {
   private graphics: Phaser.GameObjects.Graphics;
   private capacity: number;
 
+  /* physics captured from the last emit()'s config, so scenes can
+     just call update(dt) and inherit the preset's gravity/friction */
+  private currentGravity = 0;
+  private currentFriction = 1;
+
   constructor(scene: Phaser.Scene, capacity: number = 220) {
     this.capacity = capacity;
     this.graphics = scene.add.graphics();
@@ -65,7 +70,6 @@ export class ParticleBurst {
 
   /** Fire a burst of particles using a declarative config. */
   emit(cfg: BurstConfig): void {
-    const gravity = cfg.gravity ?? 0;
     let spawned = 0;
     for (const p of this.pool) {
       if (spawned >= cfg.count) break;
@@ -83,12 +87,20 @@ export class ParticleBurst {
       p.life = p.maxLife;
       spawned++;
     }
-    void gravity;
+    /* remember this burst's declared physics (was silently ignored) */
+    this.currentGravity = cfg.gravity ?? 0;
+    this.currentFriction = cfg.friction ?? 1;
   }
 
-  /** Advance simulation and draw all live particles. Call from scene update(). */
-  update(dt: number, gravity: number = 0, friction: number = 1): void {
+  /**
+   * Advance simulation and draw all live particles. Call from scene update().
+   * Uses the gravity/friction declared by the last emit()'s preset;
+   * explicit args override (kept for backward compatibility).
+   */
+  update(dt: number, gravity?: number, friction?: number): void {
     const g = this.graphics;
+    const grav = gravity ?? this.currentGravity;
+    const fric = friction ?? this.currentFriction;
     g.clear();
     for (const p of this.pool) {
       if (!p.alive) continue;
@@ -97,9 +109,9 @@ export class ParticleBurst {
         p.alive = false;
         continue;
       }
-      p.vy += gravity * dt;
-      p.vx *= friction;
-      p.vy *= friction;
+      p.vy += grav * dt;
+      p.vx *= fric;
+      p.vy *= fric;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       const alpha = Math.max(0, p.life / p.maxLife);

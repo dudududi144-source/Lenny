@@ -179,7 +179,7 @@ export class GlowFishScene extends Phaser.Scene {
     const g = this.fishG;
     g.clear();
 
-    this.burst.update(dt, 0, 0.99);
+    this.burst.update(dt);
     this.ring.update(dt);
     this.dialogue.update(dt);
 

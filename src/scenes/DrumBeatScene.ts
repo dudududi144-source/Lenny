@@ -176,7 +176,7 @@ export class DrumBeatScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const dt = delta / 1000;
     this.clock += dt;
-    this.burst.update(dt, 120, 0.99);
+    this.burst.update(dt);
 
     /* relax drum pulse */
     this.drumScale += (1 - this.drumScale) * Math.min(1, dt * 8);

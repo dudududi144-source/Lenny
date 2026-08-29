@@ -203,7 +203,7 @@ export class SequenceEchoScene extends Phaser.Scene {
     if (this.flashT > 0) this.flashT -= dt;
     else this.litOrb = -1;
 
-    this.burst.update(dt, 0, 0.99);
+    this.burst.update(dt);
     this.ring.update(dt);
     this.dialogue.update(dt);
 

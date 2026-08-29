@@ -216,7 +216,7 @@ export class MemoryPairsScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     const dt = delta / 1000;
-    this.burst.update(dt, 60, 0.985);
+    this.burst.update(dt);
     this.ring.update(dt);
     this.dialogue.update(dt);
     this.grid.drawBacks();

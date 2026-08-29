@@ -135,7 +135,7 @@ export class LennyStoryScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const dt = delta / 1000;
     const t = time * 0.001;
-    this.burst.update(dt, 0, 0.99);
+    this.burst.update(dt);
     this.ring.update(dt);
     this.dialogue.update(dt);
     this.drawScene(t);
