@@ -7,6 +7,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
 import { GameSpec } from '../games/builder/GameSpec';
 
@@ -23,6 +24,19 @@ export class FindLetterScene extends Phaser.Scene {
   private spec: GameSpec | null = null;
   private done = false;
   private lock = false;
+  private targetLetter = '';
+
+  /* cognitive core: DDA drives distractor similarity */
+  private dda = new AdaptiveDifficulty('words-valley');
+  private wrongSinceLastFind = 0;
+
+  /* visually confusable Hebrew letter pairs (task-spec taxonomy);
+   * higher DDA levels inject the target's partner as a distractor */
+  private readonly CONFUSABLES: Record<string, string> = {
+    'ב': 'כ', 'כ': 'ב',
+    'מ': 'ס', 'ס': 'מ',
+    'ד': 'ר', 'ר': 'ד',
+  };
 
   /* basic Hebrew letters, no niqqud, for easy recognition */
   private readonly LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ח', 'ט', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ', 'ק', 'ר', 'ש', 'ת'];
@@ -91,9 +105,12 @@ export class FindLetterScene extends Phaser.Scene {
     for (const t of this.letterTexts) t.destroy();
     this.letterTexts = [];
 
-    /* pick 6 distinct letters, one is the target */
+    /* pick 6 distinct letters, one is the target.
+       DDA level raises distractor similarity: from level 0.5 up, the
+       target's confusable partner (ב/כ, מ/ס, ד/ר) is planted among them. */
     const pool = [...this.LETTERS];
     const chosen: string[] = [];
+    const level = this.dda.level();
     for (let i = 0; i < 6; i++) {
       const idx = Math.floor(Math.random() * pool.length);
       chosen.push(pool[idx]);
@@ -101,6 +118,13 @@ export class FindLetterScene extends Phaser.Scene {
     }
     this.targetIdx = Math.floor(Math.random() * 6);
     const target = chosen[this.targetIdx];
+    this.targetLetter = target;
+    const partner = this.CONFUSABLES[target];
+    if (level >= 0.5 && partner && !chosen.includes(partner)) {
+      /* replace one non-target slot with the confusable partner */
+      const slot = chosen.findIndex((c, i) => i !== this.targetIdx);
+      chosen[slot] = partner;
+    }
 
     this.targetText.setText('אֵיפֹה הָאוֹת ' + target + '?');
 
@@ -126,6 +150,9 @@ export class FindLetterScene extends Phaser.Scene {
     if (idx === this.targetIdx) {
       this.found++;
       this.updateScore();
+      /* one found letter = one DDA round; score reflects its cleanliness */
+      this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2));
+      this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
       } else {
@@ -134,6 +161,8 @@ export class FindLetterScene extends Phaser.Scene {
         this.time.delayedCall(500, () => { this.lock = false; this.newRound(this.scale.width, this.scale.height); });
       }
     } else {
+      this.wrongSinceLastFind++;
+      this.dda.outcome(false);
       this.msgText.setText('כִּמְעַט! נַסֶּה שׁוּב');
     }
   }
