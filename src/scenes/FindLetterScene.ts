@@ -9,6 +9,7 @@ import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { LearningSignals } from '../games/core/LearningSignals';
+import { SkillBridge } from '../games/core/SkillBridge';
 import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
 import { GameSpec } from '../games/builder/GameSpec';
 
@@ -30,7 +31,9 @@ export class FindLetterScene extends Phaser.Scene {
   /* cognitive core: DDA drives distractor similarity */
   private dda = new AdaptiveDifficulty('words-valley');
   private signals = new LearningSignals();
+  private skillBridge = new SkillBridge();
   private wrongSinceLastFind = 0;
+  private targetLettersFound = new Set<string>();
 
   /* visually confusable Hebrew letter pairs (task-spec taxonomy);
    * higher DDA levels inject the target's partner as a distractor */
@@ -61,6 +64,8 @@ export class FindLetterScene extends Phaser.Scene {
     this.found = 0;
     this.done = false;
     this.lock = false;
+    this.wrongSinceLastFind = 0;
+    this.targetLettersFound = new Set<string>();
     this.roundStart = this.time.now;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     const w = this.scale.width, h = this.scale.height;
@@ -158,6 +163,7 @@ export class FindLetterScene extends Phaser.Scene {
       /* one found letter = one DDA round; score reflects its cleanliness */
       this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2));
       this.signals.attempt('language.letter-recognition', true);
+      this.targetLettersFound.add(this.targetLetter);
       this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
@@ -210,6 +216,15 @@ export class FindLetterScene extends Phaser.Scene {
       const skills = new SkillGraph(LITERACY_GRAPH);
       const next = skills.frontier();
       if (next.length > 0) skills.acquire(next[0]);
+    } catch { /* noop */ }
+
+    /* SkillBridge: letters the child actually recognized TARGET times
+       acquire their real graph nodes (currently alef + bet) */
+    try {
+      for (const letter of this.targetLettersFound) {
+        if (letter === 'א') this.skillBridge.onSkillMastered('letter.alef');
+        if (letter === 'ב') this.skillBridge.onSkillMastered('letter.bet');
+      }
     } catch { /* noop */ }
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
