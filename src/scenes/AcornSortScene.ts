@@ -17,6 +17,7 @@ import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 import { DragDropSystem } from '../games/fx/DragDropSystem';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { GameSpec } from '../games/builder/GameSpec';
 
 export class AcornSortScene extends Phaser.Scene {
@@ -32,6 +33,10 @@ export class AcornSortScene extends Phaser.Scene {
   private spec: GameSpec | null = null;
   private done = false;
 
+  /* cognitive core: DDA drives the acorn count when no spec provides one */
+  private dda = new AdaptiveDifficulty('thinking-forest');
+  private rejectsThisRound = 0;
+
   constructor() { super('acorn-sort'); }
 
   init(data: { spec?: GameSpec }): void {
@@ -46,7 +51,11 @@ export class AcornSortScene extends Phaser.Scene {
   create(): void {
     this.round = 1;
     this.done = false;
-    this.acornCount = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 5) : 4;
+    /* a GameSpec variant authors the count; otherwise DDA adapts it:
+       acorns = 4 + floor(level * 6), clamped for layout sanity */
+    this.acornCount = (this.spec && this.spec.params.itemCount)
+      ? Math.min(this.spec.params.itemCount, 5)
+      : Math.min(4 + Math.floor(this.dda.level() * 6), 8);
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated background */
@@ -79,13 +88,18 @@ export class AcornSortScene extends Phaser.Scene {
 
   private spawnRound(w: number, h: number): void {
     this.placedCount = 0;
+    this.rejectsThisRound = 0;
     this.ring.setCounts(0, this.acornCount);
 
     this.drag = new DragDropSystem(this, {
       isValidDrop: (itemId: string, targetId: string) =>
         itemId.split('-')[1] === targetId.split('-')[1],
       onDrop: (itemId: string) => this.onCorrectDrop(itemId),
-      onReject: () => this.dialogue.say(['נַסּוּ שׁוּב — אֵיזֶה עִגוּל מַתְאִים?']),
+      onReject: () => {
+        this.rejectsThisRound++;
+        this.dda.outcome(false);
+        this.dialogue.say(['נַסּוּ שׁוּב — אֵיזֶה עִגוּל מַתְאִים?']);
+      },
     });
 
     /* scatter the 4 acorns (shuffled) across the upper area */
@@ -101,10 +115,13 @@ export class AcornSortScene extends Phaser.Scene {
       this.drag.addItem('acorn-' + s, w * xs[s - 1], h * 0.28);
     }
 
-    /* drop circles along the bottom, left -> right = small -> large */
+    /* drop circles along the bottom, left -> right = small -> large;
+       radius shrinks with high counts so slots never overlap */
+    const spacing = w * (this.acornCount > 1 ? 0.72 / (this.acornCount - 1) : 0.5);
+    const slotR = Math.max(24, Math.min(44, Math.floor(spacing * 0.45)));
     for (let k = 1; k <= this.acornCount; k++) {
       const sx = 0.14 + (this.acornCount > 1 ? ((k - 1) * 0.72) / (this.acornCount - 1) : 0.5);
-      this.drag.addTarget('slot-' + k, w * sx, h * 0.66, 44);
+      this.drag.addTarget('slot-' + k, w * sx, h * 0.66, slotR);
     }
   }
 
@@ -115,6 +132,8 @@ export class AcornSortScene extends Phaser.Scene {
     this.ring.setCounts(this.placedCount, this.acornCount);
 
     if (this.placedCount >= this.acornCount) {
+      /* a completed round = one DDA round; score reflects its cleanliness */
+      this.dda.outcome(true, Math.max(0.3, 1 - this.rejectsThisRound * 0.2));
       if (this.round >= this.ROUNDS) {
         this.win();
       } else {
