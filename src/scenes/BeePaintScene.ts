@@ -11,6 +11,7 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { ParticleBurst, bloomBurst, confettiBurst, sparkleBurst } from '../games/fx/ParticleBurst';
 import { Primary, MixedColor, mixPrimaries, colorHex, blendHex } from '../games/fx/ColorMixSystem';
 
@@ -37,6 +38,9 @@ export class BeePaintScene extends Phaser.Scene {
   private beeAngle = 0;
   private done = false;
 
+  /* cognitive core: DDA drives how many primaries the bee offers */
+  private dda = new AdaptiveDifficulty('creativity-meadow');
+
   constructor() { super('bee-paint'); }
 
   preload(): void {
@@ -49,6 +53,10 @@ export class BeePaintScene extends Phaser.Scene {
     this.petals = [];
     this.mixedUnlocked = [];
     this.mixPick = null;
+    /* DDA adapts the palette: colors = 2 + floor(level * 2), capped at
+       the 3 primaries (2 colors = simple mixing, 3 = full discovery) */
+    const colorCount = Math.min(3, Math.max(2, 2 + Math.floor(this.dda.level() * 2)));
+    this.primaries = this.primaries.slice(0, colorCount);
     const w = this.scale.width, h = this.scale.height;
 
     /* illustrated background */
@@ -68,10 +76,10 @@ export class BeePaintScene extends Phaser.Scene {
       this.petals.push({ angle: (i / this.PETALS) * Math.PI * 2, color: 0, filled: false });
     }
 
-    /* primary palette (row 1) */
+    /* primary palette (row 1), evenly spaced for the adaptive count */
     this.primarySpots = [];
     for (let i = 0; i < this.primaries.length; i++) {
-      this.primarySpots.push({ x: w * (0.25 + i * 0.25), y: h * 0.78, color: this.primaries[i] });
+      this.primarySpots.push({ x: w * ((i + 1) / (this.primaries.length + 1)), y: h * 0.78, color: this.primaries[i] });
     }
     /* mixed-color slots (row 2), revealed as the child mixes */
     const mixed: MixedColor[] = ['orange', 'green', 'purple'];
@@ -167,6 +175,9 @@ export class BeePaintScene extends Phaser.Scene {
       const c = this.flowerCenter();
       this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַפֶּרַח פָּרַח!');
       this.burst.emit(confettiBurst(c.x, c.y));
+
+      /* open-ended game: completion is the single DDA outcome */
+      this.dda.outcome(true, 1);
 
       recordZoneFinish('creativity-meadow');
 
