@@ -89,13 +89,14 @@ export class DialogueBox {
 
     if (this.phase === 'typing') {
       this.charTimer += dt;
-      while (this.charTimer >= this.cfg.charDelay && this.shownChars < this.current.length) {
+      const total = this.visibleLength(this.current);
+      while (this.charTimer >= this.cfg.charDelay && this.shownChars < total) {
         this.charTimer -= this.cfg.charDelay;
         this.shownChars++;
       }
-      this.text.setText(this.current.slice(0, this.shownChars));
+      this.text.setText(this.safeSlice(this.current, this.shownChars));
       this.drawBubble();
-      if (this.shownChars >= this.current.length) this.phase = 'holding';
+      if (this.shownChars >= total) this.phase = 'holding';
     } else if (this.phase === 'holding') {
       this.holdTimer += dt;
       if (this.holdTimer >= this.cfg.holdTime) this.nextLine();
@@ -105,13 +106,51 @@ export class DialogueBox {
   /** Skip the current line (tap to continue). */
   skip(): void {
     if (this.phase === 'typing') {
-      this.shownChars = this.current.length;
+      this.shownChars = this.visibleLength(this.current);
       this.text.setText(this.current);
       this.phase = 'holding';
       this.holdTimer = 0;
     } else if (this.phase === 'holding') {
       this.nextLine();
     }
+  }
+
+  /**
+   * Slice by visible characters, keeping base letters + combining
+   * marks (Hebrew niqqud) together. A naive slice(0, n) can cut
+   * between a base letter and its niqqud, making marks flicker or
+   * float over the wrong letter mid-typewriter.
+   */
+  private safeSlice(str: string, charCount: number): string {
+    if (charCount <= 0) return '';
+    /* count visible characters (base chars, not combining marks) */
+    let visible = 0;
+    let cutIndex = 0;
+    for (let i = 0; i < str.length && visible < charCount; i++) {
+      if (this.isCombiningMark(str.charCodeAt(i))) continue; /* skip niqqud */
+      visible++;
+      cutIndex = i + 1;
+    }
+    /* include any trailing combining marks after the cut */
+    while (cutIndex < str.length && this.isCombiningMark(str.charCodeAt(cutIndex))) {
+      cutIndex++;
+    }
+    return str.slice(0, cutIndex);
+  }
+
+  /** Number of visible (non-combining-mark) characters. */
+  private visibleLength(str: string): number {
+    let count = 0;
+    for (let i = 0; i < str.length; i++) {
+      if (this.isCombiningMark(str.charCodeAt(i))) continue;
+      count++;
+    }
+    return count;
+  }
+
+  /** Hebrew niqqud (U+05B0..U+05C7) + general combining marks. */
+  private isCombiningMark(code: number): boolean {
+    return (code >= 0x05b0 && code <= 0x05c7) || (code >= 0x0300 && code <= 0x036f);
   }
 
   private drawBubble(): void {
