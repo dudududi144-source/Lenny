@@ -21,26 +21,23 @@ import { OpenEndedScene } from './scenes/OpenEndedScene';
 import { SequenceEchoScene } from './scenes/SequenceEchoScene';
 import { ParentLensScene } from './scenes/ParentLensScene';
 import { LocalProgressStore, bloomLevel, isUnlocked, finishedCount, unlockRequirement, zoneName, consumeNewZones, GardenData } from './games/core/ProgressStore';
-import { GARDEN_TEXT } from './data/garden';
+import { GARDEN_TEXT, ZONES as GARDEN_ZONES } from './data/garden';
 import { gamesInZone } from './games/builder/GameRegistry';
 import { GameFactory } from './games/builder/GameFactory';
 
-interface ZoneDef { id: string; name: string; desc: string; color: string; scene: string; }
+/* UI view-model for the HTML garden map - derived from the SINGLE
+   source of truth in data/garden.ts (this file previously held its
+   own duplicate ZONES array with conflicting colors). */
+interface ZoneView { id: string; name: string; desc: string; color: string; scene: string; }
 
-const ZONES: ZoneDef[] = [
-  { id: 'light-path',      name: 'שְׁבִיל הָאוֹר',    desc: 'הַמַּסָּע מַתְחִיל כָּאן', color: '#ffd76a', scene: 'play' },
-  { id: 'memory-hill',     name: 'גִּבְעַת הַזִּכָּרוֹן', desc: 'זִכְרוֹן וְהַתְאָמוֹת',      color: '#7c4dff', scene: 'memory-pairs' },
-  { id: 'attention-stream',name: 'נַחַל הַקֶּשׁב',  desc: 'קֶשֶׁב וְרִכּוּז',          color: '#4dc9ff', scene: 'glow-fish' },
-  { id: 'thinking-forest', name: 'יַעַר הַחֲשִיבָה', desc: 'הִגָּיוֹן וְסֵדֶר',          color: '#7dffb8', scene: 'acorn-sort' },
-  { id: 'space-sky',       name: 'שְׁמֵי הַמֶּרְחָב',  desc: 'צוּרוֹת וּמֶרְחָב',         color: '#b39ddb', scene: 'kite-match' },
-  { id: 'words-valley',    name: 'עֵמֶק הַמִּלּים',  desc: 'אוֹתִיּוֹת וּמִלִּים',       color: '#f2549a', scene: 'find-letter' },
-  { id: 'feelings-garden', name: 'גַּן הָרְגָשׁוֹת',  desc: 'רְגָשׁוֹת וְאַמְפַּתְיָה',     color: '#ff8bd4', scene: 'emotion-face' },
-  { id: 'creativity-meadow',name:'אֲחוּ הַיְּצִירָה',  desc: 'יְצִירָה חָפְשִׁית',        color: '#ffa552', scene: 'bee-paint' },
-  { id: 'rhythm-square',   name: 'כִּכַּר הַקֶּצֶב',  desc: 'קֶצֶב וּתְנוּעָה',         color: '#52e0c4', scene: 'drum-beat' },
-  { id: 'breath-pool',     name: 'בְּרֵכַת הַנְּשִׁימָה', desc: 'נְשִׁימָה וּרְגִיעָה',       color: '#7c4dff', scene: 'lenny-story' },
-];
+const ZONES: ZoneView[] = GARDEN_ZONES.map((z) => ({
+  id: z.id,
+  name: z.name,
+  desc: z.desc,
+  color: z.uiColor,
+  scene: z.gameScene ?? 'play',
+}));
 
-const DEFAULT_UNLOCKED = ['light-path', 'breath-pool'];
 
 const store = new LocalProgressStore();
 function loadGarden(): GardenData { return store.load(); }
