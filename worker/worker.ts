@@ -1,4 +1,13 @@
 /* ============================================================
+ * STATUS: FROZEN — not in use by frontend. See docs/ETHICS.md section 8.
+ * Do not wire this up without parent consent flow + authentication + COPPA audit.
+ * This file exists for future reference only.
+ * PENDING DECISION (tracked, no issue-tracker access from sandbox):
+ *   "Decide: delete or revive worker backend"
+ *   - If revived: needs auth (signed parent tokens), CORS lockdown,
+ *     rate limiting, and an explicit ETHICS.md amendment first.
+ *   - If deleted: remove worker/ + db/schema.sql + wrangler.toml together.
+ *
  * Lenny Garden edge API (Cloudflare Worker).
  * Holds DB credentials as Worker SECRETS (never in the repo).
  * Exposes a tiny JSON API the static site calls:
