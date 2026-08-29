@@ -48,7 +48,9 @@ export class EmotionFaceScene extends Phaser.Scene {
     calm: 0x7dffb8,
   };
 
-  constructor() { super('emotion-face'); }
+  private roundStart = 0;
+
+    constructor() { super('emotion-face'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -64,6 +66,7 @@ export class EmotionFaceScene extends Phaser.Scene {
     this.done = false;
     this.lock = false;
     this.wrongSinceLastCorrect = 0;
+    this.roundStart = this.time.now;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     /* DDA adapts the option count: options = 2 + floor(level * 3) (2..5) */
     this.optionCount = Math.min(5, Math.max(2, 2 + Math.floor(this.dda.level() * 3)));
@@ -233,7 +236,9 @@ export class EmotionFaceScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַצָּב מַרְגִּישׁ הַרְבֵּה יוֹתֵר טוֹב!');
 
-        recordZoneFinish('feelings-garden');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('feelings-garden', secs);
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }

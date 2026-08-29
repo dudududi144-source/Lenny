@@ -43,7 +43,9 @@ export class OpenEndedScene extends Phaser.Scene {
     'סַפֵּר לִי עַל הַצִּיּוּר',
   ];
 
-  constructor() { super('open-create'); }
+  private roundStart = 0;
+
+    constructor() { super('open-create'); }
 
   preload(): void {
     showLoader(this);
@@ -54,6 +56,7 @@ export class OpenEndedScene extends Phaser.Scene {
     this.drawing = false;
     this.strokes = 0;
     this.done = false;
+    this.roundStart = this.time.now;
     const w = this.scale.width, h = this.scale.height;
 
     /* soft meadow background */
@@ -204,7 +207,9 @@ export class OpenEndedScene extends Phaser.Scene {
       'הַדְּבוֹרָה אוֹהֶבֶת אֶת הַיְּצִירָה שֶׁלְּךָ.',
     ]);
 
-        recordZoneFinish('creativity-meadow');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('creativity-meadow', secs);
 
     this.time.delayedCall(3000, () => this.scene.start('portal'));
   }

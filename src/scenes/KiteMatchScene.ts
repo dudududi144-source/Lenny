@@ -28,7 +28,9 @@ export class KiteMatchScene extends Phaser.Scene {
 
   private readonly COLORS = [0xf2549a, 0x4dc9ff, 0xffd76a, 0x7dffb8, 0xffa552, 0xb39ddb];
 
-  constructor() { super('kite-match'); }
+  private roundStart = 0;
+
+    constructor() { super('kite-match'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -44,6 +46,7 @@ export class KiteMatchScene extends Phaser.Scene {
     this.selectedKite = null;
     this.done = false;
     this.wrongSinceLastMatch = 0;
+    this.roundStart = this.time.now;
     /* a GameSpec variant authors the count; otherwise DDA adapts it:
        kites = 3 + floor(level * 5), clamped to the palette so every
        kite keeps a unique, matchable color */
@@ -231,7 +234,9 @@ export class KiteMatchScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הָעִפְעוֹפִים מָצְאוּ אֶת הַצְּלָלִים!');
 
-        recordZoneFinish('space-sky');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('space-sky', secs);
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }

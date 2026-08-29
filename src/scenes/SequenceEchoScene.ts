@@ -42,7 +42,9 @@ export class SequenceEchoScene extends Phaser.Scene {
   /* cognitive core: DDA drives how long the echo sequence grows */
   private dda = new AdaptiveDifficulty('memory-hill');
 
-  constructor() { super('sequence-echo'); }
+  private roundStart = 0;
+
+    constructor() { super('sequence-echo'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -58,6 +60,7 @@ export class SequenceEchoScene extends Phaser.Scene {
     this.state = 'idle';
     this.sequence = [];
     this.inputIndex = 0;
+    this.roundStart = this.time.now;
     this.totalRounds = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 3;
     const w = this.scale.width, h = this.scale.height;
 
@@ -179,7 +182,9 @@ export class SequenceEchoScene extends Phaser.Scene {
       : 'וָאו, כָּל הַכָּבוֹד! זָכַרְתָּ אֶת כָּל הַסְּדָרִים!';
     this.dialogue.say([winMsg]);
 
-    recordZoneFinish('memory-hill');
+    const secs = (this.time.now - this.roundStart) / 1000;
+    /* real elapsed seconds feed the PlayerModel tempo signal */
+    recordZoneFinish('memory-hill', secs);
 
     this.time.delayedCall(2400, () => this.scene.start('portal'));
   }

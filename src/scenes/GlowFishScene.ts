@@ -44,7 +44,9 @@ export class GlowFishScene extends Phaser.Scene {
   private dda = new AdaptiveDifficulty('attention-stream');
   private wrongSinceLastFind = 0;
 
-  constructor() { super('glow-fish'); }
+  private roundStart = 0;
+
+    constructor() { super('glow-fish'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -60,6 +62,7 @@ export class GlowFishScene extends Phaser.Scene {
     this.found = 0;
     this.done = false;
     this.wrongSinceLastFind = 0;
+    this.roundStart = this.time.now;
     const level = this.dda.level();
     /* a GameSpec variant authors the count; otherwise DDA adapts it:
        distractors = 3 + floor(level * 6), plus the one glowing fish */
@@ -215,7 +218,9 @@ export class GlowFishScene extends Phaser.Scene {
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַדָּגִים מָצְאוּ אֶת הַמַּנְגִּינָה!']);
     this.burst.emit(confettiBurst(this.scale.width / 2, this.scale.height * 0.4));
 
-        recordZoneFinish('attention-stream');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('attention-stream', secs);
 
     this.time.delayedCall(2800, () => this.scene.start('portal'));
   }

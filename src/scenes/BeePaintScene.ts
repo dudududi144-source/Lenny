@@ -41,7 +41,9 @@ export class BeePaintScene extends Phaser.Scene {
   /* cognitive core: DDA drives how many primaries the bee offers */
   private dda = new AdaptiveDifficulty('creativity-meadow');
 
-  constructor() { super('bee-paint'); }
+  private roundStart = 0;
+
+    constructor() { super('bee-paint'); }
 
   preload(): void {
     showLoader(this);
@@ -53,6 +55,7 @@ export class BeePaintScene extends Phaser.Scene {
     this.petals = [];
     this.mixedUnlocked = [];
     this.mixPick = null;
+    this.roundStart = this.time.now;
     /* DDA adapts the palette: colors = 2 + floor(level * 2), capped at
        the 3 primaries (2 colors = simple mixing, 3 = full discovery) */
     const colorCount = Math.min(3, Math.max(2, 2 + Math.floor(this.dda.level() * 2)));
@@ -179,7 +182,9 @@ export class BeePaintScene extends Phaser.Scene {
       /* open-ended game: completion is the single DDA outcome */
       this.dda.outcome(true, 1);
 
-      recordZoneFinish('creativity-meadow');
+      const secs = (this.time.now - this.roundStart) / 1000;
+    /* real elapsed seconds feed the PlayerModel tempo signal */
+    recordZoneFinish('creativity-meadow', secs);
 
       this.time.delayedCall(2200, () => this.scene.start('portal'));
     }

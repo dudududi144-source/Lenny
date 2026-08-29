@@ -41,7 +41,9 @@ export class FindLetterScene extends Phaser.Scene {
   /* basic Hebrew letters, no niqqud, for easy recognition */
   private readonly LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ח', 'ט', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ', 'ק', 'ר', 'ש', 'ת'];
 
-  constructor() { super('find-letter'); }
+  private roundStart = 0;
+
+    constructor() { super('find-letter'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -57,6 +59,7 @@ export class FindLetterScene extends Phaser.Scene {
     this.found = 0;
     this.done = false;
     this.lock = false;
+    this.roundStart = this.time.now;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     const w = this.scale.width, h = this.scale.height;
 
@@ -179,7 +182,9 @@ export class FindLetterScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!');
 
-        recordZoneFinish('words-valley');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('words-valley', secs);
 
     /* advance the literacy path so the ParentLens skill progress grows */
     try {

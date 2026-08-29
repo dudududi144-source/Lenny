@@ -43,7 +43,9 @@ export class DrumBeatScene extends Phaser.Scene {
   private spawnY = 0;
   private readonly FALL_TIME = 2.2; /* seconds a note takes to fall */
 
-  constructor() { super('drum-beat'); }
+  private roundStart = 0;
+
+    constructor() { super('drum-beat'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -60,6 +62,7 @@ export class DrumBeatScene extends Phaser.Scene {
     this.perfects = 0;
     this.goods = 0;
     this.clock = 0;
+    this.roundStart = this.time.now;
     this.beatCount = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 8;
     /* tempo: spec-authored speed (BPM) wins; otherwise DDA adapts it:
        bpm = 70 + floor(level * 40) */
@@ -151,7 +154,9 @@ export class DrumBeatScene extends Phaser.Scene {
     /* pattern completed: one DDA round, scored by timing accuracy */
     this.dda.outcome(true, Math.max(0.3, hits / Math.max(1, total)));
 
-        recordZoneFinish('rhythm-square');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('rhythm-square', secs);
 
     void total; void hits;
     this.time.delayedCall(2400, () => this.scene.start('portal'));

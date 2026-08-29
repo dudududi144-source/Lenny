@@ -37,7 +37,9 @@ export class AcornSortScene extends Phaser.Scene {
   private dda = new AdaptiveDifficulty('thinking-forest');
   private rejectsThisRound = 0;
 
-  constructor() { super('acorn-sort'); }
+  private roundStart = 0;
+
+    constructor() { super('acorn-sort'); }
 
   init(data: { spec?: GameSpec }): void {
     this.spec = (data && data.spec) ? data.spec : null;
@@ -50,6 +52,7 @@ export class AcornSortScene extends Phaser.Scene {
 
   create(): void {
     this.round = 1;
+    this.roundStart = this.time.now;
     this.done = false;
     /* a GameSpec variant authors the count; otherwise DDA adapts it:
        acorns = 4 + floor(level * 6), clamped for layout sanity */
@@ -185,7 +188,9 @@ export class AcornSortScene extends Phaser.Scene {
     this.done = true;
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַסְּנַאי מְאֻשָּׁר!']);
 
-    recordZoneFinish('thinking-forest');
+    const secs = (this.time.now - this.roundStart) / 1000;
+    /* real elapsed seconds feed the PlayerModel tempo signal */
+    recordZoneFinish('thinking-forest', secs);
 
     this.time.delayedCall(2600, () => this.scene.start('portal'));
   }
