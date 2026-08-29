@@ -24,6 +24,7 @@ import { LocalProgressStore, bloomLevel, isUnlocked, finishedCount, unlockRequir
 import { GARDEN_TEXT, ZONES as GARDEN_ZONES } from './data/garden';
 import { gamesInZone } from './games/builder/GameRegistry';
 import { GameFactory } from './games/builder/GameFactory';
+import { MemoryGarden } from './games/core/MemoryGarden';
 
 /* UI view-model for the HTML garden map - derived from the SINGLE
    source of truth in data/garden.ts (this file previously held its
@@ -216,7 +217,11 @@ try {
     const bloom = bloomLevel(store.load());
     const badge = document.querySelector('.badge .dot') as HTMLElement | null;
     if (badge && bloom > 0) badge.style.background = '#ffd76a';
-    if (g) g.textContent = days >= 1 ? 'הֵיי! חָזַרְתְּ. הַגַּן הִתְגַּעְגֵּעַ.' : 'בְּרוּכָה הַבָּאָה לַגַּן שֶל אוֹרוֹת.';
+    if (g) {
+      /* personalized greeting from MemoryGarden (was a disconnected module) */
+      try { g.textContent = new MemoryGarden().greeting().join(' '); }
+      catch { /* keep whatever is on screen */ }
+    }
     const cont = document.getElementById('continueBtn') as HTMLButtonElement | null;
     if (cont && s && s.finished && Object.keys(s.finished).length > 0) cont.hidden = false;
   }
