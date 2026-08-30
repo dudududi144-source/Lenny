@@ -38,6 +38,7 @@ export class AcornSortScene extends Phaser.Scene {
   private dda = new AdaptiveDifficulty('thinking-forest');
   private signals = new LearningSignals();
   private rejectsThisRound = 0;
+  private consecutiveMiss = 0;
 
   private roundStart = 0;
 
@@ -94,6 +95,7 @@ export class AcornSortScene extends Phaser.Scene {
   private spawnRound(w: number, h: number): void {
     this.placedCount = 0;
     this.rejectsThisRound = 0;
+    this.consecutiveMiss = 0;
     this.ring.setCounts(0, this.acornCount);
 
     this.drag = new DragDropSystem(this, {
@@ -102,12 +104,22 @@ export class AcornSortScene extends Phaser.Scene {
       onDrop: (itemId: string) => this.onCorrectDrop(itemId),
       onReject: () => {
         this.rejectsThisRound++;
-        this.dda.outcome(false);
+        this.consecutiveMiss++;
+        /* a rejected drop is NOT a round loss: the round is one whole
+           sort, judged once in onCorrectDrop. It feeds LearningSignals
+           and the visible hint ladder instead. */
         this.signals.attempt('logic.ordering', false);
         /* error taxonomy: a rejected drop in a size-ordering game is
            an ordering mistake */
         this.signals.errorKind('logic.ordering', 'wrong-order');
-        this.dialogue.say(['נַסּוּ שׁוּב — אֵיזֶה עִגוּל מַתְאִים?']);
+        const hint = this.dda.suggestHint(this.consecutiveMiss);
+        this.dialogue.say([
+          hint === 'show'
+            ? 'כָּל עִגוּל מְבַקֵּשׁ בְּלוּט גָּדוֹל מִשֶּׁל הָעִגּוּל שֶׁלִּפְנָיו'
+            : hint === 'clear'
+              ? 'סַדְּרוּ אֶת הַבְּלוּטִים מֵהַקָּטָן אֶל הַגָּדוֹל'
+              : 'נַסּוּ שׁוּב — אֵיזֶה עִגוּל מַתְאִים?',
+        ]);
       },
     });
 
@@ -142,6 +154,7 @@ export class AcornSortScene extends Phaser.Scene {
 
     if (this.placedCount >= this.acornCount) {
       /* a completed round = one DDA round; score reflects its cleanliness */
+      this.consecutiveMiss = 0;
       this.dda.outcome(true, Math.max(0.3, 1 - this.rejectsThisRound * 0.2));
       this.signals.attempt('logic.ordering', true);
       if (this.round >= this.ROUNDS) {
