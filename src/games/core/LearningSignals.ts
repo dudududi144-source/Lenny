@@ -47,6 +47,8 @@ export class LearningSignals {
   private correctSkills: Record<string, number> = {};
   private readonly MASTERY_AFTER = 3;
   private readonly CAP = 400;
+  /* subscribers notified when a skill crosses the mastery threshold */
+  private masteryListeners: Array<(skill: string) => void> = [];
 
   constructor() {
     this.load();
@@ -71,13 +73,33 @@ export class LearningSignals {
 
   /** Log an answer attempt. */
   attempt(skill: string, correct: boolean, reactionMs?: number): void {
-    this.push({ t: Date.now(), kind: 'attempt', skill, reactionMs, detail: correct ? 'correct' : 'wrong' });
+    /* count BEFORE the first push(): push() persists the whole state,
+       so counting first keeps storage exactly in sync with memory.
+       (Counting after used to lag one attempt behind -- every reload
+       silently forgot the session's last correct attempt.) */
     if (correct) {
       this.correctSkills[skill] = (this.correctSkills[skill] || 0) + 1;
-      if (this.correctSkills[skill] === this.MASTERY_AFTER) {
-        this.push({ t: Date.now(), kind: 'mastery', skill });
-      }
     }
+    this.push({ t: Date.now(), kind: 'attempt', skill, reactionMs, detail: correct ? 'correct' : 'wrong' });
+    if (correct && this.correctSkills[skill] === this.MASTERY_AFTER) {
+      this.push({ t: Date.now(), kind: 'mastery', skill });
+      for (const cb of this.masteryListeners) cb(skill);
+    }
+  }
+
+  /**
+   * Subscribe to mastery events. Fires when a skill reaches
+   * MASTERY_AFTER (3) correct attempts -- the threshold any
+   * acquisition (e.g. SkillBridge -> SkillGraph) must wait for.
+   * A single success is recognition, not mastery.
+   */
+  onMastery(cb: (skill: string) => void): void {
+    this.masteryListeners.push(cb);
+  }
+
+  /** How many correct attempts a skill has accumulated (0..n). */
+  masteryCount(skill: string): number {
+    return this.correctSkills[skill] || 0;
   }
 
   /** Log a wrong-answer category (e.g. 'confused-bet-kaf'). */
