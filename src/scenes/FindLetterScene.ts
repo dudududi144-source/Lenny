@@ -174,13 +174,24 @@ export class FindLetterScene extends Phaser.Scene {
       }
     } else {
       this.wrongSinceLastFind++;
-      this.dda.outcome(false);
+      /* a wrong tap is NOT a round loss (the round is one found
+         letter, judged in the correct branch above). It feeds
+         LearningSignals and the visible hint ladder instead. */
       this.signals.attempt('language.letter-recognition', false);
       this.signals.errorKind(
         'language.letter-recognition',
         this.getLetterErrorKind(this.targetLetter, this.letterTexts[idx].text),
       );
-      this.msgText.setText('כִּמְעַט! נַסֶּה שׁוּב');
+      /* visible, escalating help (gentle -> clear -> show) instead of
+         a silent difficulty drop -- same pattern as MemoryPairs */
+      const hint = this.dda.suggestHint(this.wrongSinceLastFind);
+      this.msgText.setText(
+        hint === 'show'
+          ? 'הַשְׁוֵה כָּל אוֹת לְמַטָּה עִם הָאוֹת שֶׁלְּמַעְלָה'
+          : hint === 'clear'
+            ? 'הִסְתַּכֵּל לְאָט עַל כָּל הָאוֹתִיּוֹת'
+            : 'כִּמְעַט! נַסֶּה שׁוּב',
+      );
     }
   }
 
