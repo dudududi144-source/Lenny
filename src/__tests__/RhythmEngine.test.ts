@@ -83,4 +83,39 @@ describe('RhythmEngine', () => {
     expect(e.elapsed(5)).toBe(0);
     expect(e.isDone(100)).toBe(false);
   });
+
+  it('sweep() marks passed unjudged beats as missed and returns their indices', () => {
+    const e = makeEngine();
+    e.start(0);
+    e.judge(2.0); /* hit beat 1 */
+    /* at t=5.0: beat 0 passed (1.0 + 0.28 window), beat 1 was hit,
+       beats 2 and 3 passed unjudged */
+    expect(e.sweep(5.0)).toEqual([0, 2, 3]);
+    expect(e.misses()).toBe(3);
+    expect(e.hits()).toBe(1);
+  });
+
+  it('sweep() is idempotent and does not mark beats still inside their window', () => {
+    const e = makeEngine();
+    e.start(0);
+    expect(e.sweep(1.0)).toEqual([]); /* beat 0 not yet past its window */
+    expect(e.sweep(1.3)).toEqual([0]);
+    expect(e.sweep(2.0)).toEqual([]); /* already marked, nothing new */
+    expect(e.misses()).toBe(1);
+  });
+
+  it('sweep() before start() marks nothing', () => {
+    const e = makeEngine();
+    expect(e.sweep(100)).toEqual([]);
+    expect(e.misses()).toBe(0);
+  });
+
+  it('start() resets missed beats from the previous pattern', () => {
+    const e = makeEngine();
+    e.start(0);
+    e.sweep(5.0);
+    expect(e.misses()).toBe(4);
+    e.start(10);
+    expect(e.misses()).toBe(0);
+  });
 });
