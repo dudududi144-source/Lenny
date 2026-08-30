@@ -44,6 +44,8 @@ export class GlowFishScene extends Phaser.Scene {
   /* cognitive core: DDA drives the distractor count when no spec provides one */
   private dda = new AdaptiveDifficulty('attention-stream');
   private signals = new LearningSignals();
+  /* wrong taps since the last find: doubles as the round's cleanliness
+     score input and the consecutiveMiss counter for the hint ladder */
   private wrongSinceLastFind = 0;
 
   private roundStart = 0;
@@ -152,7 +154,9 @@ export class GlowFishScene extends Phaser.Scene {
       }
     } else {
       this.wrongSinceLastFind++;
-      this.dda.outcome(false);
+      /* a wrong tap is NOT a round loss (there is no fail state; the
+         round is one find, judged in the glowing branch above). It
+         feeds LearningSignals and the visible hint ladder instead. */
       this.signals.attempt('attention.visual', false);
       /* error taxonomy: repeated misses around the glowing fish =
          tapping too broadly; a single wrong fish = a wrong pick */
@@ -160,7 +164,16 @@ export class GlowFishScene extends Phaser.Scene {
         'attention.visual',
         this.wrongSinceLastFind >= 3 ? 'too-many-taps' : 'wrong-fish',
       );
-      this.dialogue.say(['כִּמְעַט! נַסּוּ שׁוּב']);
+      /* visible, escalating help (gentle -> clear -> show) instead of
+         a silent difficulty drop -- same pattern as MemoryPairs */
+      const hint = this.dda.suggestHint(this.wrongSinceLastFind);
+      this.dialogue.say([
+        hint === 'show'
+          ? 'הָאוֹר הַזָּהוֹב מְנַצְנֵץ סְבִיב הַדָּג — הַקִּישׁוּ עָלָיו'
+          : hint === 'clear'
+            ? 'חִפְּשׂוּ אֶת הָאוֹר הַזָּהוֹב סְבִיב הַדָּגִים'
+            : 'כִּמְעַט! נַסּוּ שׁוּב',
+      ]);
     }
   }
 
