@@ -39,6 +39,7 @@ export class DrumBeatScene extends Phaser.Scene {
   /* cognitive core: DDA drives the tempo when no spec provides one */
   private dda = new AdaptiveDifficulty('rhythm-square');
   private signals = new LearningSignals();
+  private consecutiveMiss = 0;
 
   /* layout */
   private hitY = 0;
@@ -64,6 +65,7 @@ export class DrumBeatScene extends Phaser.Scene {
     this.perfects = 0;
     this.goods = 0;
     this.clock = 0;
+    this.consecutiveMiss = 0;
     this.roundStart = this.time.now;
     this.beatCount = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 8;
     /* tempo: spec-authored speed (BPM) wins; otherwise DDA adapts it:
@@ -111,14 +113,15 @@ export class DrumBeatScene extends Phaser.Scene {
 
     if (j.grade === 'perfect') {
       this.perfects++;
+      this.consecutiveMiss = 0;
       this.showGrade('מֻשְׁלָם!', 0xffd76a);
       this.burst.emit(sparkleBurst(this.scale.width / 2, this.hitY));
     } else if (j.grade === 'good') {
       this.goods++;
+      this.consecutiveMiss = 0;
       this.showGrade('יוֹפִי!', 0x7dffb8);
     } else {
-      this.showGrade('נַסֶּה לְהַקְשִׁיב לַקֶּצֶב', 0xfff6ec);
-      this.dda.outcome(false); /* off-beat tap = a failed attempt */
+      this.consecutiveMiss++;
       this.signals.attempt('rhythm.timing', false);
       /* error taxonomy: classify the miss by where it landed relative
          to the beat map (early vs late vs nowhere near) */
@@ -127,6 +130,18 @@ export class DrumBeatScene extends Phaser.Scene {
       if (up.length > 0 && up[0] <= 0.28) kind = 'too-early';
       else if (up.length === 0) kind = 'too-late';
       this.signals.errorKind('rhythm.timing', kind);
+      /* wrong taps feed the signals stream and the hint ladder, NOT
+         the DDA: a tap-level failure is not a round-level loss. The
+         round is the whole pattern, judged once in finish(). */
+      const hint = this.dda.suggestHint(this.consecutiveMiss);
+      this.showGrade(
+        hint === 'show'
+          ? 'הַקֵּשׁ רַק כְּשֶׁהַצִּיּוּץ בְּתוֹךְ הָעִגּוּל הַזָּהוֹב'
+          : hint === 'clear'
+            ? 'הַקֵּשׁ כְּשֶׁהַצִּיּוּץ מַגִּיעַ לָּעִגּוּל הַזָּהוֹב'
+            : 'נַסֶּה לְהַקְשִׁיב לַקֶּצֶב',
+        0xfff6ec,
+      );
     }
 
     /* drum pulse feedback */
@@ -156,20 +171,33 @@ export class DrumBeatScene extends Phaser.Scene {
 
   private finish(): void {
     this.done = true;
+
+    /* account for beats the child never tapped (omissions, not just
+       judged taps) before scoring the pattern */
+    for (const _beat of this.engine.sweep(this.clock)) {
+      this.signals.errorKind('rhythm.timing', 'missed-beat');
+    }
+
     const total = this.engine.total();
     const hits = this.engine.hits();
+    const ratio = hits / Math.max(1, total);
+    /* the WHOLE pattern is the DDA round: pass needs half the beats.
+       Off-beat taps never touched the DDA — only this decision does. */
+    const passed = ratio >= 0.5;
+    if (passed) {
+      this.dda.outcome(true, ratio);
+    } else {
+      this.dda.outcome(false);
+    }
+    this.signals.attempt('rhythm.timing', passed);
+
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַתֹּף חָזַר לְתַפְתֵּף!');
     this.burst.emit(confettiBurst(this.scale.width / 2, this.scale.height * 0.4));
 
-    /* pattern completed: one DDA round, scored by timing accuracy */
-    this.dda.outcome(true, Math.max(0.3, hits / Math.max(1, total)));
-    this.signals.attempt('rhythm.timing', true);
+    const secs = (this.time.now - this.roundStart) / 1000;
+    /* real elapsed seconds feed the PlayerModel tempo signal */
+    recordZoneFinish('rhythm-square', secs);
 
-        const secs = (this.time.now - this.roundStart) / 1000;
-        /* real elapsed seconds feed the PlayerModel tempo signal */
-        recordZoneFinish('rhythm-square', secs);
-
-    void total; void hits;
     this.time.delayedCall(2400, () => this.scene.start('portal'));
   }
 
