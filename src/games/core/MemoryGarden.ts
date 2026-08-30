@@ -17,19 +17,13 @@
  * ============================================================ */
 
 import { PlayerModel } from './PlayerModel';
+import { ZONES } from '../../data/garden';
 
-const ZONE_NAMES: Record<string, string> = {
-  'light-path': 'שְׁבִיל הָאוֹר',
-  'memory-hill': 'גִּבְעַת הַזִּכָּרוֹן',
-  'attention-stream': 'נַחַל הַקֶּשֶׁב',
-  'thinking-forest': 'יַעַר הַחֲשִׁיבָה',
-  'space-sky': 'שְׁמֵי הַמֶּרְחָב',
-  'words-valley': 'עֵמֶק הַמִּלִּים',
-  'feelings-garden': 'גַּן הָרְגָשׁוֹת',
-  'creativity-meadow': 'אֲחוּ הַיְּצִירָה',
-  'rhythm-square': 'כִּכַּר הַקֶּצֶב',
-  'breath-pool': 'בְּרֵכַת הַנְּשִׁימָה',
-};
+/* zone display names come from the single source of truth (data/garden.ts).
+   (This file previously held its own hardcoded duplicate map.) */
+const ZONE_NAMES: Record<string, string> = Object.fromEntries(
+  ZONES.map((z) => [z.id, z.name]),
+);
 
 export class MemoryGarden {
   private pm: PlayerModel;

@@ -7,7 +7,9 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
-import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
+import { SkillBridge } from '../games/core/SkillBridge';
 import { GameSpec } from '../games/builder/GameSpec';
 
 export class FindLetterScene extends Phaser.Scene {
@@ -23,9 +25,35 @@ export class FindLetterScene extends Phaser.Scene {
   private spec: GameSpec | null = null;
   private done = false;
   private lock = false;
+  private targetLetter = '';
+
+  /* cognitive core: DDA drives distractor similarity */
+  private dda = new AdaptiveDifficulty('words-valley');
+  private signals = new LearningSignals();
+  /* shares the scene's signals: acquisition fires only when a skill
+     crosses the mastery threshold (3 corrects), never on 1 success */
+  private skillBridge = new SkillBridge(this.signals);
+  private wrongSinceLastFind = 0;
+
+  /* letters whose SkillGraph acquisition is wired through the bridge;
+     everything else keeps the aggregate skill id */
+  private readonly GLYPH_SKILL: Record<string, string> = {
+    'א': 'letter.alef',
+    'ב': 'letter.bet',
+  };
+
+  /* visually confusable Hebrew letter pairs (task-spec taxonomy);
+   * higher DDA levels inject the target's partner as a distractor */
+  private readonly CONFUSABLES: Record<string, string> = {
+    'ב': 'כ', 'כ': 'ב',
+    'מ': 'ס', 'ס': 'מ',
+    'ד': 'ר', 'ר': 'ד',
+  };
 
   /* basic Hebrew letters, no niqqud, for easy recognition */
   private readonly LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ח', 'ט', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ', 'ק', 'ר', 'ש', 'ת'];
+
+  private roundStart = 0;
 
   constructor() { super('find-letter'); }
 
@@ -43,6 +71,8 @@ export class FindLetterScene extends Phaser.Scene {
     this.found = 0;
     this.done = false;
     this.lock = false;
+    this.wrongSinceLastFind = 0;
+    this.roundStart = this.time.now;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     const w = this.scale.width, h = this.scale.height;
 
@@ -91,9 +121,12 @@ export class FindLetterScene extends Phaser.Scene {
     for (const t of this.letterTexts) t.destroy();
     this.letterTexts = [];
 
-    /* pick 6 distinct letters, one is the target */
+    /* pick 6 distinct letters, one is the target.
+       DDA level raises distractor similarity: from level 0.5 up, the
+       target's confusable partner (ב/כ, מ/ס, ד/ר) is planted among them. */
     const pool = [...this.LETTERS];
     const chosen: string[] = [];
+    const level = this.dda.level();
     for (let i = 0; i < 6; i++) {
       const idx = Math.floor(Math.random() * pool.length);
       chosen.push(pool[idx]);
@@ -101,6 +134,13 @@ export class FindLetterScene extends Phaser.Scene {
     }
     this.targetIdx = Math.floor(Math.random() * 6);
     const target = chosen[this.targetIdx];
+    this.targetLetter = target;
+    const partner = this.CONFUSABLES[target];
+    if (level >= 0.5 && partner && !chosen.includes(partner)) {
+      /* replace one non-target slot with the confusable partner */
+      const slot = chosen.findIndex((c, i) => i !== this.targetIdx);
+      chosen[slot] = partner;
+    }
 
     this.targetText.setText('אֵיפֹה הָאוֹת ' + target + '?');
 
@@ -126,6 +166,14 @@ export class FindLetterScene extends Phaser.Scene {
     if (idx === this.targetIdx) {
       this.found++;
       this.updateScore();
+      /* one found letter = one DDA round; score reflects its cleanliness */
+      this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2));
+      /* exactly ONE attempt per find: mapped letters (א/ב) log under
+         their own skill id so mastery counts per letter; everything
+         else logs under the aggregate id. 3 corrects (across
+         sessions) fire mastery -> SkillBridge acquires the node. */
+      this.signals.attempt(this.skillIdFor(this.targetLetter), true);
+      this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
       } else {
@@ -134,8 +182,44 @@ export class FindLetterScene extends Phaser.Scene {
         this.time.delayedCall(500, () => { this.lock = false; this.newRound(this.scale.width, this.scale.height); });
       }
     } else {
-      this.msgText.setText('כִּמְעַט! נַסֶּה שׁוּב');
+      this.wrongSinceLastFind++;
+      /* a wrong tap is NOT a round loss (the round is one found
+         letter, judged in the correct branch above). It is a failed
+         recognition OF THE TARGET letter: it feeds LearningSignals
+         and the hint ladder, and counts against that letter's
+         accuracy -- but never resets its mastery count. */
+      this.signals.attempt(this.skillIdFor(this.targetLetter), false);
+      this.signals.errorKind(
+        'language.letter-recognition',
+        this.getLetterErrorKind(this.targetLetter, this.letterTexts[idx].text),
+      );
+      /* visible, escalating help (gentle -> clear -> show) instead of
+         a silent difficulty drop -- same pattern as MemoryPairs */
+      const hint = this.dda.suggestHint(this.wrongSinceLastFind);
+      this.msgText.setText(
+        hint === 'show'
+          ? 'הַשְׁוֵה כָּל אוֹת לְמַטָּה עִם הָאוֹת שֶׁלְּמַעְלָה'
+          : hint === 'clear'
+            ? 'הִסְתַּכֵּל לְאָט עַל כָּל הָאוֹתִיּוֹת'
+            : 'כִּמְעַט! נַסֶּה שׁוּב',
+      );
     }
+  }
+
+  /** Map a tapped letter to a specific confusion category. */
+  private getLetterErrorKind(target: string, tapped: string): string {
+    void target;
+    const confusables: Record<string, string> = {
+      'ב': 'confused-bet-kaf', 'כ': 'confused-bet-kaf',
+      'מ': 'confused-mem-samech', 'ס': 'confused-mem-samech',
+      'ד': 'confused-dalet-resh', 'ר': 'confused-dalet-resh',
+    };
+    return confusables[tapped] || 'wrong-letter';
+  }
+
+  /** The LearningSignals skill id for the target letter of a round. */
+  private skillIdFor(letter: string): string {
+    return this.GLYPH_SKILL[letter] ?? 'language.letter-recognition';
   }
 
   private hitTest(px: number, py: number): number | null {
@@ -150,14 +234,16 @@ export class FindLetterScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!');
 
-        recordZoneFinish('words-valley');
+    const secs = (this.time.now - this.roundStart) / 1000;
+    /* real elapsed seconds feed the PlayerModel tempo signal */
+    recordZoneFinish('words-valley', secs);
 
-    /* advance the literacy path so the ParentLens skill progress grows */
-    try {
-      const skills = new SkillGraph(LITERACY_GRAPH);
-      const next = skills.frontier();
-      if (next.length > 0) skills.acquire(next[0]);
-    } catch { /* noop */ }
+    /* NOTE: no acquisition here on purpose. Skill nodes are acquired
+       ONLY through the mastery threshold (3 corrects per skill,
+       wired via SkillBridge in this scene's constructor). The old
+       code acquired a frontier node after every win and called
+       onSkillMastered for any letter seen ONCE -- both let ParentLens
+       progress grow with no mastery evidence behind it. */
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }

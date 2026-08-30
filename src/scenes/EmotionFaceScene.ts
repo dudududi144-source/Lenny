@@ -7,6 +7,8 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'calm';
@@ -27,6 +29,19 @@ export class EmotionFaceScene extends Phaser.Scene {
   private done = false;
   private lock = false;
 
+  /* cognitive core: DDA drives how many emotion options are shown */
+  private dda = new AdaptiveDifficulty('feelings-garden');
+  private signals = new LearningSignals();
+  private wrongSinceLastCorrect = 0;
+  private optionCount = 3;
+
+  /* emotion pairs children most often confuse */
+  private readonly SIMILAR: [Emotion, Emotion][] = [
+    ['sad', 'angry'],
+    ['happy', 'calm'],
+    ['surprised', 'angry'],
+  ];
+
   private readonly LABELS: Record<Emotion, string> = {
     happy: 'שָׂמֵחַ',
     sad: 'עָצוּב',
@@ -41,6 +56,8 @@ export class EmotionFaceScene extends Phaser.Scene {
     surprised: 0xffa552,
     calm: 0x7dffb8,
   };
+
+  private roundStart = 0;
 
   constructor() { super('emotion-face'); }
 
@@ -57,7 +74,11 @@ export class EmotionFaceScene extends Phaser.Scene {
     this.found = 0;
     this.done = false;
     this.lock = false;
+    this.wrongSinceLastCorrect = 0;
+    this.roundStart = this.time.now;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
+    /* DDA adapts the option count: options = 2 + floor(level * 3) (2..5) */
+    this.optionCount = Math.min(5, Math.max(2, 2 + Math.floor(this.dda.level() * 3)));
     const w = this.scale.width, h = this.scale.height;
 
     /* feelings garden background */
@@ -76,12 +97,11 @@ export class EmotionFaceScene extends Phaser.Scene {
       fontFamily: 'Heebo, Arial', fontSize: '15px', color: '#fff6ec',
     }).setOrigin(0.5);
 
-    /* three option buttons at the bottom */
-    this.optionSpots = [
-      { x: w * 0.2, y: h * 0.78 },
-      { x: w * 0.5, y: h * 0.78 },
-      { x: w * 0.8, y: h * 0.78 },
-    ];
+    /* option buttons at the bottom, evenly spaced for the adaptive count */
+    this.optionSpots = [];
+    for (let i = 0; i < this.optionCount; i++) {
+      this.optionSpots.push({ x: w * ((i + 1) / (this.optionCount + 1)), y: h * 0.78 });
+    }
 
     this.newRound(w, h);
     this.updateScore();
@@ -89,12 +109,12 @@ export class EmotionFaceScene extends Phaser.Scene {
   }
 
   private newRound(w: number, h: number): void {
-    /* pick the current emotion + 2 distractors */
+    /* pick the current emotion + (optionCount - 1) distractors */
     const all: Emotion[] = ['happy', 'sad', 'angry', 'surprised', 'calm'];
     this.current = all[Math.floor(Math.random() * all.length)];
     const others = all.filter((e) => e !== this.current);
     const picked: Emotion[] = [this.current];
-    while (picked.length < 3) {
+    while (picked.length < this.optionCount) {
       const idx = Math.floor(Math.random() * others.length);
       picked.push(others[idx]);
       others.splice(idx, 1);
@@ -110,7 +130,7 @@ export class EmotionFaceScene extends Phaser.Scene {
     /* rebuild option texts */
     for (const t of this.optionTexts) t.destroy();
     this.optionTexts = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < this.optionCount; i++) {
       const spot = this.optionSpots[i];
       const t = this.add.text(spot.x, spot.y, this.LABELS[this.options[i]], {
         fontFamily: 'Heebo, Arial', fontSize: '16px', color: '#fff6ec',
@@ -132,6 +152,10 @@ export class EmotionFaceScene extends Phaser.Scene {
     if (idx === this.correctIdx) {
       this.found++;
       this.updateScore();
+      /* one named emotion = one DDA round; score reflects its cleanliness */
+      this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastCorrect * 0.2));
+      this.signals.attempt('emotion.recognition', true);
+      this.wrongSinceLastCorrect = 0;
       if (this.found >= this.TARGET) {
         this.win();
       } else {
@@ -144,7 +168,28 @@ export class EmotionFaceScene extends Phaser.Scene {
         });
       }
     } else {
-      this.msgText.setText('נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב');
+      this.wrongSinceLastCorrect++;
+      /* a wrong pick is NOT a round loss (the round is one named
+         emotion, judged in the correct branch above). It feeds
+         LearningSignals and the visible hint ladder instead. */
+      this.signals.attempt('emotion.recognition', false);
+      /* error taxonomy: was the wrong pick a commonly-confused pair? */
+      const picked = this.options[idx];
+      const similar = this.SIMILAR.some(
+        ([a, b]) =>
+          (a === picked && b === this.current) || (b === picked && a === this.current),
+      );
+      this.signals.errorKind('emotion.recognition', similar ? 'confused-similar-emotions' : 'wrong-emotion');
+      /* visible, escalating help (gentle -> clear -> show) instead of
+         a silent difficulty drop -- same pattern as MemoryPairs */
+      const hint = this.dda.suggestHint(this.wrongSinceLastCorrect);
+      this.msgText.setText(
+        hint === 'show'
+          ? 'עֵינַיִם, אַחַר כָּךְ גְּבוֹת, אַחַר כָּךְ פֶּה — מָה הַצָּב מַרְגִּישׁ?'
+          : hint === 'clear'
+            ? 'הִסְתַּכֵּל עַל הַפֶּה שֶׁל הַצָּב'
+            : 'נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב',
+      );
     }
   }
 
@@ -220,7 +265,9 @@ export class EmotionFaceScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הַצָּב מַרְגִּישׁ הַרְבֵּה יוֹתֵר טוֹב!');
 
-        recordZoneFinish('feelings-garden');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('feelings-garden', secs);
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }

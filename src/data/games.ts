@@ -1,4 +1,17 @@
 /* ============================================================
+ * STATUS: CONTENT RESERVE — the 144 game NAMES are an asset for
+ * future GameSpecs. The ACTIVE catalog is GameRegistry
+ * (src/games/builder/GameRegistry.ts): new games are added there
+ * as GameSpecs, NOT here.
+ *
+ * Wiring map (verified):
+ *   - GameCategory (type)     -> consumed by data/garden.ts + GameSpec
+ *   - CATEGORIES/CATEGORY_ORDER -> consumed by portal/MandalaSystem
+ *     (portal subsystem, currently not booted by entry.ts)
+ *   - GAMES / getGame / gamesByCategory / LEVELS -> NO consumers
+ *     (verified by grep); kept deliberately as the name reserve.
+ * Do NOT add new games here; add GameSpecs to GameRegistry instead.
+ *
  * 144 Cognitive Games — The Seed
  * 9 categories x 16 games (4 levels x 4 games per level).
  * Names in clean, standard Hebrew with full niqqud, RTL-safe,

@@ -39,6 +39,8 @@ export class LennyStoryScene extends Phaser.Scene {
   private done = false;
   private lastTap = 0;
 
+  private roundStart = 0;
+
   constructor() { super('lenny-story'); }
 
   init(data: { spec?: GameSpec }): void {
@@ -54,6 +56,7 @@ export class LennyStoryScene extends Phaser.Scene {
     this.litCount = 0;
     this.done = false;
     this.lastTap = 0;
+    this.roundStart = this.time.now;
     this.lanterns = [];
     this.TOTAL = (this.spec && this.spec.params.itemCount) ? Math.min(this.spec.params.itemCount, 5) : 3;
     const w = this.scale.width, h = this.scale.height;
@@ -122,7 +125,9 @@ export class LennyStoryScene extends Phaser.Scene {
       'הַפָּנָסִים מְאִירִים אֶת הַבְּרֵכָה.',
     ]);
 
-        recordZoneFinish('breath-pool');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('breath-pool', secs);
 
     this.time.delayedCall(3200, () => this.scene.start('portal'));
   }
@@ -130,7 +135,7 @@ export class LennyStoryScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const dt = delta / 1000;
     const t = time * 0.001;
-    this.burst.update(dt, 0, 0.99);
+    this.burst.update(dt);
     this.ring.update(dt);
     this.dialogue.update(dt);
     this.drawScene(t);

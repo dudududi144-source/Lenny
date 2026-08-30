@@ -11,6 +11,8 @@
 import Phaser from 'phaser';
 import { recordZoneFinish } from '../games/core/ProgressStore';
 import { showLoader } from '../games/fx/Loader';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
@@ -39,6 +41,15 @@ export class GlowFishScene extends Phaser.Scene {
   private spec: GameSpec | null = null;
   private done = false;
 
+  /* cognitive core: DDA drives the distractor count when no spec provides one */
+  private dda = new AdaptiveDifficulty('attention-stream');
+  private signals = new LearningSignals();
+  /* wrong taps since the last find: doubles as the round's cleanliness
+     score input and the consecutiveMiss counter for the hint ladder */
+  private wrongSinceLastFind = 0;
+
+  private roundStart = 0;
+
   constructor() { super('glow-fish'); }
 
   init(data: { spec?: GameSpec }): void {
@@ -54,7 +65,14 @@ export class GlowFishScene extends Phaser.Scene {
   create(): void {
     this.found = 0;
     this.done = false;
-    const itemCount = (this.spec && this.spec.params.itemCount) ? this.spec.params.itemCount : 5;
+    this.wrongSinceLastFind = 0;
+    this.roundStart = this.time.now;
+    const level = this.dda.level();
+    /* a GameSpec variant authors the count; otherwise DDA adapts it:
+       distractors = 3 + floor(level * 6), plus the one glowing fish */
+    const itemCount = (this.spec && this.spec.params.itemCount)
+      ? this.spec.params.itemCount
+      : 3 + Math.floor(level * 6) + 1;
     this.TARGET = itemCount;
     this.fishCount = itemCount;
     const w = this.scale.width, h = this.scale.height;
@@ -123,6 +141,11 @@ export class GlowFishScene extends Phaser.Scene {
       this.found++;
       this.ring.setCounts(this.found, this.TARGET);
       this.burst.emit(sparkleBurst(this.fishes[idx].x, this.fishes[idx].y));
+      /* one completed find = one DDA round; score reflects its cleanliness */
+      const score = Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2);
+      this.dda.outcome(true, score);
+      this.signals.attempt('attention.visual', true);
+      this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
       } else {
@@ -130,7 +153,27 @@ export class GlowFishScene extends Phaser.Scene {
         this.pickGlowing();
       }
     } else {
-      this.dialogue.say(['כִּמְעַט! נַסּוּ שׁוּב']);
+      this.wrongSinceLastFind++;
+      /* a wrong tap is NOT a round loss (there is no fail state; the
+         round is one find, judged in the glowing branch above). It
+         feeds LearningSignals and the visible hint ladder instead. */
+      this.signals.attempt('attention.visual', false);
+      /* error taxonomy: repeated misses around the glowing fish =
+         tapping too broadly; a single wrong fish = a wrong pick */
+      this.signals.errorKind(
+        'attention.visual',
+        this.wrongSinceLastFind >= 3 ? 'too-many-taps' : 'wrong-fish',
+      );
+      /* visible, escalating help (gentle -> clear -> show) instead of
+         a silent difficulty drop -- same pattern as MemoryPairs */
+      const hint = this.dda.suggestHint(this.wrongSinceLastFind);
+      this.dialogue.say([
+        hint === 'show'
+          ? 'הָאוֹר הַזָּהוֹב מְנַצְנֵץ סְבִיב הַדָּג — הַקִּישׁוּ עָלָיו'
+          : hint === 'clear'
+            ? 'חִפְּשׂוּ אֶת הָאוֹר הַזָּהוֹב סְבִיב הַדָּגִים'
+            : 'כִּמְעַט! נַסּוּ שׁוּב',
+      ]);
     }
   }
 
@@ -149,7 +192,7 @@ export class GlowFishScene extends Phaser.Scene {
     const g = this.fishG;
     g.clear();
 
-    this.burst.update(dt, 0, 0.99);
+    this.burst.update(dt);
     this.ring.update(dt);
     this.dialogue.update(dt);
 
@@ -198,7 +241,9 @@ export class GlowFishScene extends Phaser.Scene {
     this.dialogue.say(['וָאו, כָּל הַכָּבוֹד!', 'הַדָּגִים מָצְאוּ אֶת הַמַּנְגִּינָה!']);
     this.burst.emit(confettiBurst(this.scale.width / 2, this.scale.height * 0.4));
 
-        recordZoneFinish('attention-stream');
+        const secs = (this.time.now - this.roundStart) / 1000;
+        /* real elapsed seconds feed the PlayerModel tempo signal */
+        recordZoneFinish('attention-stream', secs);
 
     this.time.delayedCall(2800, () => this.scene.start('portal'));
   }

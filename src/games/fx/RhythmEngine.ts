@@ -44,6 +44,7 @@ export class RhythmEngine {
   private cfg: Required<RhythmConfig>;
   private beatTimes: number[] = [];
   private judged: boolean[] = [];
+  private missed: boolean[] = [];
   private startTime = 0;
   private running = false;
 
@@ -59,6 +60,7 @@ export class RhythmEngine {
     for (let i = 0; i < this.cfg.beats; i++) {
       this.beatTimes.push(this.cfg.leadIn + i * interval);
       this.judged.push(false);
+      this.missed.push(false);
     }
   }
 
@@ -66,7 +68,20 @@ export class RhythmEngine {
   start(now: number): void {
     this.startTime = now;
     this.running = true;
-    for (let i = 0; i < this.judged.length; i++) this.judged[i] = false;
+    for (let i = 0; i < this.judged.length; i++) {
+      this.judged[i] = false;
+      this.missed[i] = false;
+    }
+  }
+
+  /** The configured BPM (lets scenes keep their drawing in sync). */
+  get bpm(): number {
+    return this.cfg.bpm;
+  }
+
+  /** Seconds before the first beat (lets scenes keep drawing in sync). */
+  get leadIn(): number {
+    return this.cfg.leadIn;
   }
 
   /** Elapsed pattern time in seconds. */
@@ -112,6 +127,32 @@ export class RhythmEngine {
   hits(): number {
     let n = 0;
     for (const j of this.judged) if (j) n++;
+    return n;
+  }
+
+  /**
+   * Mark every beat that has fully passed without a hit as missed.
+   * The engine only ever judges TAPS — beats the child never tapped
+   * stayed invisible to any consumer. Call this at pattern end (or
+   * periodically) so omissions are accounted for, not just taps.
+   * Returns the indices of beats newly marked. Idempotent.
+   */
+  sweep(now: number): number[] {
+    const t = this.elapsed(now);
+    const out: number[] = [];
+    for (let i = 0; i < this.beatTimes.length; i++) {
+      if (!this.judged[i] && !this.missed[i] && t > this.beatTimes[i] + this.cfg.goodWindow) {
+        this.missed[i] = true;
+        out.push(i);
+      }
+    }
+    return out;
+  }
+
+  /** How many beats passed without a hit (after sweep). */
+  misses(): number {
+    let n = 0;
+    for (const m of this.missed) if (m) n++;
     return n;
   }
 

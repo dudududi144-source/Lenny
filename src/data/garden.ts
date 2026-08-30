@@ -31,10 +31,15 @@ export interface UnlockRule {
 export interface ZoneDef {
   id: ZoneId;
   name: string;        /* everyday Hebrew, with niqqud */
+  desc: string;        /* short UI subtitle for the HTML garden map */
   mission: string;     /* the big mission of this zone */
   insight: string;     /* the little realization at the end */
   category: GameCategory;
   color: number;
+  /* CSS hex color for the HTML garden map. Kept separate from `color`
+     (canvas int) so the live map keeps its exact current visuals —
+     the two intentionally differ for memory-hill and words-valley. */
+  uiColor: string;
   icon: string;
   unlock: UnlockRule;
   /* Phaser scene to open when this zone is played (undefined = not built yet) */
@@ -46,6 +51,8 @@ export const ZONES: ZoneDef[] = [
     id: 'light-path',
     gameScene: 'play',
     name: 'שְׁבִיל הָאוֹר',
+    desc: 'הַמַּסָּע מַתְחִיל כָּאן',
+    uiColor: '#ffd76a',
     mission: 'בּוֹא נַדְלִיק אֶת הַפָּנָסִים שֶׁל הַשְּׁבִיל!',
     insight: 'רָאִית? כָּל אוֹר קָטָן עוֹשֶׂה אֶת הַדֶּרֶךְ בְּהִירָה.',
     category: 'breath',
@@ -57,6 +64,8 @@ export const ZONES: ZoneDef[] = [
     id: 'memory-hill',
     gameScene: 'memory-pairs',
     name: 'גִּבְעַת הַזִּכָּרוֹן',
+    desc: 'זִכְרוֹן וְהַתְאָמוֹת',
+    uiColor: '#7c4dff',
     mission: 'הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ. בּוֹא נַעֲזֹר לוֹ!',
     insight: 'כְּשֶׁמִּתְרַכְּזִים, זוֹכְרִים יוֹתֵר טוֹב!',
     category: 'memory',
@@ -68,6 +77,8 @@ export const ZONES: ZoneDef[] = [
     id: 'attention-stream',
     gameScene: 'glow-fish',
     name: 'נַחַל הַקֶּשֶׁב',
+    desc: 'קֶשֶׁב וְרִכּוּז',
+    uiColor: '#4dc9ff',
     mission: 'הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִּינָה. בּוֹא נַקְשִׁיב יַחַד!',
     insight: 'כְּשֶׁמַּקְשִׁיבִים, שׁוֹמְעִים דְּבָרִים יָפִים.',
     category: 'attention',
@@ -79,6 +90,8 @@ export const ZONES: ZoneDef[] = [
     id: 'thinking-forest',
     gameScene: 'acorn-sort',
     name: 'יַעַר הַחֲשִׁיבָה',
+    desc: 'הִגָּיוֹן וְסֵדֶר',
+    uiColor: '#7dffb8',
     mission: 'הַסְּנַאי צָרִיךְ לְסַדֵּר אֶת הַבְּלוּטִים. בּוֹא נַחְשֹׁב יַחַד!',
     insight: 'לִפְעָמִים צָרִיךְ לְנַסּוֹת כַּמָּה דְּרָכִים עַד שֶׁמַּצְלִיחִים.',
     category: 'logic',
@@ -90,6 +103,8 @@ export const ZONES: ZoneDef[] = [
     id: 'space-sky',
     gameScene: 'kite-match',
     name: 'שְׁמֵי הַמֶּרְחָב',
+    desc: 'צוּרוֹת וּמֶרְחָב',
+    uiColor: '#b39ddb',
     mission: 'הָעִפְעוֹפִים הִתְבַּלְבְּלוּ בַּשָּׁמַיִם. בּוֹא נְסַדֵּר אוֹתָם!',
     insight: 'גַּם כְּשֶׁמִּסְתַּבֵּךְ, אֶפְשָׁר לִמְצֹא אֶת הַמָּקוֹם.',
     category: 'spatial',
@@ -101,6 +116,8 @@ export const ZONES: ZoneDef[] = [
     id: 'words-valley',
     gameScene: 'find-letter',
     name: 'עֵמֶק הַמִּלִּים',
+    desc: 'אוֹתִיּוֹת וּמִלִּים',
+    uiColor: '#f2549a',
     mission: 'הָאַרְנֶבֶת אִבְּדָה אֶת הָאוֹתִיּוֹת. בּוֹא נִמְצָא אוֹתָן!',
     insight: 'אוֹתִיּוֹת קְטַנּוֹת מִתְחַבְּרוֹת לְמִלִּים גְּדוֹלוֹת.',
     category: 'language',
@@ -112,6 +129,8 @@ export const ZONES: ZoneDef[] = [
     id: 'feelings-garden',
     gameScene: 'emotion-face',
     name: 'גַּן הָרְגָשׁוֹת',
+    desc: 'רְגָשׁוֹת וְאַמְפַּתְיָה',
+    uiColor: '#ff8bd4',
     mission: 'הַצָּב עָצוּב וְלֹא יוֹדֵעַ לָמָּה. בּוֹא נְדַבֵּר אִתּוֹ!',
     insight: 'כָּל הָרְגָשׁוֹת הֵם בְּסֵדֶר. גַּם הָעֶצֶב.',
     category: 'emotion',
@@ -123,6 +142,8 @@ export const ZONES: ZoneDef[] = [
     id: 'creativity-meadow',
     gameScene: 'bee-paint',
     name: 'אֲחוּ הַיְּצִירָה',
+    desc: 'יְצִירָה חָפְשִׁית',
+    uiColor: '#ffa552',
     mission: 'הַדְּבוֹרָה רוֹצָה לְצַיֵּר אֲבָל אֵין לָהּ צְבָעִים. בּוֹא נַעֲזֹר!',
     insight: 'אֵין דֶּרֶךְ אַחַת לְצַיֵּר. כָּל דֶּרֶךְ יָפָה.',
     category: 'creativity',
@@ -134,6 +155,8 @@ export const ZONES: ZoneDef[] = [
     id: 'rhythm-square',
     gameScene: 'drum-beat',
     name: 'כִּכַּר הַקֶּצֶב',
+    desc: 'קֶצֶב וּתְנוּעָה',
+    uiColor: '#52e0c4',
     mission: 'הַתֹּף הַגָּדוֹל הִפְסִיק לְתַפְתֵּף. בּוֹא נַחְזִיר לוֹ אֶת הַקֶּצֶב!',
     insight: 'כְּשֶׁזָּזִים בְּקֶצֶב, הַגּוּף וְהַלֵּב נִרְגָּעִים.',
     category: 'rhythm',
@@ -145,6 +168,8 @@ export const ZONES: ZoneDef[] = [
     id: 'breath-pool',
     gameScene: 'lenny-story',
     name: 'בְּרֵכַת הַנְּשִׁימָה',
+    desc: 'נְשִׁימָה וּרְגִיעָה',
+    uiColor: '#7c4dff',
     mission: 'הַבּוּעוֹת רוֹצוֹת לָעוּף לְאַט. בּוֹא נִנְשֹׁם אִתָּן!',
     insight: 'נְשִׁימָה אֲרוּכָּה עוֹשָׂה שֶׁקֶט בַּפְּנִים.',
     category: 'breath',

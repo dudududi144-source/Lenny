@@ -14,6 +14,8 @@ import { showLoader } from '../games/fx/Loader';
 import { ProgressRing } from '../games/fx/ProgressRing';
 import { DialogueBox } from '../games/fx/DialogueBox';
 import { ParticleBurst, sparkleBurst, confettiBurst } from '../games/fx/ParticleBurst';
+import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
+import { LearningSignals } from '../games/core/LearningSignals';
 import { GameSpec } from '../games/builder/GameSpec';
 
 interface Orb {
@@ -38,6 +40,12 @@ export class SequenceEchoScene extends Phaser.Scene {
   private flashT = 0;
   private spec: GameSpec | null = null;
 
+  /* cognitive core: DDA drives how long the echo sequence grows */
+  private dda = new AdaptiveDifficulty('memory-hill');
+  private signals = new LearningSignals();
+
+  private roundStart = 0;
+
   constructor() { super('sequence-echo'); }
 
   init(data: { spec?: GameSpec }): void {
@@ -54,6 +62,7 @@ export class SequenceEchoScene extends Phaser.Scene {
     this.state = 'idle';
     this.sequence = [];
     this.inputIndex = 0;
+    this.roundStart = this.time.now;
     this.totalRounds = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 3;
     const w = this.scale.width, h = this.scale.height;
 
@@ -92,7 +101,10 @@ export class SequenceEchoScene extends Phaser.Scene {
   private startRound(): void {
     if (this.state === 'done') return;
     this.sequence = [];
-    const len = this.round + 1; /* round 1 -> 2 steps, round 2 -> 3, ... */
+    /* the pattern still grows by one each round, but the DDA level
+       caps its length: len = min(round + 1, 2 + floor(level * 4)) */
+    const cap = 2 + Math.floor(this.dda.level() * 4);
+    const len = Math.min(this.round + 1, cap);
     for (let i = 0; i < len; i++) {
       this.sequence.push(Math.floor(Math.random() * this.orbs.length));
     }
@@ -133,9 +145,17 @@ export class SequenceEchoScene extends Phaser.Scene {
       this.inputIndex++;
       this.burst.emit(sparkleBurst(this.orbs[idx].x, this.orbs[idx].y));
       if (this.inputIndex >= this.sequence.length) {
+        this.signals.attempt('memory.working', true);
         this.roundComplete();
       }
     } else {
+      this.dda.outcome(false); /* wrong echo = a failed attempt */
+      this.signals.attempt('memory.working', false);
+      /* error taxonomy: the right orb at the wrong time = wrong
+         position; an orb that is not next at all = wrong item */
+      const remaining = this.sequence.slice(this.inputIndex);
+      const kind = remaining.includes(idx) ? 'wrong-position' : 'wrong-item';
+      this.signals.errorKind('memory.working', kind);
       this.dialogue.say(['כִּמְעַט! בּוֹאוּ נִרְאֶה אֶת הַסֵּדֶר עוֹד פַּעַם.']);
       this.time.delayedCall(900, () => this.playSequence());
       this.state = 'idle';
@@ -146,6 +166,8 @@ export class SequenceEchoScene extends Phaser.Scene {
     this.ring.setCounts(this.round, this.totalRounds);
     const c = { x: this.scale.width / 2, y: this.scale.height * 0.46 };
     this.burst.emit(confettiBurst(c.x, c.y));
+    /* a fully echoed pattern = one DDA round, clean win */
+    this.dda.outcome(true, 1);
     if (this.round >= this.totalRounds) {
       this.win();
     } else {
@@ -169,7 +191,9 @@ export class SequenceEchoScene extends Phaser.Scene {
       : 'וָאו, כָּל הַכָּבוֹד! זָכַרְתָּ אֶת כָּל הַסְּדָרִים!';
     this.dialogue.say([winMsg]);
 
-    recordZoneFinish('memory-hill');
+    const secs = (this.time.now - this.roundStart) / 1000;
+    /* real elapsed seconds feed the PlayerModel tempo signal */
+    recordZoneFinish('memory-hill', secs);
 
     this.time.delayedCall(2400, () => this.scene.start('portal'));
   }
@@ -179,7 +203,7 @@ export class SequenceEchoScene extends Phaser.Scene {
     if (this.flashT > 0) this.flashT -= dt;
     else this.litOrb = -1;
 
-    this.burst.update(dt, 0, 0.99);
+    this.burst.update(dt);
     this.ring.update(dt);
     this.dialogue.update(dt);
 
