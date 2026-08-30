@@ -26,7 +26,10 @@ export class KiteMatchScene extends Phaser.Scene {
   /* cognitive core: DDA drives the kite count when no spec provides one */
   private dda = new AdaptiveDifficulty('space-sky');
   private signals = new LearningSignals();
+  /* wrong taps since the last match: the hint ladder's counter */
   private wrongSinceLastMatch = 0;
+  /* wrong taps across the whole board: the completion score's input */
+  private wrongTapsTotal = 0;
 
   private readonly COLORS = [0xf2549a, 0x4dc9ff, 0xffd76a, 0x7dffb8, 0xffa552, 0xb39ddb];
 
@@ -48,6 +51,7 @@ export class KiteMatchScene extends Phaser.Scene {
     this.selectedKite = null;
     this.done = false;
     this.wrongSinceLastMatch = 0;
+    this.wrongTapsTotal = 0;
     this.roundStart = this.time.now;
     /* a GameSpec variant authors the count; otherwise DDA adapts it:
        kites = 3 + floor(level * 5), clamped to the palette so every
@@ -127,8 +131,8 @@ export class KiteMatchScene extends Phaser.Scene {
           shadow.matched = true;
           this.matchedCount++;
           this.selectedKite = null;
-          /* one completed match = one DDA round; score reflects its cleanliness */
-          this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastMatch * 0.2));
+          /* a single match is NOT a DDA round: the round is the whole
+             board, judged once in win(). Signals stay fine-grained. */
           this.signals.attempt('spatial.matching', true);
           this.wrongSinceLastMatch = 0;
           if (this.matchedCount >= this.TOTAL) {
@@ -138,7 +142,7 @@ export class KiteMatchScene extends Phaser.Scene {
           }
         } else {
           this.wrongSinceLastMatch++;
-          this.dda.outcome(false);
+          this.wrongTapsTotal++;
           this.signals.attempt('spatial.matching', false);
           /* error taxonomy: a shadow tapped with no kite selected =
              shape confusion; with a kite selected = wrong shadow */
@@ -146,7 +150,15 @@ export class KiteMatchScene extends Phaser.Scene {
             'spatial.matching',
             this.selectedKite === null ? 'wrong-shape' : 'wrong-shadow',
           );
-          this.msgText.setText('נַסֶּה צֵל אַחֵר');
+          /* visible, escalating help instead of a silent difficulty drop */
+          const hint = this.dda.suggestHint(this.wrongSinceLastMatch);
+          this.msgText.setText(
+            hint === 'show'
+              ? 'מִצְאוּ צֵל בְּאוֹתוֹ צֶבַע כְּמוֹ הָעִפְּעוֹף'
+              : hint === 'clear'
+                ? 'הִסְתַּכְּלוּ עַל הַצֶּבַע שֶׁל הָעִפְּעוֹף שֶׁנִּבְחַר'
+                : 'נַסֶּה צֵל אַחֵר',
+          );
         }
       }
     }
@@ -242,6 +254,8 @@ export class KiteMatchScene extends Phaser.Scene {
 
   private win(): void {
     this.done = true;
+    /* the whole board is one DDA round, scored by its cleanliness */
+    this.dda.outcome(true, Math.max(0.3, 1 - this.wrongTapsTotal * 0.2));
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הָעִפְעוֹפִים מָצְאוּ אֶת הַצְּלָלִים!');
 
         const secs = (this.time.now - this.roundStart) / 1000;
