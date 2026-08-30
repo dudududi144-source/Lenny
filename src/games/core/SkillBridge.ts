@@ -16,6 +16,7 @@
  * ============================================================ */
 
 import { SkillGraph, LITERACY_GRAPH } from './SkillGraph';
+import { LearningSignals } from './LearningSignals';
 import { GameSpec } from '../builder/GameSpec';
 
 /** Maps GameSpec skill identifiers to SkillGraph node IDs. */
@@ -30,8 +31,17 @@ const SKILL_TO_NODE: Record<string, string> = {
 export class SkillBridge {
   private graph: SkillGraph;
 
-  constructor() {
+  constructor(signals?: LearningSignals) {
     this.graph = new SkillGraph(LITERACY_GRAPH);
+    if (signals) {
+      /* Acquisition is gated on LearningSignals' MASTERY_AFTER (3
+         cumulative correct attempts per skill) -- never on a single
+         success. One recognition is luck; three is mastery.
+         The bridge SHARES the scene's signals instance -- it must
+         never create its own: two instances writing the same
+         localStorage key would erase each other's events. */
+      signals.onMastery((skill) => this.onSkillMastered(skill));
+    }
   }
 
   /** Called when a child shows mastery of a skill in a game. */

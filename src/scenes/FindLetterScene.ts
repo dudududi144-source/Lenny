@@ -10,7 +10,6 @@ import { showLoader } from '../games/fx/Loader';
 import { AdaptiveDifficulty } from '../games/core/AdaptiveDifficulty';
 import { LearningSignals } from '../games/core/LearningSignals';
 import { SkillBridge } from '../games/core/SkillBridge';
-import { SkillGraph, LITERACY_GRAPH } from '../games/core/SkillGraph';
 import { GameSpec } from '../games/builder/GameSpec';
 
 export class FindLetterScene extends Phaser.Scene {
@@ -31,9 +30,17 @@ export class FindLetterScene extends Phaser.Scene {
   /* cognitive core: DDA drives distractor similarity */
   private dda = new AdaptiveDifficulty('words-valley');
   private signals = new LearningSignals();
-  private skillBridge = new SkillBridge();
+  /* shares the scene's signals: acquisition fires only when a skill
+     crosses the mastery threshold (3 corrects), never on 1 success */
+  private skillBridge = new SkillBridge(this.signals);
   private wrongSinceLastFind = 0;
-  private targetLettersFound = new Set<string>();
+
+  /* letters whose SkillGraph acquisition is wired through the bridge;
+     everything else keeps the aggregate skill id */
+  private readonly GLYPH_SKILL: Record<string, string> = {
+    'א': 'letter.alef',
+    'ב': 'letter.bet',
+  };
 
   /* visually confusable Hebrew letter pairs (task-spec taxonomy);
    * higher DDA levels inject the target's partner as a distractor */
@@ -65,7 +72,6 @@ export class FindLetterScene extends Phaser.Scene {
     this.done = false;
     this.lock = false;
     this.wrongSinceLastFind = 0;
-    this.targetLettersFound = new Set<string>();
     this.roundStart = this.time.now;
     this.TARGET = (this.spec && this.spec.params.rounds) ? this.spec.params.rounds : 5;
     const w = this.scale.width, h = this.scale.height;
@@ -162,8 +168,11 @@ export class FindLetterScene extends Phaser.Scene {
       this.updateScore();
       /* one found letter = one DDA round; score reflects its cleanliness */
       this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastFind * 0.2));
-      this.signals.attempt('language.letter-recognition', true);
-      this.targetLettersFound.add(this.targetLetter);
+      /* exactly ONE attempt per find: mapped letters (א/ב) log under
+         their own skill id so mastery counts per letter; everything
+         else logs under the aggregate id. 3 corrects (across
+         sessions) fire mastery -> SkillBridge acquires the node. */
+      this.signals.attempt(this.skillIdFor(this.targetLetter), true);
       this.wrongSinceLastFind = 0;
       if (this.found >= this.TARGET) {
         this.win();
@@ -175,9 +184,11 @@ export class FindLetterScene extends Phaser.Scene {
     } else {
       this.wrongSinceLastFind++;
       /* a wrong tap is NOT a round loss (the round is one found
-         letter, judged in the correct branch above). It feeds
-         LearningSignals and the visible hint ladder instead. */
-      this.signals.attempt('language.letter-recognition', false);
+         letter, judged in the correct branch above). It is a failed
+         recognition OF THE TARGET letter: it feeds LearningSignals
+         and the hint ladder, and counts against that letter's
+         accuracy -- but never resets its mastery count. */
+      this.signals.attempt(this.skillIdFor(this.targetLetter), false);
       this.signals.errorKind(
         'language.letter-recognition',
         this.getLetterErrorKind(this.targetLetter, this.letterTexts[idx].text),
@@ -206,6 +217,11 @@ export class FindLetterScene extends Phaser.Scene {
     return confusables[tapped] || 'wrong-letter';
   }
 
+  /** The LearningSignals skill id for the target letter of a round. */
+  private skillIdFor(letter: string): string {
+    return this.GLYPH_SKILL[letter] ?? 'language.letter-recognition';
+  }
+
   private hitTest(px: number, py: number): number | null {
     for (let i = 0; i < this.letterTexts.length; i++) {
       const t = this.letterTexts[i];
@@ -218,25 +234,16 @@ export class FindLetterScene extends Phaser.Scene {
     this.done = true;
     this.msgText.setText('וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!');
 
-        const secs = (this.time.now - this.roundStart) / 1000;
-        /* real elapsed seconds feed the PlayerModel tempo signal */
-        recordZoneFinish('words-valley', secs);
+    const secs = (this.time.now - this.roundStart) / 1000;
+    /* real elapsed seconds feed the PlayerModel tempo signal */
+    recordZoneFinish('words-valley', secs);
 
-    /* advance the literacy path so the ParentLens skill progress grows */
-    try {
-      const skills = new SkillGraph(LITERACY_GRAPH);
-      const next = skills.frontier();
-      if (next.length > 0) skills.acquire(next[0]);
-    } catch { /* noop */ }
-
-    /* SkillBridge: letters the child actually recognized TARGET times
-       acquire their real graph nodes (currently alef + bet) */
-    try {
-      for (const letter of this.targetLettersFound) {
-        if (letter === 'א') this.skillBridge.onSkillMastered('letter.alef');
-        if (letter === 'ב') this.skillBridge.onSkillMastered('letter.bet');
-      }
-    } catch { /* noop */ }
+    /* NOTE: no acquisition here on purpose. Skill nodes are acquired
+       ONLY through the mastery threshold (3 corrects per skill,
+       wired via SkillBridge in this scene's constructor). The old
+       code acquired a frontier node after every win and called
+       onSkillMastered for any letter seen ONCE -- both let ParentLens
+       progress grow with no mastery evidence behind it. */
 
     this.time.delayedCall(1800, () => this.scene.start('portal'));
   }
