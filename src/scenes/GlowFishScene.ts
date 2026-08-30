@@ -63,6 +63,7 @@ interface FishBody {
   shakeUntil: number;  /* game-time ms */
   dimUntil: number;
   fadeStart: number;   /* ms when the fade-out began; 0 = not fading */
+  spawnStart: number;  /* ms when this fish faded in; drives spawn alpha */
 }
 
 /* tuning constants (kept in one place for review) */
@@ -71,6 +72,7 @@ const INTRA_ROUND_RAMP = 0.06;
 const RADIUS = 20;
 const HIT_RADIUS = 34;
 const FADE_MS = 350;
+const SPAWN_MS = 300;
 const SHAKE_MS = 400;
 const DIM_MS = 600;
 const GENTLE_MS = 1200;
@@ -98,6 +100,7 @@ export class GlowFishScene extends Phaser.Scene {
   private targetsToFind = 2;
   private found = 0;
   private movement: MovementMode = 'static';
+  private roundCells: Array<{ cx: number; cy: number; jx: number; jy: number }> = [];
 
   /* cognitive core (unchanged wiring from Stage 0-1 + Gate B) */
   private dda = new AdaptiveDifficulty('attention-stream');
@@ -198,17 +201,15 @@ export class GlowFishScene extends Phaser.Scene {
   private spawnField(distractorKinds: FishType[], w: number, h: number): void {
     this.fishes = [];
 
-    /* kinds for every fish on screen: the targets all share the
-       target kind; distractors cycle the similarity-matched list */
-    const kinds: Array<{ kind: FishType; isTarget: boolean }> = [];
-    for (let i = 0; i < this.targetsToFind; i++) kinds.push({ kind: { ...this.targetType }, isTarget: true });
-    for (let i = 0; i < distractorKinds.length; i++) {
-      kinds.push({ kind: distractorKinds[i], isTarget: false });
-    }
+    /* exactly ONE live target-kind fish at any moment: the glowing
+       leader. When it is found, a fresh fish of the SAME kind spawns
+       and lights up (spawnTargetFish). The pond therefore never
+       contains an unlit lookalike of the target. */
+    const kinds: FishType[] = distractorKinds.slice();
 
     /* jittered-grid placement: no overlaps at spawn, ever */
+    const total = kinds.length + 1; /* + the one target */
     const y0 = h * 0.30, y1 = h * 0.76;
-    const total = kinds.length;
     const cols = Math.max(2, Math.ceil(Math.sqrt(total * (w / (y1 - y0)))));
     const rows = Math.ceil(total / cols);
     const cw = w / cols, ch = (y1 - y0) / rows;
@@ -220,25 +221,63 @@ export class GlowFishScene extends Phaser.Scene {
       const j = Math.floor(Math.random() * (i + 1));
       const tmp = cells[i]; cells[i] = cells[j]; cells[j] = tmp;
     }
+    /* cells carry their own jitter span so respawned targets spread
+       exactly like the round's original placement */
+    this.roundCells = cells.map((c) => ({ cx: c.cx, cy: c.cy, jx: cw * 0.4, jy: ch * 0.4 }));
 
-    kinds.forEach((entry, i) => {
-      const cell = cells[i % cells.length];
-      this.fishes.push({
-        kind: entry.kind,
-        isTarget: entry.isTarget,
-        x: Phaser.Math.Clamp(cell.cx + (Math.random() - 0.5) * cw * 0.4, 34, w - 34),
-        y: Phaser.Math.Clamp(cell.cy + (Math.random() - 0.5) * ch * 0.4, y0, y1),
-        facing: Math.random() < 0.5 ? -1 : 1,
-        phase: Math.random() * Math.PI * 2,
-        alive: true,
-        angle: Math.random() * Math.PI * 2,
-        speed: this.startSpeed(),
-        turnTimer: this.turnDelay(),
-        shakeUntil: 0,
-        dimUntil: 0,
-        fadeStart: 0,
-      });
+    const now = this.time.now;
+    kinds.forEach((kind, i) => {
+      this.fishes.push(this.makeFish(kind, false, this.roundCells[i % this.roundCells.length], w, now));
     });
+    /* the leader spawns last -> drawn last within create */
+    this.spawnTargetFish();
+  }
+
+  private makeFish(
+    kind: FishType,
+    isTarget: boolean,
+    cell: { cx: number; cy: number; jx: number; jy: number } | null,
+    w: number,
+    now: number,
+  ): FishBody {
+    const h = this.scale.height;
+    const y0 = h * 0.30, y1 = h * 0.76;
+    const px = cell
+      ? Phaser.Math.Clamp(cell.cx + (Math.random() - 0.5) * cell.jx, 34, w - 34)
+      : 34 + Math.random() * (w - 68);
+    const py = cell
+      ? Phaser.Math.Clamp(cell.cy + (Math.random() - 0.5) * cell.jy, y0, y1)
+      : y0 + Math.random() * (y1 - y0);
+    return {
+      kind,
+      isTarget,
+      x: px,
+      y: py,
+      facing: Math.random() < 0.5 ? -1 : 1,
+      phase: Math.random() * Math.PI * 2,
+      alive: true,
+      angle: Math.random() * Math.PI * 2,
+      speed: this.startSpeed(),
+      turnTimer: this.turnDelay(),
+      shakeUntil: 0,
+      dimUntil: 0,
+      fadeStart: 0,
+      spawnStart: now,
+    };
+  }
+
+  /* a fresh fish of the round's target kind fades in somewhere free
+     and becomes the glowing leader (leader() = first alive target) */
+  private spawnTargetFish(): void {
+    const w = this.scale.width;
+    const free = (this.roundCells || []).find(
+      (cell) => !this.fishes.some(
+        (f) => f.alive && Math.hypot(f.x - cell.cx, f.y - cell.cy) < 40,
+      ),
+    );
+    this.fishes.push(
+      this.makeFish({ ...this.targetType }, true, free || null, w, this.time.now),
+    );
   }
 
   private startSpeed(): number {
@@ -299,6 +338,8 @@ export class GlowFishScene extends Phaser.Scene {
       this.completeRound();
     } else {
       this.dialogue.say(['וָאו! מָצָאתָ אוֹתוֹ!']);
+      /* the next fish of the same kind lights up somewhere else */
+      this.spawnTargetFish();
     }
   }
 
@@ -394,8 +435,11 @@ export class GlowFishScene extends Phaser.Scene {
   }
 
   private fadeAlpha(f: FishBody, now: number): number {
-    if (!this.isFading(f)) return 1;
-    return Math.max(0, 1 - (now - f.fadeStart) / FADE_MS);
+    const spawnA = f.spawnStart > 0
+      ? Math.min(1, (now - f.spawnStart) / SPAWN_MS)
+      : 1;
+    if (!this.isFading(f)) return spawnA;
+    return Math.min(spawnA, Math.max(0, 1 - (now - f.fadeStart) / FADE_MS));
   }
 
   update(time: number, delta: number): void {
@@ -474,20 +518,21 @@ export class GlowFishScene extends Phaser.Scene {
 
     if (leader) {
       /* hint ladder visuals: gentle boost / full show aura.
-         The target carries the light: only the leader is gold. */
+         The target carries the light: only the leader is gold.
+         All glow layers respect the body's fade alpha. */
       const hintShow = this.showAuraUntil > now;
       const hintGentle = this.gentleUntil > now;
       const pulse = 0.6 + 0.4 * Math.sin(t * 4);
       if (hintShow) {
-        g.fillStyle(TARGET_GLOW_HEX, 0.85);
+        g.fillStyle(TARGET_GLOW_HEX, 0.85 * alpha);
         g.fillCircle(x, y, r * 3.2);
-        g.fillStyle(TARGET_GLOW_HEX, 0.95);
+        g.fillStyle(TARGET_GLOW_HEX, 0.95 * alpha);
         g.fillCircle(x, y, r * 2.4);
       } else {
-        const a = 0.18 * pulse * (hintGentle ? 1.7 : 1);
-        g.fillStyle(TARGET_GLOW_HEX, Math.min(0.5, a));
+        const a = Math.min(0.5, 0.18 * pulse * (hintGentle ? 1.7 : 1)) * alpha;
+        g.fillStyle(TARGET_GLOW_HEX, a);
         g.fillCircle(x, y, r * 2.4);
-        g.fillStyle(TARGET_GLOW_HEX, 0.3 * pulse);
+        g.fillStyle(TARGET_GLOW_HEX, 0.3 * pulse * alpha);
         g.fillCircle(x, y, r * 1.6);
       }
       this.drawShape(g, x, y, f.kind, TARGET_GLOW_HEX, alpha, f.facing, t, f.phase);
