@@ -169,7 +169,9 @@ export class EmotionFaceScene extends Phaser.Scene {
       }
     } else {
       this.wrongSinceLastCorrect++;
-      this.dda.outcome(false);
+      /* a wrong pick is NOT a round loss (the round is one named
+         emotion, judged in the correct branch above). It feeds
+         LearningSignals and the visible hint ladder instead. */
       this.signals.attempt('emotion.recognition', false);
       /* error taxonomy: was the wrong pick a commonly-confused pair? */
       const picked = this.options[idx];
@@ -178,7 +180,16 @@ export class EmotionFaceScene extends Phaser.Scene {
           (a === picked && b === this.current) || (b === picked && a === this.current),
       );
       this.signals.errorKind('emotion.recognition', similar ? 'confused-similar-emotions' : 'wrong-emotion');
-      this.msgText.setText('נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב');
+      /* visible, escalating help (gentle -> clear -> show) instead of
+         a silent difficulty drop -- same pattern as MemoryPairs */
+      const hint = this.dda.suggestHint(this.wrongSinceLastCorrect);
+      this.msgText.setText(
+        hint === 'show'
+          ? 'עֵינַיִם, אַחַר כָּךְ גְּבוֹת, אַחַר כָּךְ פֶּה — מָה הַצָּב מַרְגִּישׁ?'
+          : hint === 'clear'
+            ? 'הִסְתַּכֵּל עַל הַפֶּה שֶׁל הַצָּב'
+            : 'נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב',
+      );
     }
   }
 
