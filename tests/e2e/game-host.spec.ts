@@ -45,19 +45,23 @@ test('zone click boots the Pixi canvas with HUD, dialogue and no errors', async 
 });
 
 test('tap on the canvas lands in design space and registers', async ({ page }) => {
-  /* memory-hill still maps to the placeholder scene — its taps counter
+  /* thinking-forest still maps to the placeholder scene — its taps counter
      proves the pointer remapping pipeline end to end */
   await page.addInitScript((state) => {
     localStorage.setItem('lenny-garden', JSON.stringify(state));
   }, {
     firstSeen: Date.now(),
-    lights: 1,
-    zones: { 'light-path': { finished: 1, unlocked: true } },
+    lights: 3,
+    zones: {
+      'light-path': { finished: 1, unlocked: true },
+      'memory-hill': { finished: 1, unlocked: true },
+      'attention-stream': { finished: 1, unlocked: true },
+    },
   });
 
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
-  await page.locator('.zone-card[data-zone="memory-hill"]').click();
+  await page.locator('.zone-card[data-zone="thinking-forest"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
   expect(await page.evaluate(() => window.__lenny?.scene())).toBe('coming-soon');
 
