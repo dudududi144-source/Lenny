@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="as-water" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4dc9ff"/>
+      <stop offset="1" stop-color="#1a4a8a"/>
+    </linearGradient>
+    <linearGradient id="as-fish" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eafbff"/>
+      <stop offset="1" stop-color="#8fe0ff"/>
+    </linearGradient>
+    <radialGradient id="as-amb" cx=".5" cy=".45" r=".55">
+      <stop offset="0" stop-color="#1a4a8a" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#1a4a8a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="as-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <ellipse cx="32" cy="34" rx="30" ry="28" fill="url(#as-amb)"/>
+  <path d="M4 42c10-8 16 6 28-2s16-8 28-4" fill="none" stroke="url(#as-water)" stroke-width="12" stroke-linecap="round"/>
+  <path d="M4 42c10-8 16 6 28-2s16-8 28-4" fill="none" stroke="#bff1ff" stroke-width="3" stroke-linecap="round" opacity=".4"/>
+  <path d="M12 24c5-4 10-2 14 1" fill="none" stroke="#4dc9ff" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+  <path d="M38 12c5-4 10-2 14 1" fill="none" stroke="#4dc9ff" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
+  <g filter="url(#as-glow)">
+    <g transform="translate(20 37)">
+      <path d="M-4.6 0l-3.6-3v6z" fill="#ffd76a"/>
+      <ellipse rx="4.6" ry="2.6" fill="url(#as-fish)"/>
+      <circle cx="2.6" cy="-.6" r=".7" fill="#0a0f1e"/>
+    </g>
+    <g transform="translate(45 30) scale(-1 1)">
+      <path d="M-4.6 0l-3.6-3v6z" fill="#ff8bd4"/>
+      <ellipse rx="4.6" ry="2.6" fill="url(#as-fish)"/>
+      <circle cx="2.6" cy="-.6" r=".7" fill="#0a0f1e"/>
+    </g>
+  </g>
+</svg>

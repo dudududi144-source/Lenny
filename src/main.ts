@@ -83,6 +83,13 @@ const hero = createHero({
 
 const garden = createGardenMap({
   onBack: () => showScreen('hero'),
+  onZone: (zoneId) => {
+    /* Games boot from Commit 3 onward — until then, a gentle notice. */
+    void zoneId;
+    toast('הַמִּשְׂחָקִים מִתְעוֹרְרִים — בְּקָרוֹב נִשְׂחַק!');
+  },
+  onLockedTap: () => toast('עוֹד קְצָת וְגַם הַשַּׁעַר הַזֶּה יִפָּתַח.'),
+  onFreshZones: () => toast('הַשַּׁעַר נִפְתַּח! בּוֹא נִרְאֶה מָה יֵשׁ שָׁם!'),
 });
 
 const frame = h('div', { class: 'frame' }, hero.root, garden.root);
@@ -106,6 +113,7 @@ function refreshHero(): void {
 
 function refreshGarden(): void {
   garden.setGreeting(baseGreeting());
+  garden.refresh();
 }
 
 function openGarden(): void {

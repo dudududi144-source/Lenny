@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bp-water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7c4dff"/>
+      <stop offset="1" stop-color="#1a1f3a"/>
+    </linearGradient>
+    <radialGradient id="bp-bub" cx=".38" cy=".32" r=".75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".95"/>
+      <stop offset=".4" stop-color="#cbb8ff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#7c4dff" stop-opacity=".25"/>
+    </radialGradient>
+    <radialGradient id="bp-amb" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#7c4dff" stop-opacity=".25"/>
+      <stop offset="1" stop-color="#7c4dff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="bp-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="#0a0f1e" flood-opacity=".5"/>
+    </filter>
+  </defs>
+  <ellipse cx="32" cy="40" rx="30" ry="24" fill="url(#bp-amb)"/>
+  <ellipse cx="32" cy="41" rx="26" ry="11.5" fill="url(#bp-water)" filter="url(#bp-soft)"/>
+  <ellipse cx="24" cy="38" rx="5" ry="1.4" fill="#ffffff" opacity=".18"/>
+  <ellipse cx="32" cy="39.5" rx="19" ry="4.6" fill="none" stroke="#cbb8ff" stroke-width="1" opacity=".35"/>
+  <ellipse cx="32" cy="39.5" rx="12" ry="3" fill="none" stroke="#e4dcf8" stroke-width="1.1" opacity=".7"/>
+  <circle cx="41" cy="22" r="4.2" fill="url(#bp-bub)"/>
+  <circle cx="21" cy="27" r="3.2" fill="url(#bp-bub)"/>
+  <circle cx="35" cy="31.5" r="2.6" fill="url(#bp-bub)"/>
+  <circle cx="31" cy="13" r="2.4" fill="url(#bp-bub)"/>
+  <circle cx="48" cy="31" r="2" fill="url(#bp-bub)"/>
+</svg>
