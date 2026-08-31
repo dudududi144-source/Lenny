@@ -92,7 +92,9 @@ export abstract class GameScene {
     bursts.bloom(this.particles, x, y, color);
   }
 
-  /** Expanding ring at (x, y) — the scene-wide "touch landed" language. */
+  /** Expanding ring at (x, y) — the scene-wide "touch landed" language.
+      The tween drives the sprite's own props and destroys it at the end,
+      so nothing can outlive the ring. */
   protected ripple(x: number, y: number, color: number = COLORS.glow): void {
     const ring = new Sprite(ringTexture());
     ring.anchor.set(0.5);
@@ -101,13 +103,13 @@ export abstract class GameScene {
     ring.tint = color;
     ring.alpha = 0.85;
     ring.blendMode = 'add';
-    ring.scale.set(0.18);
+    ring.width = 24;
+    ring.height = 24;
     this.root.addChild(ring);
-    const box = { s: 0.18, a: 0.85 };
-    this.anim.to(box, { s: 1.5, a: 0 }, { durationMs: 620, ease: ease.outCubic, onDone: () => ring.destroy() });
-    this.anim.loop(() => {
-      ring.scale.set(box.s);
-      ring.alpha = box.a;
+    this.anim.to(ring, { width: 190, height: 190, alpha: 0 }, {
+      durationMs: 620,
+      ease: ease.outCubic,
+      onDone: () => ring.destroy(),
     });
   }
 

@@ -30,7 +30,7 @@ test('zone click boots the Pixi canvas with HUD, dialogue and no errors', async 
     screen: window.__lenny?.screen(),
     design: window.__lenny?.design,
   }));
-  expect(info.scene).toBe('coming-soon');
+  expect(info.scene).toBe('glow-fish');
   expect(['webgl', 'webgpu']).toContain(info.renderer);
   expect(info.screen).toBe('game');
   expect(info.design).toEqual({ w: 420, h: 720 });
@@ -45,14 +45,21 @@ test('zone click boots the Pixi canvas with HUD, dialogue and no errors', async 
 });
 
 test('tap on the canvas lands in design space and registers', async ({ page }) => {
+  /* memory-hill still maps to the placeholder scene — its taps counter
+     proves the pointer remapping pipeline end to end */
   await page.addInitScript((state) => {
     localStorage.setItem('lenny-garden', JSON.stringify(state));
-  }, UNLOCK_STREAM);
+  }, {
+    firstSeen: Date.now(),
+    lights: 1,
+    zones: { 'light-path': { finished: 1, unlocked: true } },
+  });
 
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
-  await page.locator('.zone-card[data-zone="attention-stream"]').click();
+  await page.locator('.zone-card[data-zone="memory-hill"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('coming-soon');
 
   const rect = await page.evaluate(() => window.__lenny?.canvasRect());
   expect(rect).not.toBeNull();
