@@ -755,6 +755,202 @@ body {
   width: 100%;
 }
 
+/* ---------- Parent lens (adult dashboard) ---------- */
+
+.parent-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-4) var(--space-8);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 215, 106, 0.35) transparent;
+}
+
+.parent-gate-card {
+  max-width: 340px;
+  margin-inline: auto;
+  margin-block-start: 18vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--gradient-card);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  text-align: center;
+}
+
+.parent-title {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  background: linear-gradient(180deg, #ffffff 0%, var(--color-glow) 70%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.parent-gate-line {
+  font-size: var(--font-size-sm);
+  color: rgba(255, 246, 236, 0.7);
+}
+
+.parent-gate-question {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-glow);
+}
+
+.parent-gate-options {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+.parent-gate-options .ui-btn--secondary {
+  width: auto;
+  min-width: 72px;
+}
+
+.parent-gate-feedback {
+  min-height: 1.4em;
+  font-size: var(--font-size-sm);
+  color: var(--color-coral);
+}
+
+.parent-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
+}
+
+.parent-sub {
+  font-size: var(--font-size-sm);
+  color: rgba(255, 246, 236, 0.65);
+  margin-block-start: var(--space-1);
+}
+
+.parent-cards {
+  margin-block-end: var(--space-4);
+}
+
+.parent-card {
+  background: var(--gradient-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-4);
+  margin-block-end: var(--space-4);
+}
+
+.parent-card--overview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.parent-card-title {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-glow);
+  margin-block-end: var(--space-3);
+}
+
+.parent-overview-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-cream);
+}
+
+.parent-donut {
+  position: relative;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+.parent-donut-text {
+  position: absolute;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-cream);
+  text-align: center;
+  max-width: 64px;
+}
+
+.parent-zones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.parent-zone-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.parent-zone-name {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-cream);
+  white-space: nowrap;
+}
+
+.parent-bar {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.parent-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 10px rgba(255, 215, 106, 0.35);
+  transition: width var(--dur-slow) var(--ease-out-soft);
+}
+
+.parent-zone-count {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-glow);
+  min-width: 20px;
+  text-align: center;
+}
+
+.parent-zone-tempo {
+  font-size: var(--font-size-xs);
+  color: rgba(255, 246, 236, 0.55);
+  min-width: 44px;
+}
+
+.parent-skill-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-end: var(--space-2);
+}
+
+.parent-line {
+  font-size: var(--font-size-sm);
+  color: var(--color-cream);
+  line-height: 1.7;
+  margin-block-end: var(--space-1);
+}
+
 /* ---------- Dialogue (glass bubble, typewriter) ---------- */
 
 .dialogue {

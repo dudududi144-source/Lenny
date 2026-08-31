@@ -15,6 +15,7 @@ import { bloomLevel, freshGarden, LocalProgressStore, type GardenData } from './
 import { DESIGN } from './games/engine/theme';
 import { createGameHost } from './ui/components/GameHost';
 import { createGardenMap } from './ui/components/GardenMap';
+import { createParentLens } from './ui/components/ParentLens';
 import { createHero } from './ui/components/Hero';
 import { h } from './ui/components/common/el';
 
@@ -91,7 +92,7 @@ function personalGreeting(): string {
 
 let currentScreen = 'hero';
 
-function showScreen(name: 'hero' | 'garden' | 'game'): void {
+function showScreen(name: 'hero' | 'garden' | 'game' | 'parent'): void {
   currentScreen = name;
   for (const [key, el] of Object.entries(screens)) {
     el.classList.toggle('hidden', key !== name);
@@ -112,10 +113,21 @@ function openGarden(): void {
   showScreen('garden');
 }
 
+const parent = createParentLens({
+  loadGarden,
+  onExit: () => {
+    refreshAll();
+    showScreen('hero');
+  },
+});
+
 const hero = createHero({
   onStart: () => openGarden(),
   onContinue: () => openGarden(),
-  onParent: () => toast('פִּנַּת הַהוֹרִים נִבְנֵית — תִּפָּתַח בְּקָרוֹב.'),
+  onParent: () => {
+    parent.open();
+    showScreen('parent');
+  },
   onNameChange(name) {
     if (name) localStorage.setItem('lenny-name', name);
     else localStorage.removeItem('lenny-name');
@@ -143,13 +155,14 @@ const garden = createGardenMap({
   onFreshZones: () => toast('הַשַּׁעַר נִפְתַּח! בּוֹא נִרְאֶה מָה יֵשׁ שָׁם!'),
 });
 
-const frame = h('div', { class: 'frame' }, hero.root, garden.root, gameHost.root);
+const frame = h('div', { class: 'frame' }, hero.root, garden.root, gameHost.root, parent.root);
 appRoot?.append(frame);
 
-const screens: Record<'hero' | 'garden' | 'game', HTMLElement> = {
+const screens: Record<'hero' | 'garden' | 'game' | 'parent', HTMLElement> = {
   hero: hero.root,
   garden: garden.root,
   game: gameHost.root,
+  parent: parent.root,
 };
 
 /* ---------- read-only state bridge (e2e + parent tooling) ---------- */
