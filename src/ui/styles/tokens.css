@@ -1,0 +1,76 @@
+/* ============================================================
+   Garden of Light 2026 — Design Tokens
+   Single source of truth for the whole visual language.
+   Consumed by the DOM shell AND mirrored into the Pixi scenes
+   (see src/games/engine/theme.ts — keep both in sync).
+   ============================================================ */
+
+:root {
+  /* Palette — deep space garden */
+  --color-void: #050810;
+  --color-night: #0a0f1e;
+  --color-dawn: #1a1f3a;
+  --color-glow: #ffd76a;
+  --color-spark: #7c4dff;
+  --color-mint: #7dffb8;
+  --color-coral: #f2549a;
+  --color-cream: #fff6ec;
+
+  /* Gradients — depth and richness */
+  --gradient-void: radial-gradient(ellipse at 50% 0%, #1a1f3a 0%, #050810 70%);
+  --gradient-glow: linear-gradient(135deg, #ffd76a 0%, #ff9e5e 50%, #f2549a 100%);
+  --gradient-spark: linear-gradient(135deg, #7c4dff 0%, #4a9eff 100%);
+  --gradient-card: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+
+  /* Glass morphism — 2026 standard */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-blur: blur(12px);
+
+  /* Spacing — 8px grid */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* Typography */
+  --font-family: 'Heebo', system-ui, -apple-system, sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+  --font-size-hero: clamp(2.5rem, 8vw, 4rem);
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Shadows — layered depth */
+  --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-2: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --shadow-3: 0 8px 16px rgba(0, 0, 0, 0.2);
+  --shadow-4: 0 16px 32px rgba(0, 0, 0, 0.25);
+  --shadow-glow: 0 0 20px var(--color-glow);
+
+  /* Motion — spring feel */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-soft: cubic-bezier(0.22, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-med: 320ms;
+  --dur-slow: 700ms;
+
+  /* Focus / a11y */
+  --focus-ring: 0 0 0 3px rgba(255, 215, 106, 0.45);
+}
