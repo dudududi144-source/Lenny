@@ -44,34 +44,35 @@ test('zone click boots the Pixi canvas with HUD, dialogue and no errors', async 
   expect(errors).toEqual([]);
 });
 
-test('tap on the canvas lands in design space and registers', async ({ page }) => {
-  /* thinking-forest still maps to the placeholder scene — its taps counter
-     proves the pointer remapping pipeline end to end */
-  await page.addInitScript((state) => {
-    localStorage.setItem('lenny-garden', JSON.stringify(state));
-  }, {
-    firstSeen: Date.now(),
-    lights: 3,
-    zones: {
-      'light-path': { finished: 1, unlocked: true },
-      'memory-hill': { finished: 1, unlocked: true },
-      'attention-stream': { finished: 1, unlocked: true },
-    },
-  });
+test('pointer input lands in design space (breath-pool lantern)', async ({ page }) => {
+  /* every zone now boots a real scene; a real mouse click on a lantern's
+     design-space position must light it — end-to-end pointer remap proof */
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
 
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
-  await page.locator('.zone-card[data-zone="thinking-forest"]').click();
+  await page.locator('.zone-card[data-zone="breath-pool"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
-  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('coming-soon');
+  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('lenny-story');
+
+  const lantern = (await page.evaluate(
+    () => (window.__lenny?.sceneState() as { lanterns: Array<{ x: number; y: number }> } | null),
+  ))!.lanterns[0];
 
   const rect = await page.evaluate(() => window.__lenny?.canvasRect());
   expect(rect).not.toBeNull();
-  await page.touchscreen.tap(rect!.x + rect!.width / 2, rect!.y + rect!.height / 2);
-  await page.waitForTimeout(150);
+  await page.mouse.click(
+    rect!.x + (lantern.x / 420) * rect!.width,
+    rect!.y + (lantern.y / 720) * rect!.height,
+  );
+  await page.waitForTimeout(400);
 
-  const state = await page.evaluate(() => window.__lenny?.sceneState());
-  expect(state && (state as { taps?: number }).taps).toBe(1);
+  const after = await page.evaluate(
+    () => (window.__lenny?.sceneState() as { lit: number } | null),
+  );
+  expect(after?.lit).toBe(1);
+  expect(errors).toEqual([]);
 });
 
 test('locked zone never opens a canvas', async ({ page }) => {

@@ -3,6 +3,16 @@ import type { SceneCtx, GameScene } from '../engine/GameScene';
 import { ComingSoonScene } from './ComingSoon';
 import { GlowFishScene } from './GlowFish';
 import { MemoryPairsScene } from './MemoryPairs';
+import { AcornSortScene } from './AcornSort';
+import { KiteMatchScene } from './KiteMatch';
+import { FindLetterScene } from './FindLetter';
+import { EmotionFaceScene } from './EmotionFace';
+import { BeePaintScene } from './BeePaint';
+import { DrumBeatScene } from './DrumBeat';
+import { SequenceEchoScene } from './SequenceEcho';
+import { BreathPoolScene } from './BreathPool';
+import { PlayPathScene } from './PlayPath';
+import { OpenCanvasScene } from './OpenCanvas';
 
 /* kind → scene key (mirrors builder/GameFactory's mapping without the
    Phaser dependency — the new shell must never import Phaser). */
@@ -22,11 +32,21 @@ const KIND_TO_SCENE: Record<GameKind, string> = {
 
 export type SceneFactory = (ctx: SceneCtx) => GameScene;
 
-/** scene key → factory. Filled in as Stage 3 rebuilds each game. */
+/** scene key → factory. Every zone game is now rebuilt on PixiJS. */
 export const SCENE_REGISTRY: Record<string, SceneFactory> = {
   'coming-soon': (ctx) => new ComingSoonScene(ctx),
-  'glow-fish': (ctx) => new GlowFishScene(ctx),
+  'play': (ctx) => new PlayPathScene(ctx),
   'memory-pairs': (ctx) => new MemoryPairsScene(ctx),
+  'sequence-echo': (ctx) => new SequenceEchoScene(ctx),
+  'glow-fish': (ctx) => new GlowFishScene(ctx),
+  'acorn-sort': (ctx) => new AcornSortScene(ctx),
+  'kite-match': (ctx) => new KiteMatchScene(ctx),
+  'find-letter': (ctx) => new FindLetterScene(ctx),
+  'emotion-face': (ctx) => new EmotionFaceScene(ctx),
+  'bee-paint': (ctx) => new BeePaintScene(ctx),
+  'open-create': (ctx) => new OpenCanvasScene(ctx),
+  'drum-beat': (ctx) => new DrumBeatScene(ctx),
+  'lenny-story': (ctx) => new BreathPoolScene(ctx),
 };
 
 export function sceneKeyForSpec(spec: GameSpec): string {

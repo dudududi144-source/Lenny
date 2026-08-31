@@ -394,6 +394,7 @@ export class MemoryPairsScene extends GameScene {
 
   update(dtMs: number): void {
     super.update(dtMs);
+    if (this.tornDown) return;
   }
 
   debugState(): Record<string, unknown> {

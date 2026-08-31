@@ -40,6 +40,8 @@ export abstract class GameScene {
 
   private startedAt = performance.now();
   private finished = false;
+  /** true once destroy() began — derived updates must bail out. */
+  protected tornDown = false;
 
   protected constructor(ctx: SceneCtx) {
     this.ctx = ctx;
@@ -141,7 +143,10 @@ export abstract class GameScene {
     return txt;
   }
 
-  /** Win flow: record progress immediately, celebrate, then leave to the garden. */
+  /** Win flow: record progress immediately, celebrate, then leave to the garden.
+      The exit itself is deferred OUT of the current ticker tick — destroying
+      the scene mid-update would leave the derived update writing into
+      destroyed objects for the rest of the frame. */
   protected finish(gapMs = 2400): void {
     if (this.finished) return;
     this.finished = true;
@@ -149,7 +154,12 @@ export abstract class GameScene {
     recordZoneFinish(this.ctx.zone, secs);
     bursts.confetti(this.particles, this.w / 2, this.h * 0.32);
     bursts.sparkle(this.particles, this.w / 2, this.h * 0.26);
-    this.anim.after(gapMs, () => this.ctx.onExit());
+    this.anim.after(gapMs, () => window.setTimeout(() => this.ctx.onExit(), 0));
+  }
+
+  /** Non-recording exit (used by the free-play scenes), same tick-safety. */
+  protected exitSoon(delayMs: number): void {
+    this.anim.after(delayMs, () => window.setTimeout(() => this.ctx.onExit(), 0));
   }
 
   /** True once finish() ran — scenes guard their input with this. */
@@ -158,6 +168,7 @@ export abstract class GameScene {
   }
 
   destroy(): void {
+    this.tornDown = true;
     this.anim.destroy();
     this.particles.dispose();
     this.root.destroy({ children: true });

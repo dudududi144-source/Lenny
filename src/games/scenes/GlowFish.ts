@@ -274,6 +274,7 @@ export class GlowFishScene extends GameScene {
 
   update(dtMs: number): void {
     super.update(dtMs);
+    if (this.tornDown) return;
     const now = this.t;
 
     for (const fish of this.fishes) {
