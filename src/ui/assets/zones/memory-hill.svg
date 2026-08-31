@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="mh-hill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dffb8"/>
+      <stop offset="1" stop-color="#1a6b4a"/>
+    </linearGradient>
+    <linearGradient id="mh-back" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a6b4a"/>
+      <stop offset="1" stop-color="#0d3b28"/>
+    </linearGradient>
+    <radialGradient id="mh-amb" cx=".5" cy=".55" r=".55">
+      <stop offset="0" stop-color="#7dffb8" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#7dffb8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="mh-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#0a0f1e" flood-opacity=".5"/>
+    </filter>
+    <g id="mh-fl">
+      <circle cx="0" cy="-2.6" r="1.7" fill="currentColor"/>
+      <circle cx="2.47" cy="-0.8" r="1.7" fill="currentColor"/>
+      <circle cx="1.53" cy="2.1" r="1.7" fill="currentColor"/>
+      <circle cx="-1.53" cy="2.1" r="1.7" fill="currentColor"/>
+      <circle cx="-2.47" cy="-0.8" r="1.7" fill="currentColor"/>
+      <circle r="1.4" fill="#ffd76a"/>
+    </g>
+  </defs>
+  <ellipse cx="32" cy="40" rx="30" ry="24" fill="url(#mh-amb)"/>
+  <path d="M2 60Q22 34 44 60Z" fill="url(#mh-back)" opacity=".85"/>
+  <path d="M2 60Q32 2 62 60Z" fill="url(#mh-hill)" filter="url(#mh-soft)"/>
+  <use href="#mh-fl" color="#ff8bd4" transform="translate(23 31.5)"/>
+  <use href="#mh-fl" color="#b39ddb" transform="translate(32 29.5) scale(1.15)"/>
+  <use href="#mh-fl" color="#ff8bd4" transform="translate(41 31.5)"/>
+  <g transform="translate(47 15)">
+    <ellipse cx="-3" cy="0" rx="3" ry="2.2" fill="#b39ddb" transform="rotate(-25 -3 0)"/>
+    <ellipse cx="3" cy="0" rx="3" ry="2.2" fill="#cbb8f0" transform="rotate(25 3 0)"/>
+    <ellipse rx=".9" ry="3" fill="#3a2a4a"/>
+  </g>
+</svg>

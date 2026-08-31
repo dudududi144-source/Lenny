@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="לֶנִי, כּוֹכָב מְחַיֵּךְ">
+  <defs>
+    <linearGradient id="lennyBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe9a6"/>
+      <stop offset="0.45" stop-color="#ffd76a"/>
+      <stop offset="0.78" stop-color="#ff9e5e"/>
+      <stop offset="1" stop-color="#f2549a"/>
+    </linearGradient>
+    <linearGradient id="lennySmile" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e2683b"/>
+      <stop offset="1" stop-color="#c2452f"/>
+    </linearGradient>
+    <radialGradient id="lennyHalo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd76a" stop-opacity="0.7"/>
+      <stop offset="0.55" stop-color="#ffd76a" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#ffd76a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lennyFaceLight" cx="0.5" cy="0.28" r="0.8">
+      <stop offset="0" stop-color="#fffdf4" stop-opacity="0.85"/>
+      <stop offset="0.65" stop-color="#ffe9a6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="lennySoft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="lennyDrop" x="-45%" y="-45%" width="190%" height="190%">
+      <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#ffd76a" flood-opacity="0.32"/>
+    </filter>
+    <filter id="lennyCheek" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="2.6"/>
+    </filter>
+  </defs>
+
+  <g class="lenny-root">
+    <circle cx="100" cy="102" r="94" fill="url(#lennyHalo)"/>
+
+    <g class="lenny-breathe" filter="url(#lennyDrop)">
+      <path d="M100,24 L119.4,75.3 L174.2,77.9 L131.4,112.2 L145.9,165.1 L100,135 L54.1,165.1 L68.6,112.2 L25.8,77.9 L80.6,75.3 Z"
+            fill="url(#lennyBody)" stroke="#ffe9a6" stroke-width="5" stroke-linejoin="round" filter="url(#lennySoft)"/>
+      <path d="M100,24 L119.4,75.3 L174.2,77.9 L131.4,112.2 L145.9,165.1 L100,135 L54.1,165.1 L68.6,112.2 L25.8,77.9 L80.6,75.3 Z"
+            fill="url(#lennyFaceLight)"/>
+
+      <circle cx="68" cy="112" r="7" fill="#f2549a" opacity="0.35" filter="url(#lennyCheek)"/>
+      <circle cx="132" cy="112" r="7" fill="#f2549a" opacity="0.35" filter="url(#lennyCheek)"/>
+
+      <g class="lenny-eye">
+        <ellipse cx="83" cy="94" rx="12.5" ry="14" fill="#ffffff"/>
+        <circle cx="84.5" cy="96.5" r="6.6" fill="#2a1a4a"/>
+        <circle cx="81.5" cy="92" r="2.6" fill="#ffffff"/>
+      </g>
+      <g class="lenny-eye lenny-eye--right">
+        <ellipse cx="117" cy="94" rx="12.5" ry="14" fill="#ffffff"/>
+        <circle cx="118.5" cy="96.5" r="6.6" fill="#2a1a4a"/>
+        <circle cx="115.5" cy="92" r="2.6" fill="#ffffff"/>
+      </g>
+
+      <path d="M86,118 Q100,131 114,118" fill="none" stroke="url(#lennySmile)" stroke-width="4.5" stroke-linecap="round"/>
+
+      <g class="lenny-spark">
+        <path d="M148,46 L150.2,52.8 L157,55 L150.2,57.2 L148,64 L145.8,57.2 L139,55 L145.8,52.8 Z" fill="#ffffff" opacity="0.92"/>
+      </g>
+      <g class="lenny-spark lenny-spark--b">
+        <path d="M47,58 L48.7,63 L53.7,64.7 L48.7,66.4 L47,71.4 L45.3,66.4 L40.3,64.7 L45.3,63 Z" fill="#ffffff" opacity="0.8"/>
+      </g>
+      <g class="lenny-spark lenny-spark--c">
+        <circle cx="163" cy="122" r="2.6" fill="#fff6ec" opacity="0.85"/>
+      </g>
+    </g>
+  </g>
+</svg>

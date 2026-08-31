@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="wv-tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2f55"/>
+      <stop offset="1" stop-color="#161a30"/>
+    </linearGradient>
+    <linearGradient id="wv-ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6ec"/>
+      <stop offset="1" stop-color="#ffd76a"/>
+    </linearGradient>
+    <filter id="wv-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="1.6" flood-color="#f2549a" flood-opacity=".55"/>
+    </filter>
+  </defs>
+  <g filter="url(#wv-glow)" stroke="#f2549a" stroke-width="1.1" stroke-opacity=".8">
+    <rect x="7" y="33" width="17" height="16" rx="5.5" fill="url(#wv-tile)"/>
+    <rect x="23.5" y="21" width="17" height="17" rx="6" fill="url(#wv-tile)"/>
+    <rect x="40" y="33" width="17" height="16" rx="5.5" fill="url(#wv-tile)"/>
+  </g>
+  <g font-family="Heebo, sans-serif" font-weight="700" font-size="13" text-anchor="middle" fill="url(#wv-ink)">
+    <text x="15.5" y="45.5">א</text>
+    <text x="32" y="34">ב</text>
+    <text x="48.5" y="45.5">ג</text>
+  </g>
+  <circle cx="10" cy="24" r="1.2" fill="#ffd76a" opacity=".8"/>
+  <circle cx="32" cy="12" r="1.3" fill="#ffd76a" opacity=".85"/>
+  <circle cx="55" cy="27" r="1" fill="#ffd76a" opacity=".7"/>
+</svg>
