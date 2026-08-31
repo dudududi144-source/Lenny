@@ -2,6 +2,7 @@ import type { GameKind, GameSpec } from '../builder/GameSpec';
 import type { SceneCtx, GameScene } from '../engine/GameScene';
 import { ComingSoonScene } from './ComingSoon';
 import { GlowFishScene } from './GlowFish';
+import { MemoryPairsScene } from './MemoryPairs';
 
 /* kind → scene key (mirrors builder/GameFactory's mapping without the
    Phaser dependency — the new shell must never import Phaser). */
@@ -25,6 +26,7 @@ export type SceneFactory = (ctx: SceneCtx) => GameScene;
 export const SCENE_REGISTRY: Record<string, SceneFactory> = {
   'coming-soon': (ctx) => new ComingSoonScene(ctx),
   'glow-fish': (ctx) => new GlowFishScene(ctx),
+  'memory-pairs': (ctx) => new MemoryPairsScene(ctx),
 };
 
 export function sceneKeyForSpec(spec: GameSpec): string {
