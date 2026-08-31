@@ -39,6 +39,9 @@ async function openEmotionFace(page: Page, ddaLevel: number): Promise<void> {
   await page.locator('.zone-card[data-zone="feelings-garden"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
   await expect(page.locator('#hud-zone')).toHaveText(/גַּן הָרְגָשׁוֹת/);
+  /* the scene bridge must be live (spawned) before the first tap */
+  await expect.poll(async () => (await state(page))?.options.length ?? 0, { timeout: 10_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(350);
 }
 
 async function state(page: Page): Promise<EmotionState | null> {

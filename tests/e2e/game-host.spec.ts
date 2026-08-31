@@ -33,7 +33,10 @@ test('zone click boots the Pixi canvas with HUD, dialogue and no errors', async 
   expect(info.scene).toBe('glow-fish');
   expect(['webgl', 'webgpu']).toContain(info.renderer);
   expect(info.screen).toBe('game');
-  expect(info.design).toEqual({ w: 420, h: 720 });
+  /* Arena world space: always covers the canvas; width matches the
+     420 reference when the viewport is portrait (CI is 375x667). */
+  expect(info.design!.w).toBeGreaterThanOrEqual(420);
+  expect(info.design!.h).toBeGreaterThanOrEqual(720);
 
   await expect(page.locator('#hud-dialogue .dialogue-text')).not.toBeEmpty();
 

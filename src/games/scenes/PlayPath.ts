@@ -44,7 +44,7 @@ export class PlayPathScene extends GameScene {
   private py = this.h - 100;
   private vy = JUMP;
   private cameraY = 0;
-  private score = 0;
+  private points = 0;
   private starCount = 0;
   private best = 0;
   private running = true;
@@ -210,7 +210,7 @@ export class PlayPathScene extends GameScene {
           s.taken = true;
           s.view.destroy();
           this.starCount++;
-          this.score += 50;
+          this.points += 50;
           this.sparkle(s.x, s.y, [COLORS.glow, COLORS.glowSoft, 0xffffff]);
         }
       }
@@ -221,7 +221,7 @@ export class PlayPathScene extends GameScene {
     if (targetCam < this.cameraY) this.cameraY = targetCam;
 
     const heightScore = Math.max(0, Math.floor(-(this.py - (this.h - 100)) / 10));
-    this.score = Math.max(this.score, heightScore);
+    this.points = Math.max(this.points, heightScore);
 
     /* keep the climb going */
     let minY = Math.min(...this.platforms.map((p) => p.y));
@@ -246,12 +246,14 @@ export class PlayPathScene extends GameScene {
     this.player.x = this.px;
     this.player.y = this.py - this.cameraY;
     for (const p of this.platforms) p.view.y = p.y - this.cameraY;
-    for (const s of this.stars) s.view.y = s.y - this.cameraY;
+    for (const s of this.stars) {
+      if (!s.taken && !s.view.destroyed) s.view.y = s.y - this.cameraY;
+    }
 
     const starIcon = this.scoreLabel.children[0] as Sprite;
     starIcon.rotation = Math.sin(this.t / 600) * 0.25;
     const count = this.scoreLabel.children[1] as import('pixi.js').Text;
-    count.text = `${this.score}`;
+    count.text = `${this.points}`;
 
     /* fell off the bottom -> run over */
     if (this.py - this.cameraY > this.h + 60) {
@@ -261,16 +263,16 @@ export class PlayPathScene extends GameScene {
 
   private endRun(): void {
     this.running = false;
-    if (this.score > this.best) {
-      this.best = this.score;
+    if (this.points > this.best) {
+      this.best = this.points;
       localStorage.setItem('lenny_best', String(this.best));
     }
     if (this.starCount >= 1) {
-      this.say([`נִקּוּד: ${this.score}`, `שִׂיא: ${this.best}`]);
+      this.say([`נִקּוּד: ${this.points}`, `שִׂיא: ${this.best}`]);
       this.finish(1800);
     } else {
       /* the original records garden progress only with at least one star */
-      this.say([`נִקּוּד: ${this.score}`, 'אַסְפִּי לְפָחוֹת כּוֹכָב אֶחָד כְּדֵי לְהַדְלִיק אֶת הַשְּׁבִיל!']);
+      this.say([`נִקּוּד: ${this.points}`, 'אַסְפִּי לְפָחוֹת כּוֹכָב אֶחָד כְּדֵי לְהַדְלִיק אֶת הַשְּׁבִיל!']);
       this.exitSoon(1400);
     }
   }
@@ -284,7 +286,7 @@ export class PlayPathScene extends GameScene {
   debugState(): Record<string, unknown> {
     return {
       kind: 'play',
-      score: this.score,
+      points: this.points,
       starCount: this.starCount,
       best: this.best,
       player: { x: Math.round(this.px), y: Math.round(this.py - this.cameraY) },

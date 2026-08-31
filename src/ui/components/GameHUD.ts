@@ -7,6 +7,11 @@ export interface HudBridge {
   ringSet(fraction: number): void;
   ringCounts(done: number, total: number): void;
   ringReset(): void;
+  /** Arena extensions (implemented by HUD v2; optional for compat) */
+  score?(points: number): void;
+  combo?(count: number, mult: number): void;
+  mission?(text: string | null): void;
+  pauseEnabled?(on: boolean): void;
 }
 
 export interface GameHUDHandle {
