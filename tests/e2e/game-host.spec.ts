@@ -86,3 +86,42 @@ test('locked zone never opens a canvas', async ({ page }) => {
   await expect(page.locator('#game-screen')).toBeHidden();
   expect(await page.locator('#game-screen canvas').count()).toBe(0);
 });
+
+test('Arena HUD: pause freezes the scene, mute persists, session state flows', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await page.addInitScript((state) => {
+    localStorage.setItem('lenny-garden', JSON.stringify(state));
+  }, UNLOCK_STREAM);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: /נַתְחִיל/ }).click();
+  await page.locator('.zone-card[data-zone="attention-stream"]').click();
+  await expect(page.locator('#game-screen canvas')).toBeVisible();
+  await expect.poll(async () => (await page.evaluate(() => window.__lenny?.sceneState()))?.fishCount ?? 0, { timeout: 10_000 }).toBeGreaterThan(0);
+
+  /* pause button is Arena-enabled by default */
+  await expect(page.locator('#hud-pause')).toBeVisible();
+  const fishBefore = (await page.evaluate(() => window.__lenny?.sceneState()))!.fishCount;
+  await page.locator('#hud-pause').click();
+  await expect(page.locator('#hud-pause-overlay')).toBeVisible();
+  await page.waitForTimeout(700);
+  const fishPaused = (await page.evaluate(() => window.__lenny?.sceneState()))!.fishCount;
+  expect(fishPaused).toBe(fishBefore); /* frozen: no spawns/despawns while paused */
+
+  await page.locator('#pause-resume').click();
+  await expect(page.locator('#hud-pause-overlay')).toBeHidden();
+
+  /* mute toggles + persists */
+  await page.locator('#hud-mute').click();
+  expect(await page.evaluate(() => localStorage.getItem('lenny-muted'))).toBe('1');
+  await page.locator('#hud-mute').click();
+  expect(await page.evaluate(() => localStorage.getItem('lenny-muted'))).toBe('0');
+
+  /* session debug flows through the bridge (arena-prefixed keys) */
+  const session = await page.evaluate(() => window.__lenny?.sceneState());
+  expect(session).toHaveProperty('arenaScore');
+  expect(session).toHaveProperty('ceremonyOpen');
+  expect(errors).toEqual([]);
+});

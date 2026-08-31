@@ -81,12 +81,14 @@ export abstract class GameScene {
         this.comboNotified = combo;
         this.ctx.hud.combo?.(combo, mult);
       }
+      this.ctx.hud.score?.(this.score.points);
     });
     this.root.addChild(this.score.layer);
     this.root.addChild(this.fxLayer);
 
     this.fx = new FX(this.anim, this.fxLayer);
     ctx.hud.ringReset();
+    ctx.hud.pauseEnabled?.(true);
 
     /* Adopt the canvas's current size BEFORE the scene's build() runs,
        so every spawn position is computed in the final world space. */

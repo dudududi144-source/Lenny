@@ -49,3 +49,23 @@ test('locked zone tap gives gentle feedback, never a crash', async ({ page }) =>
   await expect(page.locator('#toast')).toContainText('עוֹד קְצָת');
   expect(errors).toEqual([]);
 });
+
+test('garden shows the light counter from the cognitive core', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'lenny-garden',
+      JSON.stringify({
+        firstSeen: Date.now(),
+        lights: 7,
+        zones: { 'light-path': { finished: 1, unlocked: true } },
+      }),
+    );
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: /נַתְחִיל/ }).click();
+  await expect(page.locator('#light-count')).toHaveText('7');
+  expect(errors).toEqual([]);
+});

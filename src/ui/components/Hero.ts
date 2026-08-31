@@ -32,6 +32,37 @@ export function createHero(callbacks: HeroCallbacks): HeroHandle {
     h('span', { class: 'badge-dot', 'aria-hidden': 'true' }),
     'הגן מחכה',
   );
+
+  /* daily streak chip — consecutive days with at least one session */
+  function todayKey(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+  function updateStreak(): number {
+    let rec: { last: string; count: number } = { last: '', count: 0 };
+    try {
+      rec = JSON.parse(localStorage.getItem('lenny-streak') ?? '{}') as { last: string; count: number };
+    } catch {
+      /* ignore */
+    }
+    const today = todayKey();
+    if (rec.last !== today) {
+      const y = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      rec = { last: today, count: rec.last === y ? (rec.count || 0) + 1 : 1 };
+      try {
+        localStorage.setItem('lenny-streak', JSON.stringify(rec));
+      } catch {
+        /* ignore */
+      }
+    }
+    return rec.count || 1;
+  }
+  const streakCount = updateStreak();
+  const streakChip = h(
+    'span',
+    { class: `streak-chip${streakCount >= 2 ? '' : ' is-off'}`, id: 'streak-chip', 'aria-label': 'רצף ימי משחק' },
+    h('span', { 'aria-hidden': 'true' }, '🔥'),
+    h('span', { id: 'streak-count' }, `${streakCount} יָמִים`),
+  );
   const parentBtn = h(
     'button',
     { class: 'parent-link', type: 'button', onClick: () => callbacks.onParent() },
@@ -67,7 +98,7 @@ export function createHero(callbacks: HeroCallbacks): HeroHandle {
     h(
       'header',
       { class: 'topbar' },
-      badge,
+      h('div', { class: 'topbar-side' }, badge, streakChip),
       parentBtn,
     ),
     h(

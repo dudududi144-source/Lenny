@@ -177,6 +177,14 @@ function zoneCard(zone: ZoneDef, data: GardenData, freshIds: Set<string>, callba
 export function createGardenMap(callbacks: GardenMapCallbacks): GardenMapHandle {
   const greeting = h('p', { class: 'garden-greeting', id: 'garden-greeting' });
 
+  /* light counter — the garden's collectible currency (core-managed) */
+  const lightChip = h(
+    'span',
+    { class: 'light-chip', id: 'light-chip', 'aria-label': 'אורות שנאספו' },
+    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✦'),
+    h('span', { class: 'light-count', id: 'light-count' }, '0'),
+  );
+
   const path = h('div', { class: 'garden-path', id: 'garden-path' });
   path.append(ribbonSvg());
 
@@ -200,18 +208,29 @@ export function createGardenMap(callbacks: GardenMapCallbacks): GardenMapHandle 
         h('h2', { class: 'garden-title' }, 'הַגַּן שֶׁל לֶנִי'),
         h('p', { class: 'garden-sub' }, 'בַּחֲרִי אָן רוֹצִים לְשַׂחֵק'),
       ),
-      back,
+      h('div', { class: 'garden-head-side' }, lightChip, back),
     ),
     greeting,
     path,
   );
 
   let list: HTMLElement | null = null;
+  let lastLights = -1;
 
   function refresh(): void {
     const data = loadGarden();
     const freshIds = new Set(consumeNewZones());
     if (freshIds.size > 0) callbacks.onFreshZones([...freshIds]);
+
+    /* light counter + celebration pulse when it grows */
+    const lights = data.lights || 0;
+    lightChip.querySelector('.light-count')!.textContent = String(lights);
+    if (lastLights >= 0 && lights > lastLights) {
+      lightChip.classList.remove('pulse');
+      void lightChip.offsetWidth;
+      lightChip.classList.add('pulse');
+    }
+    lastLights = lights;
 
     list?.remove();
     list = h('div', { class: 'zone-list' });

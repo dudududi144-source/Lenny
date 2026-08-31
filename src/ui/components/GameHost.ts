@@ -51,7 +51,10 @@ function safeLoad(fallback: () => GardenData): GardenData {
  */
 export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   const gameApp = new GameApp();
-  const hud: GameHUDHandle = createGameHUD({ onBack: () => close() });
+  const hud: GameHUDHandle = createGameHUD({
+    onBack: () => close(),
+    onPauseToggle: (paused) => gameApp.setPaused(paused),
+  });
   const stage = h('div', { class: 'game-stage', id: 'game-stage' });
   const root = h(
     'section',
@@ -125,6 +128,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   }
 
   function close(): void {
+    gameApp.setPaused(false);
     gameApp.setScene(null);
     root.classList.add('hidden');
     zoneId = null;

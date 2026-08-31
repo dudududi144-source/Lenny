@@ -31,9 +31,19 @@ export class GameApp {
   private lastPixels: StageView = { w: 420, h: 720 };
 
   rendererKind: RendererKind = null;
+  private paused = false;
 
   get pixiApp(): Application | null {
     return this.app;
+  }
+
+  /** Pause gate: the ticker keeps rendering but stops updating the scene. */
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+  }
+
+  isPaused(): boolean {
+    return this.paused;
   }
 
   get view(): StageView {
@@ -109,7 +119,9 @@ export class GameApp {
     ];
 
     app.ticker.maxFPS = 60;
-    app.ticker.add((ticker) => this.scene?.update(ticker.deltaMS));
+    app.ticker.add((ticker) => {
+      if (!this.paused) this.scene?.update(ticker.deltaMS);
+    });
 
     this.resizeObserver = new ResizeObserver(() => this.refit());
     this.resizeObserver.observe(hostElement);
