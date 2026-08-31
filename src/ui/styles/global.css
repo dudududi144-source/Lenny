@@ -681,6 +681,80 @@ body {
   animation: fresh-glow 1.3s ease-in-out infinite;
 }
 
+/* ---------- Game screen (PixiJS canvas + DOM HUD) ---------- */
+
+.screen--game {
+  z-index: 3;
+}
+
+.game-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: var(--color-void);
+  background-image: var(--gradient-void);
+}
+
+.game-stage canvas {
+  display: block;
+}
+
+.game-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+
+.hud-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hud-top .ui-btn--ghost {
+  pointer-events: auto;
+}
+
+.hud-zone {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-cream);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-ring {
+  flex: 0 0 auto;
+}
+
+.hud-spacer {
+  flex: 1 1 auto;
+}
+
+.hud-bottom {
+  display: flex;
+  justify-content: center;
+}
+
+.hud-dialogue-slot {
+  width: 100%;
+  max-width: 380px;
+  pointer-events: auto;
+}
+
+.hud-dialogue {
+  width: 100%;
+}
+
 /* ---------- Dialogue (glass bubble, typewriter) ---------- */
 
 .dialogue {

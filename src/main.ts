@@ -9,11 +9,30 @@ import './ui/styles/tokens.css';
 import './ui/styles/global.css';
 import './ui/styles/animations.css';
 
-import { createGardenMap } from './ui/components/GardenMap';
-import { createHero } from './ui/components/Hero';
+import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';
 import { MemoryGarden } from './games/core/MemoryGarden';
 import { bloomLevel, freshGarden, LocalProgressStore, type GardenData } from './games/core/ProgressStore';
+import { DESIGN } from './games/engine/theme';
+import { createGameHost } from './ui/components/GameHost';
+import { createGardenMap } from './ui/components/GardenMap';
+import { createHero } from './ui/components/Hero';
 import { h } from './ui/components/common/el';
+
+declare global {
+  interface Window {
+    __lenny?: {
+      version: string;
+      screen(): string;
+      garden(): GardenData;
+      zoneLevel(zone: string): number;
+      scene(): string | null;
+      sceneState(): Record<string, unknown> | null;
+      renderer(): string | null;
+      canvasRect(): { x: number; y: number; width: number; height: number } | null;
+      design: { w: number; h: number };
+    };
+  }
+}
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
 
@@ -70,9 +89,32 @@ function personalGreeting(): string {
 
 /* ---------- screens ---------- */
 
+let currentScreen = 'hero';
+
+function showScreen(name: 'hero' | 'garden' | 'game'): void {
+  currentScreen = name;
+  for (const [key, el] of Object.entries(screens)) {
+    el.classList.toggle('hidden', key !== name);
+  }
+}
+
+function refreshAll(): void {
+  const data = loadGarden();
+  hero.setGreeting(personalGreeting());
+  hero.setShowContinue(hasProgress(data));
+  hero.setBloomLit(bloomLevel(data) > 0);
+  garden.setGreeting(baseGreeting());
+  garden.refresh();
+}
+
+function openGarden(): void {
+  refreshAll();
+  showScreen('garden');
+}
+
 const hero = createHero({
-  onStart: () => showScreen('garden'),
-  onContinue: () => showScreen('garden'),
+  onStart: () => openGarden(),
+  onContinue: () => openGarden(),
   onParent: () => toast('פִּנַּת הַהוֹרִים נִבְנֵית — תִּפָּתַח בְּקָרוֹב.'),
   onNameChange(name) {
     if (name) localStorage.setItem('lenny-name', name);
@@ -81,50 +123,50 @@ const hero = createHero({
   },
 });
 
+const gameHost = createGameHost({
+  loadGarden,
+  onExit: () => {
+    refreshAll();
+    showScreen('garden');
+  },
+  onUnavailable: () => toast('הַמִּשְׂחָקִים מִתְעוֹרְרִים — בְּקָרוֹב נִשְׂחַק!'),
+});
+
 const garden = createGardenMap({
   onBack: () => showScreen('hero'),
   onZone: (zoneId) => {
-    /* Games boot from Commit 3 onward — until then, a gentle notice. */
-    void zoneId;
-    toast('הַמִּשְׂחָקִים מִתְעוֹרְרִים — בְּקָרוֹב נִשְׂחַק!');
+    void gameHost.open(zoneId).then((opened) => {
+      if (opened) showScreen('game');
+    });
   },
   onLockedTap: () => toast('עוֹד קְצָת וְגַם הַשַּׁעַר הַזֶּה יִפָּתַח.'),
   onFreshZones: () => toast('הַשַּׁעַר נִפְתַּח! בּוֹא נִרְאֶה מָה יֵשׁ שָׁם!'),
 });
 
-const frame = h('div', { class: 'frame' }, hero.root, garden.root);
+const frame = h('div', { class: 'frame' }, hero.root, garden.root, gameHost.root);
 appRoot?.append(frame);
 
-type ScreenName = 'hero' | 'garden';
-const screens: Record<ScreenName, HTMLElement> = { hero: hero.root, garden: garden.root };
+const screens: Record<'hero' | 'garden' | 'game', HTMLElement> = {
+  hero: hero.root,
+  garden: garden.root,
+  game: gameHost.root,
+};
 
-function showScreen(name: ScreenName): void {
-  for (const [key, el] of Object.entries(screens)) {
-    el.classList.toggle('hidden', key !== name);
-  }
-}
+/* ---------- read-only state bridge (e2e + parent tooling) ---------- */
 
-function refreshHero(): void {
-  const data = loadGarden();
-  hero.setGreeting(personalGreeting());
-  hero.setShowContinue(hasProgress(data));
-  hero.setBloomLit(bloomLevel(data) > 0);
-}
-
-function refreshGarden(): void {
-  garden.setGreeting(baseGreeting());
-  garden.refresh();
-}
-
-function openGarden(): void {
-  refreshGarden();
-  showScreen('garden');
-}
-
-hero.root.querySelector<HTMLButtonElement>('#start-btn')?.addEventListener('click', openGarden);
-hero.root.querySelector<HTMLButtonElement>('#continue-btn')?.addEventListener('click', openGarden);
+window.__lenny = {
+  version: 'stage-3',
+  screen: () => currentScreen,
+  garden: loadGarden,
+  zoneLevel: (zone: string) => new AdaptiveDifficulty(zone).level(),
+  scene: () => gameHost.currentSceneKey(),
+  sceneState: () => gameHost.sceneDebug(),
+  renderer: () => gameHost.rendererKind(),
+  canvasRect: () => gameHost.canvasRect(),
+  design: DESIGN,
+};
 
 /* ---------- first light ---------- */
 
-refreshHero();
+refreshAll();
 showScreen('hero');
