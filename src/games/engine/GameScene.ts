@@ -129,8 +129,8 @@ export abstract class GameScene {
       pointer: () => this.lastPointerWorld,
     });
     this.lenny.root.x = 56;
-    this.lenny.root.y = 78;
-    this.lenny.enter(-110, 78);
+    this.lenny.root.y = 132; /* below the DOM HUD row */
+    this.lenny.enter(-130, 132);
     this.root.addChild(this.lenny.root);
 
     this.fx = new FX(this.anim, this.fxLayer);

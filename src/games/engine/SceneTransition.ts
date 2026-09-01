@@ -51,13 +51,16 @@ export class SceneTransition {
       if (!opts.fadeOnly) item.scale.set(TRANSITION.fromScale);
       const delayHandle = this.anim.after(delay, () => {
         if (item.destroyed) return;
+        /* scale lives on a Point — tween its numeric x/y, never the point */
+        this.handles.push(this.anim.to(item, { alpha: 1, y: targetY }, {
+          durationMs: dur,
+          ease: easeStandard,
+        }));
         if (!opts.fadeOnly) {
-          this.handles.push(this.anim.to(item, { alpha: 1, scale: 1, y: targetY }, {
+          this.handles.push(this.anim.to(item.scale, { x: 1, y: 1 }, {
             durationMs: dur,
             ease: easeStandard,
           }));
-        } else {
-          this.handles.push(this.anim.to(item, { alpha: 1 }, { durationMs: dur, ease: easeStandard }));
         }
       });
       this.handles.push(delayHandle);

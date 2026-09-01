@@ -66,9 +66,16 @@ export interface TweenHandle {
 
 type NumberBox = Record<string, number>;
 
+interface TweenProp {
+  obj: NumberBox;
+  key: string;
+  to: number;
+  from: number;
+}
+
 interface TweenRec {
   target: NumberBox;
-  props: Array<{ key: string; to: number; from: number }>;
+  props: TweenProp[];
   age: number;
   durationMs: number;
   ease: Easing;
@@ -95,12 +102,34 @@ export class AnimationSystem {
   private loops: LoopRec[] = [];
   private afters: AfterRec[] = [];
 
-  /** Tween numeric properties of any object (e.g. sprite.x, scale, alpha). */
+  /**
+   * Tween numeric properties of any object (e.g. sprite.x, alpha, width).
+   * Point-valued props (container.scale, container.pivot, container.position)
+   * are auto-detected and tweened as their numeric x/y — a uniform number
+   * target scales both axes. Writing a Point object directly would corrupt
+   * the transform (NaN), which is exactly what this guard prevents.
+   */
   to(target: object, props: Record<string, number>, options: TweenOptions): TweenHandle {
     const box = target as NumberBox;
+    const expanded: TweenProp[] = [];
+    for (const [key, to] of Object.entries(props)) {
+      const cur = (target as Record<string, unknown>)[key];
+      if (
+        typeof to === 'number' &&
+        cur && typeof cur === 'object' &&
+        typeof (cur as NumberBox).x === 'number' &&
+        typeof (cur as NumberBox).y === 'number'
+      ) {
+        const pt = cur as NumberBox;
+        expanded.push({ obj: pt, key: 'x', to, from: NaN });
+        expanded.push({ obj: pt, key: 'y', to, from: NaN });
+      } else {
+        expanded.push({ obj: box, key, to, from: NaN });
+      }
+    }
     const rec: TweenRec = {
       target: box,
-      props: Object.entries(props).map(([key, to]) => ({ key, to, from: NaN })),
+      props: expanded,
       age: 0,
       durationMs: Math.max(1, options.durationMs),
       ease: options.ease ?? ease.outCubic,
@@ -157,13 +186,13 @@ export class AnimationSystem {
       if (rec.age < rec.delayMs) continue;
       if (!rec.started) {
         rec.started = true;
-        for (const p of rec.props) p.from = rec.target[p.key];
+        for (const p of rec.props) p.from = p.obj[p.key];
       }
       const raw = Math.min(1, (rec.age - rec.delayMs) / rec.durationMs);
       const t = rec.ease(raw);
       try {
         for (const p of rec.props) {
-          rec.target[p.key] = p.from + (p.to - p.from) * t;
+          p.obj[p.key] = p.from + (p.to - p.from) * t;
         }
       } catch {
         rec.killed = true;
