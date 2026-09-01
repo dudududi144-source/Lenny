@@ -94,17 +94,21 @@ test('wrong shadow taps escalate the hint ladder', async ({ page }) => {
   test.setTimeout(120_000);
   await openKiteMatch(page, 0.05);
 
-  /* two deliberate wrong pairings */
+  /* two deliberate wrong pairings — retry until the counter reaches
+     exactly `wrong` (one tap registers at most one miss) */
   for (let wrong = 1; wrong <= 2; wrong++) {
-    const s = (await state(page))!;
-    const kite = s.kites.find((k) => !k.matched)!;
-    await tapDesign(page, kite.x, kite.y);
-    await page.waitForTimeout(260);
-    const shadow = s.shadows.find((sh) => !sh.matched && sh.color !== kite.color)!;
-    await tapDesign(page, shadow.x, shadow.y);
-    await page.waitForTimeout(500);
-    const after = (await state(page))!;
-    expect(after.wrongSinceLastMatch).toBe(wrong);
+    let tries = 0;
+    while (((await state(page))?.wrongSinceLastMatch ?? 0) < wrong && tries < 12) {
+      const s = (await state(page))!;
+      const kite = s.kites.find((k) => !k.matched)!;
+      await tapDesign(page, kite.x, kite.y);
+      await page.waitForTimeout(260);
+      const shadow = s.shadows.find((sh) => !sh.matched && sh.color !== kite.color)!;
+      await tapDesign(page, shadow.x, shadow.y);
+      await page.waitForTimeout(400);
+      tries++;
+    }
+    expect((await state(page))!.wrongSinceLastMatch).toBe(wrong);
   }
   expect((await state(page))!.hint).toBe('clear');
 

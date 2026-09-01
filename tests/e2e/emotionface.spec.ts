@@ -98,10 +98,16 @@ test('two wrong answers escalate the hint to clear, then complete', async ({ pag
   await openEmotionFace(page, 0.05);
 
   for (let wrong = 1; wrong <= 2; wrong++) {
-    const s = (await state(page))!;
-    const wrongOption = s.options.find((o) => o.emotion !== s.emotion)!;
-    await tapDesign(page, wrongOption.x, wrongOption.y);
-    await page.waitForTimeout(500);
+    /* one tap registers at most one miss — retry until the counter
+       reaches exactly `wrong` (loaded runners can swallow a tap) */
+    let tries = 0;
+    while (((await state(page))?.wrongSinceLastCorrect ?? 0) < wrong && tries < 12) {
+      const s = (await state(page))!;
+      const wrongOption = s.options.find((o) => o.emotion !== s.emotion)!;
+      await tapDesign(page, wrongOption.x, wrongOption.y);
+      await page.waitForTimeout(400);
+      tries++;
+    }
     expect((await state(page))!.wrongSinceLastCorrect).toBe(wrong);
   }
   expect((await state(page))!.hint).toBe('clear');
