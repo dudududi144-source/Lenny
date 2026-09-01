@@ -172,6 +172,8 @@ export class BeePaintScene extends GameScene {
     head.circle(7, -2, 2).fill({ color: 0x0a0416 });
 
     this.beeBody.addChild(halo, this.wingL, this.wingR, body, bodySheen, stripes, head);
+    /* Stage 5: the bee mascot carries a real glow filter */
+    this.glowOn(this.beeBody, 0xffd76a, 1.8);
     this.bee.addChild(this.beeBody);
     const c = this.flowerCenter();
     this.bee.x = c.x + 60;

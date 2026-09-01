@@ -149,6 +149,8 @@ export class PlayPathScene extends GameScene {
       star.height = 30;
       star.x = x + PLAT_W / 2;
       star.y = y - 38;
+      /* Stage 5: collectible stars carry the real glow filter */
+      this.glowOn(star, COLORS.glow, 1.7);
       this.starLayer.addChild(star);
       this.stars.push({ x: star.x, y: star.y, taken: false, view: star });
     }

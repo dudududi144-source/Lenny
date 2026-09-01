@@ -1,13 +1,14 @@
-import { Container, Sprite, Text } from 'pixi.js';
 import type { GameSpec } from '../builder/GameSpec';
 import { AdaptiveDifficulty, type HintStrength } from '../core/AdaptiveDifficulty';
 import { LearningSignals } from '../core/LearningSignals';
 import { recordZoneFinish } from '../core/ProgressStore';
 import type { HudBridge } from '../../ui/components/GameHUD';
+import { Application, Container, Sprite, Text } from 'pixi.js';
 import { AnimationSystem, ease } from './AnimationSystem';
 import { audio } from './AudioEngine';
 import { GardenBackdrop } from './GardenBackdrop';
 import { FX } from './FX';
+import { FXManager } from './FXManager';
 import { ResultsCeremony } from './ResultsCeremony';
 import { bursts, ParticleSystem } from './ParticleSystem';
 import { ringTexture, softGlowTexture } from './textures';
@@ -53,6 +54,8 @@ export abstract class GameScene {
   readonly anim = new AnimationSystem();
   readonly score: ScoreDirector;
   readonly fx: FX;
+  /** Stage-5 filter layer — glow/blur/color-matrix, renderer-aware. */
+  readonly gfx: FXManager;
 
   protected ctx: SceneCtx;
   protected backdrop: GardenBackdrop;
@@ -67,6 +70,7 @@ export abstract class GameScene {
   private finished = false;
   private ceremony: ResultsCeremony | null = null;
   private comboNotified = 0;
+  private vignette: Container | null = null;
 
   protected constructor(ctx: SceneCtx) {
     this.ctx = ctx;
@@ -87,6 +91,9 @@ export abstract class GameScene {
     this.root.addChild(this.fxLayer);
 
     this.fx = new FX(this.anim, this.fxLayer);
+    this.gfx = new FXManager();
+    this.gfx.attach(ctx.app as Application | null);
+    this.rebuildVignette(); /* default world size — resize refines it */
     ctx.hud.ringReset();
     ctx.hud.pauseEnabled?.(true);
 
@@ -131,7 +138,20 @@ export abstract class GameScene {
     this.worldH = h;
     this.root.scale.set(this.worldUnit);
     this.backdrop.resize(this.worldW, this.worldH);
+    this.rebuildVignette();
     this.layout();
+  }
+
+  /** Scene-wide subjective vignette, rebuilt with the world size. */
+  private rebuildVignette(): void {
+    if (this.vignette && !this.vignette.destroyed) {
+      this.vignette.destroy();
+      this.vignette = null;
+    }
+    if (this.gfx) {
+      this.gfx.atmosphere(this.fxLayer, this.worldW, this.worldH);
+      this.vignette = this.fxLayer.children[0] ?? null;
+    }
   }
 
   /** Scenes reposition their content here on resize. */
@@ -184,7 +204,22 @@ export abstract class GameScene {
       ceremonyOpen: (c?.ceremony as boolean) ?? false,
       ceremonyStars: (c?.stars as number) ?? 0,
       newRecord: (c?.newRecord as boolean) ?? false,
+      /* Stage 5 — filter-layer observability (additive keys) */
+      fxKind: this.gfx?.rendererKind ?? 'none',
+      fxFilters: this.gfx?.activeCount ?? 0,
+      fxGlowCap: this.gfx?.capabilities.glow ?? false,
     };
+  }
+
+  /** Real glow filter on a glowing element (pooled + reported). */
+  protected glowOn(target: Container, color?: number, strength = 1.6, pulse = true): void {
+    if (!this.gfx) return;
+    this.gfx.glow(target, {
+      color,
+      strength,
+      distance: 16,
+      pulse: pulse ? { amount: 0.45, periodMs: 1900 } : undefined,
+    });
   }
 
   /* ---------- shared helpers ---------- */
@@ -321,11 +356,13 @@ export abstract class GameScene {
     this.particles.update(dt);
     this.anim.update(dt);
     this.score.update();
+    this.gfx?.update(dt);
   }
 
   destroy(): void {
     this.tornDown = true;
     audio.stopMusic();
+    this.gfx?.dispose();
     this.fx.destroy();
     this.anim.destroy();
     this.particles.dispose();

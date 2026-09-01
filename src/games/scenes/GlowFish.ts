@@ -387,6 +387,8 @@ export class GlowFishScene extends GameScene {
     crown.height = 20;
     crown.y = -22;
     view.addChild(aura, g, crown);
+    /* Stage 5: the golden fish earns the real glow filter */
+    this.glowOn(view, 0xffd76a, 2.4);
     this.pond.addChild(view);
 
     const fromLeft = Math.random() < 0.5;
@@ -570,6 +572,7 @@ export class GlowFishScene extends GameScene {
     super.update(dtMs);
     if (this.tornDown) return;
     const dt = dtMs / 1000;
+
 
     const level = this.effectiveLevel();
     const mode = movementModeFor(level);

@@ -141,6 +141,8 @@ export class SequenceEchoScene extends GameScene {
     }
     if (kind.tone === 'muted') g.alpha = 0.8;
     plate.addChild(g);
+    /* Stage 5: every singing crystal carries its tone-colored glow */
+    this.glowOn(g, color, 1.1, false);
 
     const glow = new Sprite(softGlowTexture());
     glow.anchor.set(0.5);
