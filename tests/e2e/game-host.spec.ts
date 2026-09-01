@@ -65,9 +65,10 @@ test('pointer input lands in design space (breath-pool lantern)', async ({ page 
 
   const rect = await page.evaluate(() => window.__lenny?.canvasRect());
   expect(rect).not.toBeNull();
+  const design = await page.evaluate(() => window.__lenny?.design);
   await page.mouse.click(
-    rect!.x + (lantern.x / 420) * rect!.width,
-    rect!.y + (lantern.y / 720) * rect!.height,
+    rect!.x + (lantern.x / design!.w) * rect!.width,
+    rect!.y + (lantern.y / design!.h) * rect!.height,
   );
   await page.waitForTimeout(400);
 

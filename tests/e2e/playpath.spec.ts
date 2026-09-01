@@ -53,7 +53,8 @@ test('boots with a living board; the run stays honest about progress', async ({ 
      or we leave via the back button — both paths must be clean. */
   const rect = await page.evaluate(() => window.__lenny?.canvasRect());
   expect(rect).not.toBeNull();
-  const leftX = rect!.x + (8 / 420) * rect!.width;
+  const design = await page.evaluate(() => window.__lenny?.design);
+  const leftX = rect!.x + (8 / design!.w) * rect!.width;
   const deadline = Date.now() + 40_000;
   let ended = false;
   let lastStars = first.starCount ?? 0;

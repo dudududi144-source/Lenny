@@ -50,11 +50,15 @@ async function state(page: Page): Promise<PairState | null> {
 }
 
 async function tapSlot(page: Page, slot: { x: number; y: number }): Promise<void> {
-  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  /* map through the LIVE Arena world space (never a hardcoded 420x720) */
+  const { rect, design } = await page.evaluate(() => ({
+    rect: window.__lenny?.canvasRect(),
+    design: window.__lenny?.design,
+  }));
   expect(rect).not.toBeNull();
   await page.touchscreen.tap(
-    rect!.x + (slot.x / 420) * rect!.width,
-    rect!.y + (slot.y / 720) * rect!.height,
+    rect!.x + (slot.x / design!.w) * rect!.width,
+    rect!.y + (slot.y / design!.h) * rect!.height,
   );
 }
 
