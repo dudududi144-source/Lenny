@@ -6,7 +6,7 @@ import type { HudBridge } from '../../ui/components/GameHUD';
 import { Application, Container, Sprite, Text } from 'pixi.js';
 import { AnimationSystem, ease } from './AnimationSystem';
 import { audio } from './AudioEngine';
-import { GardenBackdrop } from './GardenBackdrop';
+import { GardenBackdrop, backdropThemeForZone } from './GardenBackdrop';
 import { FX } from './FX';
 import { FXManager } from './FXManager';
 import { SceneTransition } from './SceneTransition';
@@ -100,7 +100,7 @@ export abstract class GameScene {
   protected constructor(ctx: SceneCtx) {
     this.ctx = ctx;
     this.dda = new AdaptiveDifficulty(ctx.zone);
-    this.backdrop = new GardenBackdrop(this.worldW, this.worldH);
+    this.backdrop = new GardenBackdrop(this.worldW, this.worldH, backdropThemeForZone(ctx.zone));
     this.root.addChild(this.backdrop.container);
     this.root.addChild(this.particles.container);
 
