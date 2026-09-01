@@ -10,6 +10,7 @@ import { GardenBackdrop, backdropThemeForZone } from './GardenBackdrop';
 import { FX } from './FX';
 import { FXManager } from './FXManager';
 import { SceneTransition } from './SceneTransition';
+import { LennyActor, type LennyMood } from './LennyActor';
 import { ResultsCeremony } from './ResultsCeremony';
 import { bursts, ParticleSystem, themed, type ParticleTheme } from './ParticleSystem';
 import { ringTexture, softGlowTexture } from './textures';
@@ -78,6 +79,9 @@ export abstract class GameScene {
   protected particleTheme: ParticleTheme;
   /** Stage-5 entrance/exit choreography (staggered, visual-only). */
   readonly transitions = new SceneTransition(this.anim);
+  /** Lenny v2 — the living companion in the top corner. */
+  protected lenny: LennyActor | null = null;
+  protected lastPointerWorld: { x: number; y: number } | null = null;
 
   protected ctx: SceneCtx;
   protected backdrop: GardenBackdrop;
@@ -109,11 +113,25 @@ export abstract class GameScene {
       if (combo !== this.comboNotified) {
         this.comboNotified = combo;
         this.ctx.hud.combo?.(combo, mult);
+        /* Lenny reacts to the session's heartbeat */
+        if (combo >= 2) this.lenny?.celebrate();
+        else if (combo === 0) this.lenny?.setMood('neutral');
       }
       this.ctx.hud.score?.(this.score.points);
     });
     this.root.addChild(this.score.layer);
     this.root.addChild(this.fxLayer);
+
+    /* Lenny drops in from the roof with his own bounce */
+    this.lenny = new LennyActor(this.anim, {
+      size: this.scaled(52),
+      glow: (target) => this.gfx.glow(target, { color: COLORS.glow, strength: 1.9, distance: 14, pulse: { amount: 0.4, periodMs: 2400 } }),
+      pointer: () => this.lastPointerWorld,
+    });
+    this.lenny.root.x = 56;
+    this.lenny.root.y = 78;
+    this.lenny.enter(-110, 78);
+    this.root.addChild(this.lenny.root);
 
     this.fx = new FX(this.anim, this.fxLayer);
     this.gfx = new FXManager();
@@ -194,6 +212,7 @@ export abstract class GameScene {
 
   pointerMove(px: number, py: number): void {
     const p = this.toWorld(px, py);
+    this.lastPointerWorld = p;
     this.onDragMove(p.x, p.y);
   }
 
@@ -234,7 +253,18 @@ export abstract class GameScene {
       fxKind: this.gfx?.rendererKind ?? 'none',
       fxFilters: this.gfx?.activeCount ?? 0,
       fxGlowCap: this.gfx?.capabilities.glow ?? false,
+      lennyMood: (this.lenny?.moodNow() ?? 'none') as LennyMood | 'none',
     };
+  }
+
+  /** Lenny celebrates (scenes call on their own success beats). */
+  protected lennyCelebrate(): void {
+    this.lenny?.celebrate();
+  }
+
+  /** Lenny empathizes with a miss — never scolds. */
+  protected lennyEmpathize(): void {
+    this.lenny?.empathize();
   }
 
   /** Real glow filter on a glowing element (pooled + reported). */
@@ -385,6 +415,7 @@ export abstract class GameScene {
     this.anim.update(dt);
     this.score.update();
     this.gfx?.update(dt);
+    this.lenny?.update(dt);
     if (!this.ambientStarted) {
       this.ambientStarted = true;
       themed.ambient(this.particles, this.worldW, this.worldH, this.particleTheme);
@@ -392,7 +423,7 @@ export abstract class GameScene {
     if (!this.entrancePlayed) {
       this.entrancePlayed = true;
       /* staggered entrance in z-order: backdrop fades, content scales in */
-      const layers = this.root.children.filter((c) => c !== this.fxLayer);
+      const layers = this.root.children.filter((c) => c !== this.fxLayer && c !== this.lenny?.root);
       const [backdropLayer, ...contentLayers] = layers;
       if (backdropLayer) this.transitions.enter([backdropLayer], { staggerMs: 0, durMs: 420, fadeOnly: true });
       if (contentLayers.length > 0) {
@@ -410,6 +441,8 @@ export abstract class GameScene {
     this.tornDown = true;
     audio.stopMusic();
     this.transitions?.destroy();
+    this.lenny?.destroy();
+    this.lenny = null;
     this.gfx?.dispose();
     this.fx.destroy();
     this.anim.destroy();

@@ -458,6 +458,7 @@ export class GlowFishScene extends GameScene {
 
   private catchFish(fish: Fish): void {
     fish.caught = true;
+    this.lennyCelebrate();
     fish.enterTween?.kill();
     this.found++;
     const px = fish.view.x;
@@ -477,6 +478,7 @@ export class GlowFishScene extends GameScene {
   }
 
   private missFish(fish: Fish): void {
+    this.lennyEmpathize();
     const px = fish.view.x;
     const py = fish.view.y;
     this.wrongThisRound++;
@@ -528,6 +530,7 @@ export class GlowFishScene extends GameScene {
   }
 
   private hitJelly(j: Jelly, x: number, y: number): void {
+    this.lennyEmpathize();
     j.enterTween?.kill();
     this.score.miss({ x, y });
     this.fx.flash(0x8a76c9, 260, 0.22);
