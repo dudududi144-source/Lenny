@@ -3,6 +3,7 @@ import { AdaptiveDifficulty, type HintStrength } from '../core/AdaptiveDifficult
 import { LearningSignals } from '../core/LearningSignals';
 import { recordZoneFinish } from '../core/ProgressStore';
 import { recordGameFinish } from '../../content/gameFinishes';
+import { music, MOOD_FOR_ZONE } from '../../audio/MusicEngine';
 import type { HudBridge } from '../../ui/components/GameHUD';
 import { Application, Container, Sprite, Text } from 'pixi.js';
 import { AnimationSystem, ease } from './AnimationSystem';
@@ -101,6 +102,7 @@ export abstract class GameScene {
   private ambientStarted = false;
   private ambientAcc = 0;
   private entrancePlayed = false;
+  private intensityAcc = 0;
 
   protected constructor(ctx: SceneCtx) {
     this.ctx = ctx;
@@ -115,8 +117,10 @@ export abstract class GameScene {
         this.comboNotified = combo;
         this.ctx.hud.combo?.(combo, mult);
         /* Lenny reacts to the session's heartbeat */
-        if (combo >= 2) this.lenny?.celebrate();
-        else if (combo === 0) this.lenny?.setMood('neutral');
+        if (combo >= 2) {
+          this.lenny?.celebrate();
+          music.sting(combo); /* rising scale run: x2=2 notes, x3=3... */
+        } else if (combo === 0) this.lenny?.setMood('neutral');
       }
       this.ctx.hud.score?.(this.score.points);
     });
@@ -141,6 +145,14 @@ export abstract class GameScene {
     this.rebuildVignette(); /* default world size — resize refines it */
     ctx.hud.ringReset();
     ctx.hud.pauseEnabled?.(true);
+
+    /* Stage 6: the soundtrack lives with the scene — mood follows the
+       zone, intensity follows the DDA (both purely musical, the game
+       math never sees this). Actual sound waits for the audio unlock
+       (first user gesture) — autoplay policy. */
+    music.setMood(MOOD_FOR_ZONE[ctx.zone] ?? 'calm');
+    music.setIntensity(this.dda.level());
+    music.resume();
 
     /* Adopt the canvas's current size BEFORE the scene's build() runs,
        so every spawn position is computed in the final world space. */
@@ -355,6 +367,8 @@ export abstract class GameScene {
     recordZoneFinish(this.ctx.zone, stats.secs);
     /* Stage 6: per-game completion (feeds the shelf's tier locks) */
     if (this.ctx.spec) recordGameFinish(this.ctx.spec.id);
+    /* the ceremony gets its own mood (crossfades in ~2s) */
+    music.setMood('celebrating');
 
     const ceremony = new ResultsCeremony(this.anim, this.w, this.h, {
       onReplay: () => {
@@ -421,6 +435,12 @@ export abstract class GameScene {
     this.score.update();
     this.gfx?.update(dt);
     this.lenny?.update(dt);
+    /* Stage 6: DDA level → musical intensity, throttled to ~1s */
+    this.intensityAcc += dt;
+    if (this.intensityAcc > 1000) {
+      this.intensityAcc = 0;
+      music.setIntensity(this.dda.level());
+    }
     if (!this.ambientStarted) {
       this.ambientStarted = true;
       themed.ambient(this.particles, this.worldW, this.worldH, this.particleTheme);
@@ -444,7 +464,8 @@ export abstract class GameScene {
 
   destroy(): void {
     this.tornDown = true;
-    audio.stopMusic();
+    /* the soundtrack keeps breathing — it just walks back to the garden */
+    music.setMood('calm');
     this.transitions?.destroy();
     this.lenny?.destroy();
     this.lenny = null;

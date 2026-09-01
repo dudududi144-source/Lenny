@@ -20,6 +20,8 @@ import { createGardenMap } from './ui/components/GardenMap';
 import { createParentLens } from './ui/components/ParentLens';
 import { createHero } from './ui/components/Hero';
 import { installCatalog } from './content/catalog';
+import { audio } from './games/engine/AudioEngine';
+import { music } from './audio/MusicEngine';
 import { h } from './ui/components/common/el';
 
 declare global {
@@ -33,6 +35,8 @@ declare global {
       sceneState(): Record<string, unknown> | null;
       /** Stage 6 (additive): the catalog spec currently playing. */
       spec(): string | null;
+      /** Stage 6 (additive): soundtrack state (mood/intensity/running). */
+      music(): { mood: string; intensity: number; running: boolean; hasContext: boolean; crossfading: boolean; prevMood: string | null };
       renderer(): string | null;
       canvasRect(): { x: number; y: number; width: number; height: number } | null;
       design: { w: number; h: number };
@@ -65,6 +69,19 @@ function oops(): void {
 
 window.addEventListener('error', oops);
 window.addEventListener('unhandledrejection', oops);
+
+/* Stage 6 (autoplay policy): the soundtrack needs a gesture. ANY first
+   interaction (hero button, zone card) counts — the context is created
+   only here, never before. */
+const unlockAudio = (): void => {
+  audio.unlock();
+  document.removeEventListener('pointerdown', unlockAudio);
+  document.removeEventListener('keydown', unlockAudio);
+  document.removeEventListener('touchstart', unlockAudio);
+};
+document.addEventListener('pointerdown', unlockAudio, { passive: true });
+document.addEventListener('keydown', unlockAudio);
+document.addEventListener('touchstart', unlockAudio, { passive: true });
 
 /* ---------- garden state (cognitive core, untouched) ---------- */
 
@@ -191,8 +208,9 @@ window.__lenny = {
   zoneLevel: (zone: string) => new AdaptiveDifficulty(zone).level(),
   scene: () => gameHost.currentSceneKey(),
   sceneState: () => gameHost.sceneDebug(),
-  /** Stage 6 (additive): the spec currently playing. */
+  /** Stage 6 (additive): the spec currently playing + music state. */
   spec: () => gameHost.currentSpecId(),
+  music: () => music.debug(),
   renderer: () => gameHost.rendererKind(),
   canvasRect: () => gameHost.canvasRect(),
   /* live world space (Arena): scenes lay out in these units */

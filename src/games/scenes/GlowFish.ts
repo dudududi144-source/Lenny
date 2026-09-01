@@ -676,7 +676,6 @@ export class GlowFishScene extends GameScene {
   }
 
   destroy(): void {
-    audio.stopMusic();
     super.destroy();
   }
 }

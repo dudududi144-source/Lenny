@@ -516,7 +516,6 @@ export class MemoryPairsScene extends GameScene {
   }
 
   destroy(): void {
-    audio.stopMusic();
     super.destroy();
   }
 }

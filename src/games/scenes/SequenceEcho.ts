@@ -437,7 +437,6 @@ export class SequenceEchoScene extends GameScene {
   }
 
   destroy(): void {
-    audio.stopMusic();
     super.destroy();
   }
 }
