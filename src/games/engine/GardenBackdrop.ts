@@ -31,7 +31,19 @@ export class GardenBackdrop {
 
   constructor(width: number, height: number) {
     this.container.eventMode = 'none';
+    this.build(width, height);
+  }
 
+  /** Rebuild for a new world size (Arena responsive layout). */
+  resize(width: number, height: number): void {
+    this.stars = [];
+    this.fireflies = [];
+    this.nebulas = [];
+    this.container.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.build(width, height);
+  }
+
+  private build(width: number, height: number): void {
     const sky = new Sprite(verticalGradientTexture('backdrop-void', [
       [0, '#1a1f3a'],
       [0.5, '#0a0f1e'],

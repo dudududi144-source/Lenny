@@ -39,6 +39,9 @@ async function openMemoryPairs(page: Page, ddaLevel: number, garden = UNLOCK_HIL
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="memory-hill"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('memory-pairs');
+  await page.waitForTimeout(350);
   await expect(page.locator('#hud-zone')).toHaveText(/גִּבְעַת הַזִּכָּרוֹן/);
 }
 
@@ -47,11 +50,15 @@ async function state(page: Page): Promise<PairState | null> {
 }
 
 async function tapSlot(page: Page, slot: { x: number; y: number }): Promise<void> {
-  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  /* map through the LIVE Arena world space (never a hardcoded 420x720) */
+  const { rect, design } = await page.evaluate(() => ({
+    rect: window.__lenny?.canvasRect(),
+    design: window.__lenny?.design,
+  }));
   expect(rect).not.toBeNull();
   await page.touchscreen.tap(
-    rect!.x + (slot.x / 420) * rect!.width,
-    rect!.y + (slot.y / 720) * rect!.height,
+    rect!.x + (slot.x / design!.w) * rect!.width,
+    rect!.y + (slot.y / design!.h) * rect!.height,
   );
 }
 
@@ -172,4 +179,39 @@ test('level-0.95: misses escalate the hint ladder and light the dim aid', async 
   expect((await state(page))?.done ?? true).toBe(true);
   const dda = await page.evaluate(() => JSON.parse(localStorage.getItem('lenny-dda-v1') ?? '{}')['memory-hill']);
   expect(dda.rounds).toBe(1);
+});
+
+test('Arena: matches build score+combo and the mission chip tracks progress', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await openMemoryPairs(page, 0.1);
+  await page.waitForTimeout(1500);
+
+  let sawScore = false;
+  let sawMission = false;
+  const deadline = Date.now() + 70_000;
+  while (Date.now() < deadline) {
+    const s = await state(page);
+    if (!s || s.done) break;
+    if ((s.arenaScore ?? 0) > 0) sawScore = true;
+    const mission = await page.locator('#hud-mission').textContent();
+    if (mission && /נִמְצְאוּ/.test(mission)) sawMission = true;
+    const down = s.slots.filter((slot) => slot.state === 'down' && !slot.matched);
+    const pair = down.find(
+      (a) => down.find((b) => b !== a && b.kind.suit === a.kind.suit && b.kind.tone === a.kind.tone),
+    );
+    if (!pair) {
+      await page.waitForTimeout(150);
+      continue;
+    }
+    const mate = down.find((b) => b !== pair && b.kind.suit === pair.kind.suit && b.kind.tone === pair.kind.tone)!;
+    await revealPair(page, { x: pair.x, y: pair.y }, { x: mate.x, y: mate.y });
+  }
+
+  expect(sawScore).toBe(true);
+  expect(sawMission).toBe(true);
+  expect((await state(page))!.ceremonyOpen ?? true).toBe(true);
+  expect(errors).toEqual([]);
 });

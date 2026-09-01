@@ -3,6 +3,7 @@ import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { ease, type TweenHandle } from '../engine/AnimationSystem';
 import { discTexture, softGlowTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 const ROUNDS = 3;
 /* DragDropSystem grab radius, verbatim */
@@ -258,6 +259,7 @@ export class AcornSortScene extends GameScene {
   private pick(acorn: Acorn): void {
     this.held = acorn;
     acorn.picked = true;
+    audio.play('pop', 1);
     this.lift(acorn);
   }
 
@@ -368,8 +370,13 @@ export class AcornSortScene extends GameScene {
       acorn.view.y = slot.y;
       this.settle(acorn, true);
       this.placedCount++;
+      this.score.hit(15, { x: slot.x, y: slot.y });
       this.sparkle(slot.x, slot.y, [COLORS.glow, COLORS.glowSoft, 0xffffff]);
+      this.fx.shake(this.root, 0, 0, 2, 140);
       this.ctx.hud.ringCounts(this.placedCount, this.acornCount);
+      this.ctx.hud.mission?.(
+        this.placedCount >= this.acornCount ? 'הַסִּבּוּב הֻשְׁלַם!' : `סֻדְּרוּ ${this.placedCount} מִתּוֹךְ ${this.acornCount}`,
+      );
       if (this.placedCount >= this.acornCount) {
         this.completeRound();
       } else {
@@ -383,6 +390,8 @@ export class AcornSortScene extends GameScene {
   private rejectDrop(acorn: Acorn): void {
     this.rejectsThisRound++;
     this.consecutiveMiss++;
+    this.score.miss({ x: acorn.view.x, y: acorn.view.y });
+    this.fx.flash(COLORS.coral, 160, 0.13);
     /* a rejected drop is NOT a round loss: the round is one whole
        sort, judged once in completeRound. It feeds LearningSignals
        and the visible hint ladder instead. */
@@ -415,6 +424,8 @@ export class AcornSortScene extends GameScene {
     this.consecutiveMiss = 0;
     this.dda.outcome(true, Math.max(0.3, 1 - this.rejectsThisRound * 0.2));
     this.signals.attempt('logic.ordering', true);
+    audio.play('chime', this.round % 4);
+    this.fx.announce('סִבּוּב הֻשְׁלַם!', { y: this.h * 0.3, w: this.w, durMs: 1100 });
     if (this.round >= this.totalRounds) {
       this.win();
       return;
@@ -429,8 +440,8 @@ export class AcornSortScene extends GameScene {
 
   private win(): void {
     this.say(['וָאו, כָּל הַכָּבוֹד!', 'הַסְּנַאי מְאֻשָּׁר!']);
-    /* finish() records the zone finish with the real elapsed seconds */
-    this.finish(2600);
+    audio.play('fanfare');
+    this.finishWithCeremony({ title: 'הַמַּחְסָן מְסֻדָּר!' });
   }
 
   debugState(): Record<string, unknown> {

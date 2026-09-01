@@ -1,6 +1,8 @@
 import { Container, Graphics } from 'pixi.js';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
+import { ease } from '../engine/AnimationSystem';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 /* old hitKite / hitShadow radius, verbatim */
 const HIT_RADIUS = 42;
@@ -218,9 +220,11 @@ export class KiteMatchScene extends GameScene {
   update(dtMs: number): void {
     super.update(dtMs);
     if (this.tornDown) return;
-    /* gentle sway, verbatim rhythm: sin(t*1.8 + i) * 4 */
+    /* gentle sway, verbatim rhythm: sin(t*1.8 + i) * 4 — matched kites
+       keep their docked position at the shadow */
     for (let i = 0; i < this.kites.length; i++) {
       const kite = this.kites[i];
+      if (kite.matched || kite.view.destroyed) continue;
       kite.view.x = kite.x + Math.sin((this.t / 1000) * 1.8 + i) * 4;
     }
   }
@@ -257,6 +261,7 @@ export class KiteMatchScene extends GameScene {
     if (ki !== null) {
       this.selectedKite = ki;
       this.refreshSelection();
+      audio.play('pop', 1);
       this.say(['עַכְשָׁיו בּוֹא נִמְצָא אֶת הַצֵּל']);
       return true;
     }
@@ -275,9 +280,17 @@ export class KiteMatchScene extends GameScene {
           this.matchedCount++;
           this.selectedKite = null;
           this.refreshSelection();
-          kite.view.alpha = 0.4;
+          /* the kite FLIES to its shadow and docks — the payoff moment */
+          this.anim.to(kite.view, { x: shadow.x, y: shadow.y - 6, rotation: 0 }, { durationMs: 720, ease: ease.inOutCubic });
+          kite.view.alpha = 0.85;
           shadow.fill.alpha = 0.3;
           shadow.ring.visible = true;
+          this.score.hit(20, { x: shadow.x, y: shadow.y });
+          this.sparkle(shadow.x, shadow.y, [kite.color, COLORS.glow, 0xffffff]);
+          audio.play('chime', kite.color % 4);
+          this.ctx.hud.mission?.(
+            this.matchedCount >= this.TOTAL ? 'כָּל הָעִפְּעוֹפִים נָחְתוּ!' : `נָחֲתוּ ${this.matchedCount} מִתּוֹךְ ${this.TOTAL}`,
+          );
           /* a single match is NOT a DDA round: the round is the whole
              board, judged once in win(). Signals stay fine-grained. */
           this.signals.attempt('spatial.matching', true);
@@ -290,6 +303,8 @@ export class KiteMatchScene extends GameScene {
         } else {
           this.wrongSinceLastMatch++;
           this.wrongTapsTotal++;
+          this.score.miss({ x, y });
+          this.fx.flash(0xffffff, 140, 0.12);
           this.signals.attempt('spatial.matching', false);
           /* error taxonomy: a shadow tapped with no kite selected =
              shape confusion; with a kite selected = wrong shadow
@@ -317,8 +332,9 @@ export class KiteMatchScene extends GameScene {
     /* the whole board is one DDA round, scored by its cleanliness */
     this.dda.outcome(true, Math.max(0.3, 1 - this.wrongTapsTotal * 0.2));
     this.say(['וָאו, כָּל הַכָּבוֹד! הָעִפְעוֹפִים מָצְאוּ אֶת הַצְּלָלִים!']);
-    /* finish() records the zone finish with the real elapsed seconds */
-    this.finish(1800);
+    audio.play('fanfare');
+    this.fx.sparkleRain(this.particles, this.w);
+    this.finishWithCeremony({ title: 'הַשָּׁמַיִם שָׁקְטִים' });
   }
 
   debugState(): Record<string, unknown> {

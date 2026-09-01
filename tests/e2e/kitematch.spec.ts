@@ -36,6 +36,9 @@ async function openKiteMatch(page: Page, ddaLevel: number): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="space-sky"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('kite-match');
+  await page.waitForTimeout(350);
   await expect(page.locator('#hud-zone')).toHaveText(/שְׁמֵי הַמֶּרְחָב/);
 }
 
@@ -44,9 +47,16 @@ async function state(page: Page): Promise<KiteState | null> {
 }
 
 async function tapDesign(page: Page, dx: number, dy: number): Promise<void> {
-  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  /* map through the LIVE Arena world space (never a hardcoded 420x720) */
+  const { rect, design } = await page.evaluate(() => ({
+    rect: window.__lenny?.canvasRect(),
+    design: window.__lenny?.design,
+  }));
   expect(rect).not.toBeNull();
-  await page.touchscreen.tap(rect!.x + (dx / 420) * rect!.width, rect!.y + (dy / 720) * rect!.height);
+  await page.touchscreen.tap(
+    rect!.x + (dx / design!.w) * rect!.width,
+    rect!.y + (dy / design!.h) * rect!.height,
+  );
 }
 
 test('level-0 completes by matching every kite to its color shadow', async ({ page }) => {
@@ -91,17 +101,21 @@ test('wrong shadow taps escalate the hint ladder', async ({ page }) => {
   test.setTimeout(120_000);
   await openKiteMatch(page, 0.05);
 
-  /* two deliberate wrong pairings */
+  /* two deliberate wrong pairings — retry until the counter reaches
+     exactly `wrong` (one tap registers at most one miss) */
   for (let wrong = 1; wrong <= 2; wrong++) {
-    const s = (await state(page))!;
-    const kite = s.kites.find((k) => !k.matched)!;
-    await tapDesign(page, kite.x, kite.y);
-    await page.waitForTimeout(260);
-    const shadow = s.shadows.find((sh) => !sh.matched && sh.color !== kite.color)!;
-    await tapDesign(page, shadow.x, shadow.y);
-    await page.waitForTimeout(500);
-    const after = (await state(page))!;
-    expect(after.wrongSinceLastMatch).toBe(wrong);
+    let tries = 0;
+    while (((await state(page))?.wrongSinceLastMatch ?? 0) < wrong && tries < 12) {
+      const s = (await state(page))!;
+      const kite = s.kites.find((k) => !k.matched)!;
+      await tapDesign(page, kite.x, kite.y);
+      await page.waitForTimeout(260);
+      const shadow = s.shadows.find((sh) => !sh.matched && sh.color !== kite.color)!;
+      await tapDesign(page, shadow.x, shadow.y);
+      await page.waitForTimeout(400);
+      tries++;
+    }
+    expect((await state(page))!.wrongSinceLastMatch).toBe(wrong);
   }
   expect((await state(page))!.hint).toBe('clear');
 

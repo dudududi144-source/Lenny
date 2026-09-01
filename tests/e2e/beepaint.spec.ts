@@ -34,6 +34,9 @@ async function openBeePaint(page: Page): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="creativity-meadow"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('bee-paint');
+  await page.waitForTimeout(350);
   await expect(page.locator('#hud-zone')).toHaveText(/אֲחוּ הַיְּצִירָה/);
 }
 
@@ -42,9 +45,16 @@ async function state(page: Page): Promise<BeeState | null> {
 }
 
 async function tapDesign(page: Page, dx: number, dy: number): Promise<void> {
-  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  /* map through the LIVE Arena world space (never a hardcoded 420x720) */
+  const { rect, design } = await page.evaluate(() => ({
+    rect: window.__lenny?.canvasRect(),
+    design: window.__lenny?.design,
+  }));
   expect(rect).not.toBeNull();
-  await page.touchscreen.tap(rect!.x + (dx / 420) * rect!.width, rect!.y + (dy / 720) * rect!.height);
+  await page.touchscreen.tap(
+    rect!.x + (dx / design!.w) * rect!.width,
+    rect!.y + (dy / design!.h) * rect!.height,
+  );
 }
 
 test('five mixes fill the flower; completion records the outcome', async ({ page }) => {
@@ -59,14 +69,16 @@ test('five mixes fill the flower; completion records the outcome', async ({ page
   const a = s.primarySpots[0];
   const b = s.primarySpots[1];
 
-  /* every different-primary pair mixes and auto-fills the next petal */
+  /* every different-primary pair mixes and auto-fills the next petal.
+     The bee flies before the fill lands — poll instead of sleeping so
+     slow CI runners are never racing the animation. */
   for (let i = 0; i < 5; i++) {
     await tapDesign(page, a.x, a.y);
     await page.waitForTimeout(200);
     await tapDesign(page, b.x, b.y);
-    await page.waitForTimeout(450);
-    const after = (await state(page))!;
-    expect(after.petalsFilled).toBe(i + 1);
+    await expect
+      .poll(async () => (await state(page))?.petalsFilled ?? 0, { timeout: 15_000 })
+      .toBe(i + 1);
   }
 
   await expect

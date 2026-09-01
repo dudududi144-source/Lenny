@@ -18,6 +18,9 @@ async function openBreathPool(page: Page): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="breath-pool"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('lenny-story');
+  await page.waitForTimeout(350);
   await expect(page.locator('#hud-zone')).toHaveText(/בְּרֵכַת הַנְּשִׁימָה/);
 }
 
@@ -26,9 +29,16 @@ async function state(page: Page): Promise<PoolState | null> {
 }
 
 async function tapDesign(page: Page, dx: number, dy: number): Promise<void> {
-  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  /* map through the LIVE Arena world space (never a hardcoded 420x720) */
+  const { rect, design } = await page.evaluate(() => ({
+    rect: window.__lenny?.canvasRect(),
+    design: window.__lenny?.design,
+  }));
   expect(rect).not.toBeNull();
-  await page.touchscreen.tap(rect!.x + (dx / 420) * rect!.width, rect!.y + (dy / 720) * rect!.height);
+  await page.touchscreen.tap(
+    rect!.x + (dx / design!.w) * rect!.width,
+    rect!.y + (dy / design!.h) * rect!.height,
+  );
 }
 
 test('slow calm taps light every lantern', async ({ page }) => {

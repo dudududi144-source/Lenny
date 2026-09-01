@@ -12,7 +12,7 @@ import './ui/styles/animations.css';
 import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';
 import { MemoryGarden } from './games/core/MemoryGarden';
 import { bloomLevel, freshGarden, LocalProgressStore, type GardenData } from './games/core/ProgressStore';
-import { DESIGN } from './games/engine/theme';
+
 import { createGameHost } from './ui/components/GameHost';
 import { createGardenMap } from './ui/components/GardenMap';
 import { createParentLens } from './ui/components/ParentLens';
@@ -168,7 +168,7 @@ const screens: Record<'hero' | 'garden' | 'game' | 'parent', HTMLElement> = {
 /* ---------- read-only state bridge (e2e + parent tooling) ---------- */
 
 window.__lenny = {
-  version: 'stage-3',
+  version: 'stage-4',
   screen: () => currentScreen,
   garden: loadGarden,
   zoneLevel: (zone: string) => new AdaptiveDifficulty(zone).level(),
@@ -176,7 +176,11 @@ window.__lenny = {
   sceneState: () => gameHost.sceneDebug(),
   renderer: () => gameHost.rendererKind(),
   canvasRect: () => gameHost.canvasRect(),
-  design: DESIGN,
+  /* live world space (Arena): scenes lay out in these units */
+  get design() {
+    const v = gameHost.stageView();
+    return { w: v.w, h: v.h };
+  },
 };
 
 /* ---------- first light ---------- */

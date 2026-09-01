@@ -36,6 +36,9 @@ async function openSequenceEcho(page: Page, ddaLevel: number): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="memory-hill"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('sequence-echo');
+  await page.waitForTimeout(350);
   expect(await page.evaluate(() => window.__lenny?.scene())).toBe('sequence-echo');
 }
 
@@ -44,9 +47,16 @@ async function state(page: Page): Promise<EchoState | null> {
 }
 
 async function tapDesign(page: Page, dx: number, dy: number): Promise<void> {
-  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  /* map through the LIVE Arena world space (never a hardcoded 420x720) */
+  const { rect, design } = await page.evaluate(() => ({
+    rect: window.__lenny?.canvasRect(),
+    design: window.__lenny?.design,
+  }));
   expect(rect).not.toBeNull();
-  await page.touchscreen.tap(rect!.x + (dx / 420) * rect!.width, rect!.y + (dy / 720) * rect!.height);
+  await page.touchscreen.tap(
+    rect!.x + (dx / design!.w) * rect!.width,
+    rect!.y + (dy / design!.h) * rect!.height,
+  );
 }
 
 test('level-0: three echoes completed; the DDA counts three clean rounds', async ({ page }) => {
@@ -104,4 +114,39 @@ test('wrong echoes escalate the visible hint ladder', async ({ page }) => {
     const after = (await state(page))!;
     expect(after.hint).toBe(expectations[miss]);
   }
+});
+
+test('Arena: echoes score points and the concert closes the session', async ({ page }) => {
+  test.setTimeout(150_000);
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await openSequenceEcho(page, 0.3);
+
+  let sawScore = false;
+  const deadline = Date.now() + 130_000;
+  while (Date.now() < deadline) {
+    const s = await state(page);
+    if (!s) break;
+    if ((s.arenaScore ?? 0) > 0) sawScore = true;
+    if (s.done) break;
+    if (s.phase !== 'input') {
+      await page.waitForTimeout(160);
+      continue;
+    }
+    const step = s.sequence[s.echoCount];
+    const cell = s.cells.find((c) => c.shape === step.shape && c.tone === step.tone);
+    if (!cell) {
+      await page.waitForTimeout(160);
+      continue;
+    }
+    await tapDesign(page, cell.x, cell.y);
+    await page.waitForTimeout(220);
+  }
+
+  expect(sawScore).toBe(true);
+  const finalState = await state(page);
+  expect(finalState?.done ?? true).toBe(true);
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 30_000 });
+  expect(errors).toEqual([]);
 });

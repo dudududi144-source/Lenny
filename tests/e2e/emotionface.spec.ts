@@ -39,6 +39,9 @@ async function openEmotionFace(page: Page, ddaLevel: number): Promise<void> {
   await page.locator('.zone-card[data-zone="feelings-garden"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
   await expect(page.locator('#hud-zone')).toHaveText(/גַּן הָרְגָשׁוֹת/);
+  /* the scene bridge must be live (spawned) before the first tap */
+  await expect.poll(async () => (await state(page))?.options.length ?? 0, { timeout: 10_000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(350);
 }
 
 async function state(page: Page): Promise<EmotionState | null> {
@@ -46,9 +49,16 @@ async function state(page: Page): Promise<EmotionState | null> {
 }
 
 async function tapDesign(page: Page, dx: number, dy: number): Promise<void> {
-  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  /* map through the LIVE Arena world space (never a hardcoded 420x720) */
+  const { rect, design } = await page.evaluate(() => ({
+    rect: window.__lenny?.canvasRect(),
+    design: window.__lenny?.design,
+  }));
   expect(rect).not.toBeNull();
-  await page.touchscreen.tap(rect!.x + (dx / 420) * rect!.width, rect!.y + (dy / 720) * rect!.height);
+  await page.touchscreen.tap(
+    rect!.x + (dx / design!.w) * rect!.width,
+    rect!.y + (dy / design!.h) * rect!.height,
+  );
 }
 
 test('level-0: all emotion rounds complete through real taps', async ({ page }) => {
@@ -58,19 +68,27 @@ test('level-0: all emotion rounds complete through real taps', async ({ page }) 
 
   await openEmotionFace(page, 0.05);
 
-  const deadline = Date.now() + 90_000;
+  const deadline = Date.now() + 110_000;
+  let lastRound = -1;
   while (Date.now() < deadline) {
     const s = await state(page);
     if (!s || s.done) break;
-    const match = s.options.find((o) => o.emotion === s.emotion);
-    if (match) {
-      await tapDesign(page, match.x, match.y);
-      await page.waitForTimeout(650);
+    if (s.round !== lastRound) {
+      lastRound = s.round;
+      const match = s.options.find((o) => o.emotion === s.emotion);
+      if (match) await tapDesign(page, match.x, match.y);
+      await page.waitForTimeout(500);
     } else {
-      await page.waitForTimeout(200);
+      /* same round: the tap may have landed during the answer lock — retry */
+      const match = s.options.find((o) => o.emotion === s.emotion);
+      if (match) await tapDesign(page, match.x, match.y);
+      await page.waitForTimeout(650);
     }
   }
 
+  await expect
+    .poll(async () => (await state(page))?.done ?? true, { timeout: 30_000 })
+    .toBe(true);
   const finalState = await state(page);
   expect(finalState?.done ?? true).toBe(true);
   const dda = await page.evaluate(() => JSON.parse(localStorage.getItem('lenny-dda-v1') ?? '{}')['feelings-garden']);
@@ -87,10 +105,16 @@ test('two wrong answers escalate the hint to clear, then complete', async ({ pag
   await openEmotionFace(page, 0.05);
 
   for (let wrong = 1; wrong <= 2; wrong++) {
-    const s = (await state(page))!;
-    const wrongOption = s.options.find((o) => o.emotion !== s.emotion)!;
-    await tapDesign(page, wrongOption.x, wrongOption.y);
-    await page.waitForTimeout(500);
+    /* one tap registers at most one miss — retry until the counter
+       reaches exactly `wrong` (loaded runners can swallow a tap) */
+    let tries = 0;
+    while (((await state(page))?.wrongSinceLastCorrect ?? 0) < wrong && tries < 12) {
+      const s = (await state(page))!;
+      const wrongOption = s.options.find((o) => o.emotion !== s.emotion)!;
+      await tapDesign(page, wrongOption.x, wrongOption.y);
+      await page.waitForTimeout(400);
+      tries++;
+    }
     expect((await state(page))!.wrongSinceLastCorrect).toBe(wrong);
   }
   expect((await state(page))!.hint).toBe('clear');

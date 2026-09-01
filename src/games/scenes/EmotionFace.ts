@@ -3,6 +3,7 @@ import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { ease } from '../engine/AnimationSystem';
 import { softGlowTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 type Emotion = 'happy' | 'sad' | 'angry' | 'surprised' | 'calm';
 
@@ -33,7 +34,7 @@ const EMOTION_HEX: Record<Emotion, number> = {
 
 /* old timing constants */
 const CORRECT_LOCK_MS = 700;
-const WIN_GAP_MS = 1800;
+
 
 /**
  * EmotionFace — "help the turtle name its feeling" (feelings-garden).
@@ -131,11 +132,15 @@ export class EmotionFaceScene extends GameScene {
     this.lastHint = 'none';
     this.drawTurtleFace();
     this.rebuildOptions();
+    /* the face ARRIVES: a springy pop + glow pulse keeps every round alive */
+    this.faceC.scale.set(0.8);
+    this.anim.to(this.faceC, { scale: 1 }, { durationMs: 380, ease: ease.outBack });
   }
 
   private updateScore(): void {
     this.scoreText.text = 'הִכַּרְתָּ: ' + this.found + ' / ' + this.TARGET;
     this.ctx.hud.ringCounts(this.found, this.TARGET);
+    this.ctx.hud.mission?.('מַה הַצָּב מַרְגִּישׁ?');
   }
 
   /* ---------- turtle face (same geometry as the Phaser Graphics) ---------- */
@@ -246,6 +251,8 @@ export class EmotionFaceScene extends GameScene {
       /* one named emotion = one DDA round; score reflects its cleanliness */
       this.dda.outcome(true, Math.max(0.3, 1 - this.wrongSinceLastCorrect * 0.2));
       this.signals.attempt('emotion.recognition', true);
+      this.score.hit(20, { x, y }, LABELS[this.current]);
+      audio.play('chime', this.found % 4);
       this.wrongSinceLastCorrect = 0;
       this.lastHint = 'none';
       if (this.found >= this.TARGET) {
@@ -263,6 +270,9 @@ export class EmotionFaceScene extends GameScene {
       }
     } else {
       this.wrongSinceLastCorrect++;
+      this.score.miss({ x, y });
+      audio.play('softError');
+      this.fx.flash(EMOTION_HEX[this.current], 140, 0.1);
       /* a wrong pick is NOT a round loss (the round is one named
          emotion, judged in the correct branch above). It feeds
          LearningSignals and the visible hint ladder instead. */
@@ -297,7 +307,8 @@ export class EmotionFaceScene extends GameScene {
   private win(): void {
     this.setMsg('וָאו, כָּל הַכָּבוֹד! הַצָּב מַרְגִּישׁ הַרְבֵּה יוֹתֵר טוֹב!');
     this.sparkle(this.w / 2, this.h * 0.4, [COLORS.glow, COLORS.mint, 0xffffff]);
-    this.finish(WIN_GAP_MS);
+    audio.play('fanfare');
+    this.finishWithCeremony({ title: 'הַלֵּב הֻבְנָה!' });
   }
 
   update(dtMs: number): void {

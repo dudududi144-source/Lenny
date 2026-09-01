@@ -1,51 +1,83 @@
-import { Container, Graphics, Sprite } from 'pixi.js';
+import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import {
   FISH_COLOR_HEX,
   TARGET_GLOW_HEX,
   errorKindFor,
   movementModeFor,
   selectDistractors,
+  type FishColor,
+  type FishShape,
   type FishType,
   type MovementMode,
 } from '../fx/FishTypes';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
-import { ease } from '../engine/AnimationSystem';
-import { discTexture, softGlowTexture } from '../engine/textures';
+import { ease, type TweenHandle } from '../engine/AnimationSystem';
+import { softGlowTexture, sparkTexture } from '../engine/textures';
+import { bursts } from '../engine/ParticleSystem';
 import { COLORS } from '../engine/theme';
-import type { LearningSignals } from '../core/LearningSignals';
+import { audio } from '../engine/AudioEngine';
 
-const SESSION_ROUNDS = 3;
+const SESSION_ROUNDS = 3; /* DDA rounds — the golden finale comes after */
 const INTRA_ROUND_RAMP = 0.06;
-const RADIUS = 20;
-const HIT_RADIUS = 34;
-const FADE_MS = 350;
-const SPAWN_MS = 300;
-const ROUND_GAP_MS = 900;
-const GENTLE_MS = 1200;
-const SHOW_MS = 1000;
+const HIT_RADIUS = 44;
+const ROUND_GAP_MS = 1100;
 
-/* Play band — identical proportions to the old Phaser scene */
-const BAND_TOP = 0.3;
-const BAND_BOTTOM = 0.76;
+const GOLDEN_AT_MS = 900; /* spawns shortly into rounds 2+ — pacing fits catch rhythm */
+const GOLDEN_LIFETIME_MS = 5200;
+const GOLDEN_POINTS = 50;
+
+const CURRENT_LEVEL = 0.5;
+const NIGHT_LEVEL = 0.7;
+const JELLY_LEVEL = 0.35;
+
+const COLOR_NAMES: Record<FishColor, string> = {
+  coral: 'אַלְמוֹן',
+  gold: 'זָהוֹב',
+  violet: 'סָגוֹל',
+  mint: 'נַעֲנָה',
+  blue: 'כָּחֹל',
+  pink: 'וָרוֹד',
+};
+const SHAPE_NAMES: Record<FishShape, string> = {
+  round: 'עָגוֹל',
+  long: 'אָרֹךְ',
+  flat: 'שָׁטוּחַ',
+  angular: 'זָוִי',
+};
 
 interface Fish {
-  view: Container;
   kind: FishType;
   isTarget: boolean;
-  cellIndex: number;
-  vx: number;
-  vy: number;
-  turnDelayMs: number;
-  turnAt: number;
-  bobPhase: number;
-  mode: MovementMode;
-  leaving: boolean;
+  view: Container;
+  body: Container;
+  tail: Graphics;
+  ax: number;
+  ay: number;
+  rx: number;
+  ry: number;
+  phase: number;
+  speed: number;
+  facing: number;
+  wag: number;
+  caught: boolean;
+  enterTween?: TweenHandle;
 }
 
-interface Cell {
+interface Jelly {
+  view: Container;
   x: number;
   y: number;
-  taken: boolean;
+  vy: number;
+  phase: number;
+  enterTween?: TweenHandle;
+}
+
+interface Golden {
+  view: Container;
+  x: number;
+  y: number;
+  vx: number;
+  bornAt: number;
 }
 
 function shade(hex: number, factor: number): number {
@@ -56,10 +88,14 @@ function shade(hex: number, factor: number): number {
 }
 
 /**
- * GlowFish — "find the glowing fish" (attention-stream).
- * Ported 1:1 from the Phaser level generator: similarity-driven pond,
- * exactly ONE live target-kind fish, intra-session ramp, visible hint
- * ladder. Rendering is now PixiJS with baked gradient glows.
+ * GlowFish v3 — "מְסִיקַת הָאוֹר" (Arena commercial rebuild).
+ *
+ * The DDA level (one number, untouched core) still owns the pond:
+ * similarity band, pond size, movement mode and the visible hint
+ * ladder. On top, the Arena layer adds the commercial game:
+ * living schools with tail-wag motion, the wish bubble, catch-chain
+ * combos, a golden bonus fish, jellyfish hazards, currents, night
+ * rounds, a golden finale and the results ceremony.
  */
 export class GlowFishScene extends GameScene {
   private round = 0;
@@ -68,365 +104,562 @@ export class GlowFishScene extends GameScene {
   private wrongThisRound = 0;
   private targetKind: FishType | null = null;
   private fishes: Fish[] = [];
-  private cells: Cell[] = [];
+  private jellies: Jelly[] = [];
+  private golden: Golden | null = null;
+  private goldenAt = 0;
   private pond = new Container();
-  private gentleUntil = 0;
-  private showUntil = 0;
+  private wishBubble: Container | null = null;
+  private wishLabel: Text | null = null;
+  private nightVeil = new Container();
   private lastHint: 'none' | 'gentle' | 'clear' | 'show' = 'none';
   private transitioning = false;
+  private finale = false;
+  private currentAnnounced = false;
 
   constructor(ctx: SceneCtx) {
     super(ctx);
     this.root.addChild(this.pond);
+    this.buildNightVeil();
+    this.wishLabel = this.buildWishBubble();
+    audio.startMusic();
     this.build();
   }
 
   protected build(): void {
-    const spec = this.ctx.spec;
-    const intro = spec?.narrative.intro ?? ['הַדָּגִים מְחַפְּשִׂים אֶת הַמַּנְגִינָה. בּוֹא נַקְשִׁיב יַחַד!'];
+    const intro = this.ctx.spec?.narrative.intro ?? ['הַדָּגִים שָׂחִים בַּנְחָל. בּוֹאִי נְמַצְאִי אֶת הַדָּג הַמְבֻקָּשׁ!'];
     this.say(intro);
     this.startRound();
   }
 
-  /* ---------- level → pond plan (same DDA mapping as the original) ---------- */
+  /* ---------------- wish bubble ---------------- */
+
+  private buildWishBubble(): Text {
+    const g = new Graphics();
+    const bw = 210;
+    g.roundRect(-bw / 2, -24, bw, 48, 24).fill({ color: 0x101632, alpha: 0.88 }).stroke({ color: COLORS.glow, width: 1.5, alpha: 0.7 });
+    g.moveTo(-8, 24).lineTo(8, 24).lineTo(0, 36).fill({ color: 0x101632, alpha: 0.88 });
+    const title = new Text({
+      text: 'מְבֻקָּשׁ',
+      style: { fontFamily: 'Heebo, sans-serif', fontSize: 13, fontWeight: '700', fill: 0x9aa3c7 },
+    });
+    title.anchor.set(0.5);
+    title.y = -13;
+    title.resolution = 2;
+    const label = new Text({
+      text: '',
+      style: { fontFamily: 'Heebo, sans-serif', fontSize: 19, fontWeight: '800', fill: COLORS.cream },
+    });
+    label.anchor.set(0.5);
+    label.y = 6;
+    label.resolution = 2;
+    const bubble = new Container();
+    bubble.addChild(g, title, label);
+    bubble.eventMode = 'none';
+    this.wishBubble = bubble;
+    this.repositionWish();
+    this.root.addChild(bubble);
+    return label;
+  }
+
+  private repositionWish(): void {
+    if (!this.wishBubble) return;
+    this.wishBubble.x = this.w / 2;
+    this.wishBubble.y = 78;
+  }
+
+  private buildNightVeil(): void {
+    const g = new Graphics().rect(-2000, -2000, 6000, 6000).fill({ color: 0x02030a, alpha: 0.5 });
+    g.eventMode = 'none';
+    g.alpha = 0;
+    this.nightVeil.addChild(g);
+    this.root.addChildAt(this.nightVeil, 1); /* above backdrop, below pond */
+  }
+
+  protected override layout(): void {
+    /* may fire from the base constructor before derived fields exist */
+    this.repositionWish();
+  }
+
+  /* ---------------- level -> pond plan (DDA mapping preserved) ---------------- */
 
   private effectiveLevel(): number {
     const base = this.dda.level();
-    return Math.min(1, Math.max(0, base + (this.round - 1) * INTRA_ROUND_RAMP));
+    return Math.min(1, Math.max(0, base + (Math.min(this.round, SESSION_ROUNDS) - 1) * INTRA_ROUND_RAMP));
+  }
+
+  private clearPond(): void {
+    for (const f of this.fishes) {
+      f.enterTween?.kill();
+      if (!f.view.destroyed) f.view.destroy({ children: true });
+    }
+    this.fishes = [];
+    for (const j of this.jellies) {
+      j.enterTween?.kill();
+      if (!j.view.destroyed) j.view.destroy({ children: true });
+    }
+    this.jellies = [];
+    if (this.golden && !this.golden.view.destroyed) this.golden.view.destroy({ children: true });
+    this.golden = null;
   }
 
   private startRound(): void {
     this.round++;
-    const level = this.effectiveLevel();
     this.found = 0;
     this.wrongThisRound = 0;
     this.transitioning = false;
     this.lastHint = 'none';
-    this.gentleUntil = 0;
-    this.showUntil = 0;
+    this.goldenAt = this.t + GOLDEN_AT_MS;
+    this.finale = this.round > SESSION_ROUNDS;
 
-    this.toFind = level < 0.5 ? 2 : 3;
-    const mode = movementModeFor(level);
-    const distractorCount = this.ctx.spec?.params.itemCount
-      ? Math.max(3, this.ctx.spec.params.itemCount - this.toFind)
-      : 3 + Math.floor(level * 6);
+    const level = this.finale ? 0.15 : this.effectiveLevel();
+    this.toFind = this.finale ? 4 : level < 0.5 ? 2 : 3;
+    const mode: MovementMode = this.finale ? 'active' : movementModeFor(level);
 
-    /* random target kind from the 4x6 matrix */
-    const shapes = ['round', 'long', 'flat', 'angular'] as const;
-    const colors = ['coral', 'gold', 'violet', 'mint', 'blue', 'pink'] as const;
+    const shapes: FishShape[] = ['round', 'long', 'flat', 'angular'];
+    const colors: FishColor[] = ['coral', 'gold', 'violet', 'mint', 'blue', 'pink'];
     this.targetKind = {
       shape: shapes[Math.floor(Math.random() * shapes.length)],
       color: colors[Math.floor(Math.random() * colors.length)],
     };
 
-    this.clearFish();
-    this.layoutCells(distractorCount + 1);
+    const wishText = this.finale
+      ? 'דָּגֵי זָהָב — סִיּוּם מְנַצֵּחַ!'
+      : `דָּג ${COLOR_NAMES[this.targetKind.color]} · ${SHAPE_NAMES[this.targetKind.shape]}`;
+    if (this.wishLabel) this.wishLabel.text = wishText;
+    this.ctx.hud.mission?.(this.finale ? 'הַסִּיּוּם הַמְנַצֵּחַ!' : wishText);
+    this.ctx.hud.ringCounts(0, this.toFind);
 
-    const distractorKinds = selectDistractors(this.targetKind, distractorCount, level);
-    for (const kind of distractorKinds) this.spawnFish(kind, false, mode, level);
-    this.spawnLeader(mode);
+    const itemCount = this.ctx.spec?.params.itemCount ?? 5 + Math.floor(level * 6);
+    const distractorKinds = selectDistractors(this.targetKind, Math.max(3, itemCount - this.toFind), level);
 
-    this.ctx.hud.ringCounts(this.found, this.toFind);
-  }
+    this.clearPond();
 
-  private layoutCells(count: number): void {
-    const cols = 4;
-    const rows = Math.max(2, Math.ceil(count / cols));
-    const left = 44;
-    const right = this.w - 44;
-    const top = this.h * BAND_TOP + 10;
-    const bottom = this.h * BAND_BOTTOM - 10;
-    const cellW = (right - left) / cols;
-    const cellH = (bottom - top) / rows;
-    this.cells = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        this.cells.push({
-          x: left + cellW * (c + 0.5) + (Math.random() - 0.5) * cellW * 0.24,
-          y: top + cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.24,
-          taken: false,
-        });
-      }
+    const bandTop = this.h * 0.24;
+    const bandBottom = this.h * 0.82;
+    const spawnCount = this.toFind + distractorKinds.length;
+    for (let i = 0; i < spawnCount; i++) {
+      const isTarget = i < this.toFind;
+      const kind = isTarget ? this.targetKind : distractorKinds[(i - this.toFind) % distractorKinds.length];
+      this.spawnFish(kind, isTarget, mode, bandTop, bandBottom);
     }
+
+    /* jellyfish hazard at higher levels (from round 2) */
+    if (!this.finale && level >= JELLY_LEVEL && this.round >= 2) {
+      const count = 1 + (level >= 0.7 ? 1 : 0);
+      for (let i = 0; i < count; i++) this.spawnJelly();
+    }
+
+    /* currents announcement (once the level unlocks them) */
+    if (!this.finale && level >= CURRENT_LEVEL && !this.currentAnnounced) {
+      this.currentAnnounced = true;
+      this.fx.announce('זֶרֶם חָדָשׁ!', { y: this.h * 0.4, w: this.w, sub: 'הַדָּגִים שָׂטִים עִם הַמַּיִם' });
+    }
+
+    this.pond.alpha = 0;
+    this.anim.to(this.pond, { alpha: 1 }, { durationMs: 420, ease: ease.outCubic });
   }
 
-  private freeCell(): Cell | null {
-    const free = this.cells.filter((c) => !c.taken);
-    if (free.length === 0) return null;
-    return free[Math.floor(Math.random() * free.length)];
-  }
+  /* ---------------- actors ---------------- */
 
-  /* ---------- fish rendering (gradients + shape variants) ---------- */
-
-  private buildFishView(kind: FishType, isTarget: boolean): { view: Container; glow: Sprite } {
-    const hex = FISH_COLOR_HEX[kind.color];
+  private spawnFish(kind: FishType, isTarget: boolean, mode: MovementMode, bandTop: number, bandBottom: number): void {
     const view = new Container();
+    const body = new Container();
+    const hex = isTarget ? TARGET_GLOW_HEX : FISH_COLOR_HEX[kind.color];
 
-    const glow = new Sprite(softGlowTexture());
-    glow.anchor.set(0.5);
-    glow.tint = isTarget ? TARGET_GLOW_HEX : hex;
-    glow.blendMode = 'add';
-    glow.alpha = isTarget ? 0.5 : 0.14;
-    glow.width = isTarget ? 108 : 62;
-    glow.height = isTarget ? 108 : 62;
-    view.addChild(glow);
+    const aura = new Sprite(softGlowTexture());
+    aura.anchor.set(0.5);
+    aura.tint = hex;
+    aura.blendMode = 'add';
+    aura.alpha = isTarget ? 0.85 : 0.3;
+    aura.width = isTarget ? 92 : 64;
+    aura.height = isTarget ? 66 : 46;
+    body.addChild(aura);
+
+    const g = new Graphics();
+    switch (kind.shape) {
+      case 'round': g.ellipse(0, 0, 22, 17); break;
+      case 'long': g.ellipse(0, 0, 28, 12); break;
+      case 'flat': g.ellipse(0, 0, 20, 15); break;
+      case 'angular': g.roundRect(-20, -13, 40, 26, 6); break;
+    }
+    g.fill({ color: hex, alpha: isTarget ? 0.95 : 0.8 });
+    g.stroke({ color: shade(hex, 1.35), width: 1.5, alpha: 0.9 });
+    g.ellipse(-2, 5, 14, 6).fill({ color: 0xffffff, alpha: 0.22 });
+    body.addChild(g);
 
     const tail = new Graphics();
-    const tailColor = shade(hex, 0.72);
-    tail.moveTo(-RADIUS * 0.7, 0);
-    tail.lineTo(-RADIUS * 1.55, -RADIUS * 0.62);
-    tail.lineTo(-RADIUS * 1.55, RADIUS * 0.62);
-    tail.closePath();
-    tail.fill({ color: tailColor, alpha: 0.95 });
-    view.addChild(tail);
-
-    const body = new Sprite(discTexture());
-    body.anchor.set(0.5);
-    body.tint = hex;
-    const proportions: Record<string, [number, number]> = {
-      round: [1, 0.85],
-      long: [1.4, 0.62],
-      flat: [0.82, 1.02],
-      angular: [1.1, 0.78],
-    };
-    const [sx, sy] = proportions[kind.shape] ?? [1, 0.85];
-    body.width = RADIUS * 2 * sx;
-    body.height = RADIUS * 2 * sy;
-    body.x = RADIUS * 0.12 * sx;
-    view.addChild(body);
-
-    const fin = new Graphics();
-    fin.moveTo(RADIUS * 0.1, -RADIUS * 0.28 * sy);
-    fin.lineTo(RADIUS * 0.52, -RADIUS * 0.72 * sy);
-    fin.lineTo(RADIUS * 0.58, -RADIUS * 0.2 * sy);
-    fin.closePath();
-    fin.fill({ color: shade(hex, 0.8), alpha: 0.9 });
-    view.addChild(fin);
+    tail.moveTo(14, 0).lineTo(30, -9).lineTo(30, 9).closePath();
+    tail.fill({ color: shade(hex, 0.8), alpha: 0.95 });
+    body.addChild(tail);
 
     const eye = new Graphics();
-    eye.circle(RADIUS * 0.42 * sx, -RADIUS * 0.18 * sy, 4.6).fill({ color: 0xffffff });
-    eye.circle(RADIUS * 0.48 * sx, -RADIUS * 0.16 * sy, 2.4).fill({ color: 0x1c1430 });
-    view.addChild(eye);
+    eye.circle(-10, -4, 3.4).fill({ color: 0x0b0726 });
+    eye.circle(-9, -5, 1.1).fill({ color: 0xffffff });
+    body.addChild(eye);
 
-    return { view, glow };
-  }
+    if (isTarget) {
+      const crown = new Sprite(sparkTexture());
+      crown.anchor.set(0.5);
+      crown.tint = 0xffffff;
+      crown.alpha = 0.9;
+      crown.width = 14;
+      crown.height = 14;
+      crown.y = -20;
+      body.addChild(crown);
+    }
 
-  private spawnFish(kind: FishType, isTarget: boolean, mode: MovementMode, level: number): void {
-    const cell = this.freeCell();
-    if (!cell) return;
-    cell.taken = true;
-    const { view } = this.buildFishView(kind, isTarget);
-    view.x = cell.x;
-    view.y = cell.y;
-    view.alpha = 0;
+    view.addChild(body);
+    view.scale.set(0);
     this.pond.addChild(view);
-    this.anim.to(view, { alpha: 1 }, { durationMs: SPAWN_MS, ease: ease.outQuad });
 
-    const speedRange: Record<MovementMode, [number, number, number, number]> = {
-      static: [0, 0, 0, 0],
-      drift: [15, 25, 1500, 3000],
-      active: [35, 55, 800, 1600],
-    };
-    const [smin, smax, tmin, tmax] = speedRange[mode];
-    const angle = Math.random() * Math.PI * 2;
-    const speed = smin + Math.random() * (smax - smin);
-    const turnDelay = tmin + Math.random() * (tmax - tmin);
     const fish: Fish = {
-      view,
       kind,
       isTarget,
-      cellIndex: this.cells.indexOf(cell),
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      turnDelayMs: turnDelay,
-      turnAt: this.t + turnDelay,
-      bobPhase: Math.random() * Math.PI * 2,
-      mode,
-      leaving: false,
+      view,
+      body,
+      tail,
+      ax: 60 + Math.random() * (this.w - 120),
+      ay: bandTop + Math.random() * (bandBottom - bandTop),
+      rx: 14 + Math.random() * 30,
+      ry: 10 + Math.random() * 22,
+      phase: Math.random() * Math.PI * 2,
+      speed: mode === 'static' ? 0.5 : mode === 'drift' ? 0.9 : 1.6,
+      facing: Math.random() < 0.5 ? 1 : -1,
+      wag: Math.random() * Math.PI * 2,
+      caught: false,
     };
     this.fishes.push(fish);
 
-    /* gentle idle bob keeps the pond alive even in static mode */
-    this.anim.loop(() => {
-      if (fish.leaving || mode !== 'static') return;
-      view.y = cell.y + Math.sin(this.t / 900 + fish.bobPhase) * 3;
-      view.x = cell.x + Math.sin(this.t / 1300 + fish.bobPhase) * 2;
-    });
-    void level;
+    fish.enterTween = this.anim.to(view, { scale: 1 }, { durationMs: 460, delayMs: Math.round(Math.random() * 400), ease: ease.outBack });
   }
 
-  private spawnLeader(mode: MovementMode): void {
-    if (!this.targetKind) return;
-    const level = this.effectiveLevel();
-    this.spawnFish(this.targetKind, true, mode, level);
-  }
-
-  private clearFish(): void {
-    for (const fish of this.fishes) {
-      fish.leaving = true;
-      fish.view.destroy({ children: true });
+  private spawnJelly(): void {
+    const view = new Container();
+    const g = new Graphics();
+    g.ellipse(0, 0, 17, 20).fill({ color: 0x2a2140, alpha: 0.92 });
+    g.ellipse(0, 0, 17, 20).stroke({ color: 0x8a76c9, width: 1.6, alpha: 0.8 });
+    for (let i = -2; i <= 2; i++) {
+      g.moveTo(i * 6, 16).quadraticCurveTo(i * 6 + 3, 26, i * 6, 34);
+      g.stroke({ color: 0x8a76c9, width: 1.4, alpha: 0.6 });
     }
-    this.fishes = [];
-    this.cells = [];
+    const aura = new Sprite(softGlowTexture());
+    aura.anchor.set(0.5);
+    aura.tint = 0x8a76c9;
+    aura.blendMode = 'add';
+    aura.alpha = 0.4;
+    aura.width = 70;
+    aura.height = 70;
+    view.addChild(aura, g);
+    this.pond.addChild(view);
+
+    const jelly: Jelly = {
+      view,
+      x: 50 + Math.random() * (this.w - 100),
+      y: this.h * (0.6 + Math.random() * 0.3),
+      vy: -(0.35 + Math.random() * 0.3),
+      phase: Math.random() * Math.PI * 2,
+    };
+    view.x = jelly.x;
+    view.y = jelly.y;
+    view.scale.set(0);
+    this.jellies.push(jelly);
+    jelly.enterTween = this.anim.to(view, { scale: 1 }, { durationMs: 520, ease: ease.outBack });
   }
 
-  /* ---------- gameplay ---------- */
+  private spawnGolden(): void {
+    if (this.golden) return;
+    const view = new Container();
+    const aura = new Sprite(softGlowTexture());
+    aura.anchor.set(0.5);
+    aura.tint = COLORS.glow;
+    aura.blendMode = 'add';
+    aura.alpha = 0.95;
+    aura.width = 120;
+    aura.height = 90;
+    const g = new Graphics();
+    g.ellipse(0, 0, 22, 15).fill({ color: 0xffd76a });
+    g.ellipse(-2, 4, 13, 5).fill({ color: 0xffffff, alpha: 0.35 });
+    g.moveTo(16, 0).lineTo(32, -10).lineTo(32, 10).closePath().fill({ color: 0xe0a83c });
+    g.circle(-10, -4, 3.2).fill({ color: 0x0b0726 });
+    const crown = new Sprite(sparkTexture());
+    crown.anchor.set(0.5);
+    crown.width = 20;
+    crown.height = 20;
+    crown.y = -22;
+    view.addChild(aura, g, crown);
+    this.pond.addChild(view);
 
-  update(dtMs: number): void {
-    super.update(dtMs);
-    if (this.tornDown) return;
-    const now = this.t;
-
-    for (const fish of this.fishes) {
-      if (fish.leaving || fish.view.destroyed || fish.mode === 'static') continue;
-      if (now >= fish.turnAt) {
-        fish.turnAt = now + fish.turnDelayMs;
-        const angle = Math.random() * Math.PI * 2;
-        const speed = Math.hypot(fish.vx, fish.vy) || 20;
-        fish.vx = Math.cos(angle) * speed;
-        fish.vy = Math.sin(angle) * speed;
-      }
-      fish.view.x += (fish.vx * dtMs) / 1000;
-      fish.view.y += (fish.vy * dtMs) / 1000;
-      const minX = 36;
-      const maxX = this.w - 36;
-      const minY = this.h * BAND_TOP + 6;
-      const maxY = this.h * BAND_BOTTOM + 6;
-      if (fish.view.x < minX || fish.view.x > maxX) fish.vx *= -1;
-      if (fish.view.y < minY || fish.view.y > maxY) fish.vy *= -1;
-      fish.view.x = Math.min(maxX, Math.max(minX, fish.view.x));
-      fish.view.y = Math.min(maxY, Math.max(minY, fish.view.y));
-
-      /* face the swimming direction */
-      if (Math.abs(fish.vx) > 4) fish.view.scale.x = fish.vx < 0 ? -1 : 1;
-    }
-
-    /* live hint glow: stronger while gentle/show windows are active */
-    for (const fish of this.fishes) {
-      if (fish.leaving || fish.view.destroyed || !fish.isTarget) continue;
-      const glow = fish.view.children[0] as Sprite;
-      const base = 0.5;
-      const gentle = now < this.gentleUntil ? 0.34 : 0;
-      const show = now < this.showUntil ? 0.5 : 0;
-      const pulse = 0.08 * Math.sin(now / 240);
-      glow.alpha = Math.min(1, base + gentle + show + pulse);
-    }
+    const fromLeft = Math.random() < 0.5;
+    const golden: Golden = {
+      view,
+      x: fromLeft ? -40 : this.w + 40,
+      y: this.h * (0.3 + Math.random() * 0.4),
+      vx: (fromLeft ? 1 : -1) * (0.09 + Math.random() * 0.04),
+      bornAt: this.t,
+    };
+    view.x = golden.x;
+    view.y = golden.y;
+    this.golden = golden;
+    audio.play('chime', 4);
+    this.fx.announce('דָּג זָהָב!', { y: this.h * 0.34, w: this.w, durMs: 1100 });
   }
 
-  onTap(x: number, y: number): boolean {
+  /* ---------------- input ---------------- */
+
+  override onTap(x: number, y: number): boolean {
     if (this.isFinished() || this.transitioning) return false;
 
-    const hit = this.fishes.find(
-      (fish) => !fish.leaving && Math.hypot(fish.view.x - x, fish.view.y - y) <= HIT_RADIUS,
-    );
-    if (!hit) {
-      /* open water: ripple only, nothing recorded (original behavior) */
-      this.ripple(x, y, 0xff3b3b);
-      return false;
+    /* golden fish first — it is the most exciting thing on screen */
+    if (this.golden && !this.golden.view.destroyed) {
+      const g = this.golden;
+      if (Math.hypot(x - g.view.x, y - g.view.y) < HIT_RADIUS + 12) {
+        this.catchGolden(g);
+        return true;
+      }
     }
 
-    if (hit.isTarget) {
-      this.onFind(hit);
+    /* jellyfish — gentle chain-breaker */
+    for (const j of this.jellies) {
+      if (!j.view.destroyed && Math.hypot(x - j.view.x, y - j.view.y) < HIT_RADIUS) {
+        this.hitJelly(j, x, y);
+        return true;
+      }
+    }
+
+    /* fish: nearest within radius */
+    let best: Fish | null = null;
+    let bestD = Infinity;
+    for (const f of this.fishes) {
+      if (f.caught || f.view.destroyed) continue;
+      const d = Math.hypot(x - f.view.x, y - f.view.y);
+      if (d < HIT_RADIUS && d < bestD) {
+        best = f;
+        bestD = d;
+      }
+    }
+
+    if (best) {
+      if (best.isTarget && best.kind.shape === this.targetKind?.shape && best.kind.color === this.targetKind?.color) {
+        this.catchFish(best);
+      } else {
+        this.missFish(best);
+      }
       return true;
     }
 
-    this.onWrongTap(hit);
-    return true;
+    /* empty tap — a soft ripple keeps the pond responsive */
+    this.ripple(x, y);
+    return false;
   }
 
-  private onFind(fish: Fish): void {
+  /* ---------------- outcomes ---------------- */
+
+  private catchFish(fish: Fish): void {
+    fish.caught = true;
+    fish.enterTween?.kill();
     this.found++;
-    this.signals.attempt('attention.visual', true);
-    this.sparkle(fish.view.x, fish.view.y, [TARGET_GLOW_HEX, COLORS.glowSoft, 0xffffff]);
-    this.say(['וָאו! מָצָאתָ אוֹתוֹ!']);
+    const px = fish.view.x;
+    const py = fish.view.y;
+    this.score.hit(this.finale ? 15 : 10, { x: px, y: py });
+    this.sparkle(px, py, [TARGET_GLOW_HEX, COLORS.glowSoft, 0xffffff]);
+    this.bloom(px, py);
+    this.fx.shake(this.root, 0, 0, 2.5, 160);
     this.ctx.hud.ringCounts(this.found, this.toFind);
-
-    const x = fish.view.x;
-    const y = fish.view.y;
-    fish.leaving = true;
-    this.anim.to(fish.view, { alpha: 0 }, { durationMs: FADE_MS, ease: ease.inQuad, onDone: () => {
-      fish.view.destroy({ children: true });
+    this.anim.to(fish.view, { scale: 1.35, alpha: 0 }, { durationMs: 300, ease: ease.outCubic, onDone: () => {
+      if (!fish.view.destroyed) fish.view.destroy({ children: true });
     } });
-    this.fishes = this.fishes.filter((f) => f !== fish);
-    const cell = this.cells[fish.cellIndex];
-    if (cell) cell.taken = false;
+    this.signals.attempt('attention.visual', true);
 
-    if (this.found >= this.toFind) {
-      this.completeRound();
-      return;
-    }
-
-    /* exactly ONE live target-kind fish at any moment: respawn after fade */
-    this.anim.after(SPAWN_MS + 40, () => {
-      if (this.isFinished() || this.transitioning) return;
-      this.spawnLeader(this.movementForNow());
-      void x;
-      void y;
-    });
+    if (this.found >= this.toFind) this.endRound(true);
+    else if (this.found === this.toFind - 1) this.say(['עוֹד אֶחָד!']);
   }
 
-  private movementForNow(): MovementMode {
-    return movementModeFor(this.effectiveLevel());
-  }
-
-  private onWrongTap(fish: Fish): void {
+  private missFish(fish: Fish): void {
+    const px = fish.view.x;
+    const py = fish.view.y;
     this.wrongThisRound++;
+    this.score.miss({ x: px, y: py });
+    this.fx.flash(COLORS.coral, 180, 0.16);
     this.signals.attempt('attention.visual', false);
-    if (this.targetKind) {
-      this.signals.errorKind('attention.visual', errorKindFor(this.targetKind, fish.kind));
-      const near = errorKindFor(this.targetKind, fish.kind);
-      if (near === 'near-miss-same-color') this.say(['כַּמְעַט! זֶה אוֹתוֹ צֶבַע, אֲבָל לֹא הַדָּג הַזּוֹהֵר']);
-      else this.say(['לֹא הַדָּג הַזּוֹהֵר — חִפְּשׂוּ שׁוּב']);
-    }
+    void errorKindFor(this.targetKind!, fish.kind); /* taxonomy kept for analytics parity */
+    /* visible hint ladder — identical thresholds to the DDA contract */
+    this.lastHint = this.suggestHint(this.wrongThisRound);
+    this.showHintAt(px, py);
+    /* the tapped fish scoots away — honest feedback, no dead click */
+    this.anim.to(fish.body, { x: fish.facing * -18 }, { durationMs: 260, ease: ease.outCubic, onDone: () => {
+      if (!fish.body.destroyed) fish.body.x = 0;
+    } });
+  }
 
-    const hint = this.suggestHint(this.wrongThisRound);
-    this.lastHint = hint;
-    if (hint !== 'none') this.signals.hintUsed('attention.visual');
-    if (hint === 'gentle') {
-      this.gentleUntil = this.t + GENTLE_MS;
-    } else if (hint === 'clear') {
-      this.say(['חִפְּשׂוּ אֶת הָאוֹר הַזָּהוֹב סְבִיב הַדָּגִים']);
-      const leader = this.fishes.find((f) => f.isTarget && !f.leaving);
-      if (leader) this.sparkle(leader.view.x, leader.view.y, [TARGET_GLOW_HEX, 0xffffff]);
-    } else if (hint === 'show') {
-      this.showUntil = this.t + SHOW_MS;
-      this.say(['הָאוֹר הַזָּהוֹב מְנַצְנֵץ סְבִיב הַדָּג — הַקִּישׁוּ עָלָיו']);
-      const leader = this.fishes.find((f) => f.isTarget && !f.leaving);
-      if (leader) this.ripple(leader.view.x, leader.view.y, TARGET_GLOW_HEX);
+  private showHintAt(x: number, y: number): void {
+    if (this.lastHint === 'gentle') {
+      this.ripple(x, y, COLORS.hint);
+    } else if (this.lastHint === 'clear') {
+      for (const f of this.fishes) {
+        if (f.isTarget && !f.caught && !f.view.destroyed) this.ripple(f.view.x, f.view.y, COLORS.hint);
+      }
+    } else if (this.lastHint === 'show') {
+      for (const f of this.fishes) {
+        if (f.isTarget && !f.caught && !f.view.destroyed) {
+          const halo = this.glowSprite(TARGET_GLOW_HEX, 120, 0.9);
+          halo.x = f.view.x;
+          halo.y = f.view.y;
+          this.pond.addChild(halo);
+          this.anim.to(halo, { width: 170, height: 130, alpha: 0 }, { durationMs: 900, ease: ease.outCubic, onDone: () => halo.destroy() });
+        }
+      }
     }
   }
 
-  private completeRound(): void {
-    this.transitioning = true;
-    this.dda.outcome(true, Math.max(0.3, 1 - this.wrongThisRound * 0.15));
+  private catchGolden(g: Golden): void {
+    const px = g.view.x;
+    const py = g.view.y;
+    this.golden = null;
+    this.score.hit(GOLDEN_POINTS, { x: px, y: py }, 'דָּג זָהָב!');
+    this.sparkle(px, py, [COLORS.glow, 0xffffff, COLORS.glowSoft]);
+    bursts.confetti(this.particles, px, py);
+    this.fx.slowmo(0.4, 420);
+    this.fx.shake(this.root, 0, 0, 3, 200);
+    this.anim.to(g.view, { scale: 1.6, alpha: 0 }, { durationMs: 380, ease: ease.outCubic, onDone: () => {
+      if (!g.view.destroyed) g.view.destroy({ children: true });
+    } });
+  }
 
-    if (this.round >= SESSION_ROUNDS) {
-      this.finish(2600);
+  private hitJelly(j: Jelly, x: number, y: number): void {
+    j.enterTween?.kill();
+    this.score.miss({ x, y });
+    this.fx.flash(0x8a76c9, 260, 0.22);
+    this.say(['אוּפּס — מְדוּזָה! רַק לְהִזָּהֵר בַּפַּעַם הַבָּאָה.']);
+    this.jellies = this.jellies.filter((q) => q !== j);
+    this.anim.to(j.view, { y: j.view.y + 160, alpha: 0 }, { durationMs: 600, ease: ease.inOutCubic, onDone: () => {
+      if (!j.view.destroyed) j.view.destroy({ children: true });
+    } });
+  }
+
+  private endRound(completed: boolean): void {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.golden = null;
+
+    /* one DDA round = one named-pond completion (untouched core contract) */
+    if (completed && !this.finale) {
+      this.dda.outcome(true, Math.max(0.3, 1 - this.wrongThisRound * 0.15));
+      audio.play('chime', this.round % 4);
+    }
+
+    if (this.finale) {
+      this.fx.slowmo(0.45, 700);
+      this.finishWithCeremony({ title: 'הָאוֹר נֶאֱסַף!' });
       return;
     }
+
+    const lastRound = this.round >= SESSION_ROUNDS;
     this.anim.after(ROUND_GAP_MS, () => {
-      if (this.isFinished()) return;
-      this.startRound();
+      if (this.tornDown || this.isFinished()) return;
+      if (lastRound) {
+        this.startRound(); /* round 4 = golden finale */
+      } else {
+        this.startRound();
+      }
     });
   }
 
-  debugState(): Record<string, unknown> {
-    const alive = this.fishes.filter((f) => !f.leaving && !f.view.destroyed);
-    const leader = alive.find((f) => f.isTarget);
+  /* ---------------- tick ---------------- */
+
+  override update(dtMs: number): void {
+    super.update(dtMs);
+    if (this.tornDown) return;
+    const dt = dtMs / 1000;
+
+    const level = this.effectiveLevel();
+    const mode = movementModeFor(level);
+    const currentAmp = level >= CURRENT_LEVEL ? 26 : 0;
+
+    for (const f of this.fishes) {
+      if (f.caught || f.view.destroyed) continue;
+      f.wag += dt * (7 + f.speed * 3);
+      f.tail.scale.y = 0.7 + 0.5 * Math.sin(f.wag);
+      f.phase += dt * f.speed;
+      const drift = mode === 'active' ? Math.sin(f.phase * 0.9) * 10 : 0;
+      const current = Math.sin((this.t / 1000) * 0.7 + f.ay * 0.01) * currentAmp;
+      f.view.x = f.ax + Math.cos(f.phase * 1.2) * f.rx + drift + current;
+      f.view.y = f.ay + Math.sin(f.phase) * f.ry;
+      const wantFacing = Math.cos(f.phase * 1.2 + Math.PI / 2) > 0 ? 1 : -1;
+      if (wantFacing !== f.facing) {
+        f.facing = wantFacing;
+        f.body.scale.x = wantFacing;
+      }
+      f.body.y = Math.sin(this.t / 260 + f.phase) * 2;
+    }
+
+    for (const j of this.jellies) {
+      if (j.view.destroyed) continue;
+      j.phase += dt;
+      j.y += j.vy * dtMs * 0.06;
+      j.view.x = j.x + Math.sin(j.phase * 1.4) * 10;
+      j.view.y = j.y + Math.sin(j.phase * 3) * 3;
+      if (j.y < this.h * 0.2) {
+        j.y = this.h * 0.92;
+        j.x = 50 + Math.random() * (this.w - 100);
+      }
+    }
+
+    /* golden fish */
+    if (this.round >= 2 && !this.golden && !this.transitioning && this.t >= this.goldenAt) {
+      this.spawnGolden();
+      this.goldenAt = this.t + GOLDEN_AT_MS + GOLDEN_LIFETIME_MS + 4000;
+    }
+    if (this.golden) {
+      const g = this.golden;
+      g.x += g.vx * dtMs;
+      g.view.x = g.x;
+      g.view.y = g.y + Math.sin(this.t / 240) * 8;
+      g.view.rotation = Math.sin(this.t / 240) * 0.08;
+      if (g.x < -60 || g.x > this.w + 60 || this.t - g.bornAt > GOLDEN_LIFETIME_MS) {
+        this.golden = null;
+        this.anim.to(g.view, { alpha: 0 }, { durationMs: 240, onDone: () => {
+          if (!g.view.destroyed) g.view.destroy({ children: true });
+        } });
+      }
+    }
+
+    /* night rounds: the water darkens, glows carry the scene */
+    const wantNight = level >= NIGHT_LEVEL ? 1 : 0;
+    const veil = this.nightVeil.children[0] as Graphics | undefined;
+    if (veil && Math.abs(veil.alpha - wantNight) > 0.02) {
+      veil.alpha += (wantNight - veil.alpha) * Math.min(1, dt * 2);
+    }
+  }
+
+  /* ---------------- bridge ---------------- */
+
+  override debugState(): Record<string, unknown> {
+    const leader = this.fishes.find((f) => f.isTarget && !f.caught && !f.view.destroyed);
     return {
       kind: 'glow-fish',
       round: this.round,
-      totalRounds: SESSION_ROUNDS,
       found: this.found,
       toFind: this.toFind,
       hint: this.lastHint,
       done: this.isFinished(),
+      finale: this.finale,
       leader: leader ? { x: Math.round(leader.view.x), y: Math.round(leader.view.y) } : null,
-      fishCount: alive.length,
-      fishes: alive.map((f) => ({ x: Math.round(f.view.x), y: Math.round(f.view.y), target: f.isTarget })),
+      fishCount: this.fishes.filter((f) => !f.caught && !f.view.destroyed).length,
+      fishes: this.fishes
+        .filter((f) => !f.caught && !f.view.destroyed)
+        .map((f) => ({
+          x: Math.round(f.view.x),
+          y: Math.round(f.view.y),
+          target: f.isTarget && f.kind.shape === this.targetKind?.shape && f.kind.color === this.targetKind?.color,
+        })),
+      golden: this.golden ? { x: Math.round(this.golden.view.x), y: Math.round(this.golden.view.y) } : null,
+      jellies: this.jellies.length,
+      timer: Math.round(this.t),
     };
   }
-}
 
-/* keep LearningSignals type visible for tooling imports */
-export type { LearningSignals };
+  destroy(): void {
+    audio.stopMusic();
+    super.destroy();
+  }
+}

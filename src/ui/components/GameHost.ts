@@ -29,6 +29,8 @@ export interface GameHostHandle {
   rendererKind(): string | null;
   sceneDebug(): Record<string, unknown> | null;
   canvasRect(): { x: number; y: number; width: number; height: number } | null;
+  /** Live scene world size (Arena layout space for e2e mapping). */
+  stageView(): { w: number; h: number };
 }
 
 const store = new LocalProgressStore();
@@ -49,7 +51,10 @@ function safeLoad(fallback: () => GardenData): GardenData {
  */
 export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   const gameApp = new GameApp();
-  const hud: GameHUDHandle = createGameHUD({ onBack: () => close() });
+  const hud: GameHUDHandle = createGameHUD({
+    onBack: () => close(),
+    onPauseToggle: (paused) => gameApp.setPaused(paused),
+  });
   const stage = h('div', { class: 'game-stage', id: 'game-stage' });
   const root = h(
     'section',
@@ -62,6 +67,36 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   let zoneId: string | null = null;
   let sceneKey: string | null = null;
 
+  function spawn(): void {
+    if (!zoneId) return;
+    const target = zoneId;
+    const data = safeLoad(callbacks.loadGarden);
+    const specs = gamesInZone(target);
+    const done = finishedCount(data, target);
+    const spec = specs.length > 0 ? specs[Math.min(done, specs.length - 1)] : null;
+    const wanted = spec
+      ? sceneKeyForSpec(spec)
+      : sceneKeyForZone(target, getZone(target as ZoneId)?.gameScene);
+    const resolvedKey = wanted && SCENE_REGISTRY[wanted] ? wanted : 'coming-soon';
+    const factory = SCENE_REGISTRY[resolvedKey];
+    if (!factory) {
+      callbacks.onUnavailable(target);
+      return;
+    }
+    sceneKey = resolvedKey;
+    hud.setZone(zoneName(target));
+    hud.clear();
+    const scene: GameScene = factory({
+      app: gameApp.pixiApp,
+      zone: target,
+      spec,
+      hud: hud.bridge,
+      onExit: () => close(),
+      onReplay: () => spawn(),
+    });
+    gameApp.setScene(scene);
+  }
+
   async function open(target: string): Promise<boolean> {
     const data = safeLoad(callbacks.loadGarden);
     const specs = gamesInZone(target);
@@ -71,8 +106,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
       ? sceneKeyForSpec(spec)
       : sceneKeyForZone(target, getZone(target as ZoneId)?.gameScene);
 
-    /* Not-yet-rebuilt games fall back to the living placeholder scene
-       (replaced registry entry by registry entry as Stage 3 progresses). */
+    /* Not-yet-rebuilt games fall back to the living placeholder scene. */
     const resolvedKey = wanted && SCENE_REGISTRY[wanted] ? wanted : 'coming-soon';
     const factory = SCENE_REGISTRY[resolvedKey];
     if (!factory) {
@@ -82,26 +116,21 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
 
     zoneId = target;
     sceneKey = resolvedKey;
+    /* Reveal the game screen BEFORE mounting so the Pixi canvas measures
+       its real size on the first frame (no mount-hidden resize race). */
+    root.classList.remove('hidden');
     if (!mounted) {
       await gameApp.mount(stage);
       mounted = true;
     }
-    hud.setZone(zoneName(target));
-    hud.clear();
-
-    const scene: GameScene = factory({
-      app: gameApp.pixiApp,
-      zone: target,
-      spec,
-      hud: hud.bridge,
-      onExit: () => close(),
-    });
-    gameApp.setScene(scene);
+    spawn();
     return true;
   }
 
   function close(): void {
+    gameApp.setPaused(false);
     gameApp.setScene(null);
+    root.classList.add('hidden');
     zoneId = null;
     sceneKey = null;
     callbacks.onExit();
@@ -117,12 +146,22 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
     currentZoneId: () => zoneId,
     currentSceneKey: () => sceneKey,
     rendererKind: () => gameApp.rendererKind,
-    sceneDebug: () => gameApp.getScene()?.debugState() ?? null,
+    sceneDebug: () => {
+      const scene = gameApp.getScene();
+      if (!scene) return null;
+      return { ...scene.debugState(), ...scene.sessionDebug() };
+    },
     canvasRect() {
       const canvas = gameApp.canvasElement();
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    },
+    /** Live scene world size (Arena layout space for e2e mapping). */
+    stageView(): { w: number; h: number } {
+      const scene = gameApp.getScene();
+      if (scene) return { w: scene.w, h: scene.h };
+      return gameApp.view;
     },
   };
 }

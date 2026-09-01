@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { softGlowTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 const DONE_HIT = 40;
 const DRAW_BOTTOM = 0.82;
@@ -140,7 +141,9 @@ export class OpenCanvasScene extends GameScene {
     if (this.isFinished()) return false;
     if (this.hitDone(x, y)) {
       this.say(['יָפֶה מְאֹד!']);
-      this.finish(1600);
+      audio.play('fanfare');
+      this.score.hit(20, { x: this.w / 2, y: this.h * 0.3 }, 'הַצִּיּוּר גָּמוּר');
+      this.finishWithCeremony({ title: 'הַגַּלְרֵיהּ שֶׁלָּךְ' });
       return true;
     }
     const disc = this.hitDisc(x, y);
@@ -152,6 +155,7 @@ export class OpenCanvasScene extends GameScene {
       this.selectSize(disc.value);
       this.sparkle(disc.x, disc.y);
     }
+    audio.play('tick');
     return true;
   }
 
