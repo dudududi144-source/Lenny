@@ -36,6 +36,9 @@ async function openSequenceEcho(page: Page, ddaLevel: number): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="memory-hill"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('sequence-echo');
+  await page.waitForTimeout(350);
   expect(await page.evaluate(() => window.__lenny?.scene())).toBe('sequence-echo');
 }
 

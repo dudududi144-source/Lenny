@@ -42,6 +42,9 @@ async function openGlowFish(page: Page, ddaLevel: number): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="attention-stream"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('glow-fish');
+  await page.waitForTimeout(350);
 }
 
 async function state(page: Page): Promise<GlowState | null> {

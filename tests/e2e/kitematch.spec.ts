@@ -36,6 +36,9 @@ async function openKiteMatch(page: Page, ddaLevel: number): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="space-sky"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('kite-match');
+  await page.waitForTimeout(350);
   await expect(page.locator('#hud-zone')).toHaveText(/שְׁמֵי הַמֶּרְחָב/);
 }
 

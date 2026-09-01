@@ -34,6 +34,9 @@ async function openBeePaint(page: Page): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="creativity-meadow"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('bee-paint');
+  await page.waitForTimeout(350);
   await expect(page.locator('#hud-zone')).toHaveText(/אֲחוּ הַיְּצִירָה/);
 }
 
