@@ -111,7 +111,6 @@ export class MemoryPairsScene extends GameScene {
       [deck[i], deck[j]] = [deck[j], deck[i]];
     }
 
-    const areaX = this.w * AREA.x;
     const areaY = this.h * AREA.y;
     const areaW = this.w * AREA.w;
     const areaH = this.h * AREA.h;

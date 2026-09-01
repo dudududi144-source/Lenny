@@ -105,3 +105,38 @@ test('wrong echoes escalate the visible hint ladder', async ({ page }) => {
     expect(after.hint).toBe(expectations[miss]);
   }
 });
+
+test('Arena: echoes score points and the concert closes the session', async ({ page }) => {
+  test.setTimeout(150_000);
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await openSequenceEcho(page, 0.3);
+
+  let sawScore = false;
+  const deadline = Date.now() + 130_000;
+  while (Date.now() < deadline) {
+    const s = await state(page);
+    if (!s) break;
+    if ((s.arenaScore ?? 0) > 0) sawScore = true;
+    if (s.done) break;
+    if (s.phase !== 'input') {
+      await page.waitForTimeout(160);
+      continue;
+    }
+    const step = s.sequence[s.echoCount];
+    const cell = s.cells.find((c) => c.shape === step.shape && c.tone === step.tone);
+    if (!cell) {
+      await page.waitForTimeout(160);
+      continue;
+    }
+    await tapDesign(page, cell.x, cell.y);
+    await page.waitForTimeout(220);
+  }
+
+  expect(sawScore).toBe(true);
+  const finalState = await state(page);
+  expect(finalState?.done ?? true).toBe(true);
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 30_000 });
+  expect(errors).toEqual([]);
+});
