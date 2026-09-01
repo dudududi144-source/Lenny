@@ -9,6 +9,7 @@ import './ui/styles/tokens.css';
 import './ui/styles/global.css';
 import './ui/styles/animations.css';
 import './ui/styles/shelf.css';
+import './ui/styles/garden-life.css';
 import './ui/styles/parentlens.css';
 
 import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';

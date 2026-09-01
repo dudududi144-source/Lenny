@@ -3,6 +3,7 @@ import { GARDEN_TEXT, ZONES, type ZoneDef } from '../../data/garden';
 import {
   finishedCount,
   freshGarden,
+  bloomLevel,
   isUnlocked,
   LocalProgressStore,
   unlockRequirement,
@@ -11,6 +12,7 @@ import {
   type GardenData,
 } from '../../games/core/ProgressStore';
 import { ZONE_ICONS } from './zoneIcons';
+import { bloomStageFor, buildLifeLayer, buildZoneGrowth, type BloomStage } from './gardenLife';
 import { uiButton } from './common/Button';
 import { ProgressRing } from './common/ProgressRing';
 import { h, svg } from './common/el';
@@ -112,7 +114,13 @@ function lockChip(): HTMLElement {
   return h('span', { class: 'lock-chip', 'aria-hidden': 'true' }, icon);
 }
 
-function zoneCard(zone: ZoneDef, data: GardenData, freshIds: Set<string>, callbacks: GardenMapCallbacks): HTMLButtonElement {
+function zoneCard(
+  zone: ZoneDef,
+  data: GardenData,
+  freshIds: Set<string>,
+  animateBloom: boolean,
+  callbacks: GardenMapCallbacks,
+): HTMLButtonElement {
   const unlocked = isUnlocked(data, zone.id);
   const done = finishedCount(data, zone.id);
   const total = Math.max(1, gamesInZone(zone.id).length);
@@ -125,7 +133,13 @@ function zoneCard(zone: ZoneDef, data: GardenData, freshIds: Set<string>, callba
   if (unlocked) {
     const ring = new ProgressRing({ size: 52, stroke: 5, ariaLabel: `${zone.name}: ${done} מתוך ${total}` });
     ring.setCounts(done, total);
-    slot = h('span', { class: 'zone-slot' }, ring.el);
+    /* Stage 6: the zone's visible growth — one flower per finished game */
+    slot = h(
+      'span',
+      { class: 'zone-slot', 'data-growth': zone.id },
+      ring.el,
+      buildZoneGrowth(zone.uiColor, done, 6, animateBloom),
+    );
   } else {
     slot = h('span', { class: 'zone-slot' }, lockChip());
   }
@@ -233,6 +247,10 @@ export function createGardenMap(callbacks: GardenMapCallbacks): GardenMapHandle 
 
   let list: HTMLElement | null = null;
   let lastLights = -1;
+  /* Stage 6: bloom-ladder + per-zone payoff bookkeeping */
+  let prevCounts: Record<string, number> | null = null;
+  let lifeLayer: HTMLElement | null = null;
+  let lastStage: BloomStage | null = null;
 
   function refresh(): void {
     const data = loadGarden();
@@ -249,10 +267,31 @@ export function createGardenMap(callbacks: GardenMapCallbacks): GardenMapHandle 
     }
     lastLights = lights;
 
+    /* Stage 6: which zone GREW since the last visit? Its newest flower
+       opens with the bloom-in payoff exactly when the child returns. */
+    const grewZones = new Set<string>();
+    const nextCounts: Record<string, number> = {};
+    for (const zone of ZONES) {
+      const done = finishedCount(data, zone.id);
+      nextCounts[zone.id] = done;
+      if (prevCounts && done > (prevCounts[zone.id] ?? 0)) grewZones.add(zone.id);
+    }
+    prevCounts = nextCounts;
+
+    /* the garden life layer follows the global bloom ladder (0..5);
+       rebuilt only when the stage changes so animations never replay */
+    const stage = bloomStageFor(bloomLevel(data));
+    if (stage !== lastStage || !lifeLayer) {
+      lifeLayer?.remove();
+      lifeLayer = buildLifeLayer(stage);
+      path.insertBefore(lifeLayer, path.firstChild);
+      lastStage = stage;
+    }
+
     list?.remove();
     list = h('div', { class: 'zone-list' });
     ZONES.forEach((zone, i) => {
-      const card = zoneCard(zone, data, freshIds, callbacks);
+      const card = zoneCard(zone, data, freshIds, grewZones.has(zone.id), callbacks);
       card.style.setProperty('--i', String(i));
       list!.append(card);
     });

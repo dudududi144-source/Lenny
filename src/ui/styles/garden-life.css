@@ -1,0 +1,181 @@
+/* ============================================================
+ * Garden life — the garden grows with the child (Stage 6, commit 6).
+ * Bloom ladder 0-5 (soil → sprouts → flowers → butterflies → trees →
+ * full + fireflies), per-zone flower rows, and the bloom-in payoff
+ * when a freshly finished game's flower opens on return.
+ * ============================================================ */
+
+/* ---------- the decorative life layer ---------- */
+
+.garden-life {
+  position: absolute;
+  inset: 8% 0 14% 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  z-index: 0;
+}
+
+.garden-life .life-soil {
+  position: absolute;
+  inset-inline: 4%;
+  bottom: -6px;
+  height: 26px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(122, 86, 60, 0.4), rgba(88, 60, 42, 0.12));
+  box-shadow: inset 0 2px 6px rgba(255, 246, 236, 0.12);
+}
+
+.life-item {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: life-pop 700ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation-delay: var(--delay, 0s);
+}
+
+.life-item svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.life-item.sprouts svg {
+  transform: scale(0.85);
+}
+
+.life-item.flowers svg {
+  animation: life-sway var(--d, 3s) ease-in-out infinite alternate;
+}
+
+.life-item.butterflies {
+  animation: life-pop 700ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+    life-drift calc(9s + var(--d, 3s) * 2) ease-in-out infinite alternate;
+}
+
+.life-item.butterflies svg {
+  animation: life-flutter 0.5s ease-in-out infinite alternate;
+}
+
+.life-item.trees svg {
+  transform: scale(1.5);
+}
+
+.life-item.fireflies {
+  animation: life-pop 700ms ease-out forwards,
+    life-twinkle calc(1.8s + var(--d, 3s)) ease-in-out infinite alternate;
+}
+
+.life-item.fireflies svg {
+  filter: drop-shadow(0 0 6px rgba(255, 233, 166, 0.85));
+}
+
+.life-item.stars {
+  animation: life-pop 900ms ease-out forwards, life-twinkle calc(2.2s + var(--d, 3s)) ease-in-out infinite alternate;
+}
+
+@keyframes life-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.3) rotate(-30deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes life-sway {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes life-flutter {
+  from {
+    transform: scaleX(0.82) rotate(-3deg);
+  }
+  to {
+    transform: scaleX(1.08) rotate(3deg);
+  }
+}
+
+@keyframes life-drift {
+  from {
+    translate: -22px 8px;
+  }
+  to {
+    translate: 26px -14px;
+  }
+}
+
+@keyframes life-twinkle {
+  from {
+    opacity: 0.25;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- per-zone growth rows on the zone cards ---------- */
+
+.zone-growth {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin-inline-start: auto;
+  padding-inline-end: 2px;
+}
+
+.growth-flower {
+  width: 17px;
+  height: 17px;
+  display: block;
+  transform-origin: 50% 92%;
+  opacity: 0.9;
+}
+
+.growth-flower .bud-svg {
+  opacity: 0.4;
+}
+
+.growth-flower.is-open.bloom-in {
+  animation: flower-bloom 720ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+@keyframes flower-bloom {
+  0% {
+    transform: scale(0.1) rotate(-70deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.22) rotate(8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.95;
+  }
+}
+
+.growth-more {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--zc, #ffd76a);
+  padding-inline-start: 2px;
+}
+
+/* the zone card hosts the growth row under its progress ring */
+.zone-card .zone-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
