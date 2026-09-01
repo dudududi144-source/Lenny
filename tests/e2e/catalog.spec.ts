@@ -134,6 +134,63 @@ test('finishing a tier-0 game three times (live) opens tier 1', async ({ page })
   expect(errors).toEqual([]);
 });
 
+
+test('legacy unique scenes stay reachable through the catalog', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  /* the whole path is open: this test walks three distant zones */
+  const allOpen = {
+    firstSeen: Date.now(),
+    lights: 9,
+    zones: Object.fromEntries(
+      ['light-path', 'memory-hill', 'attention-stream', 'thinking-forest', 'space-sky', 'words-valley', 'feelings-garden', 'creativity-meadow'].map((z) => [
+        z,
+        { finished: 1, unlocked: true },
+      ]),
+    ),
+  };
+  await page.addInitScript((state) => {
+    localStorage.setItem('lenny-garden', JSON.stringify(state));
+  }, allOpen);
+
+  /* light-path: PlayPath via its own spec pin — scene key unchanged */
+  await page.goto('/');
+  await page.getByRole('button', { name: /נַתְחִיל/ }).click();
+  await page.locator('.zone-card[data-zone="light-path"]').click();
+  await expect(page.locator('#game-screen canvas')).toBeVisible();
+  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('play');
+  expect(await page.evaluate(() => window.__lenny?.spec())).toBe('light-path-play-1');
+  await page.locator('#game-back').click();
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 10_000 });
+
+  /* creativity: both template families visible; a derived open-create
+     card plays the OpenCanvas scene under its own name */
+  await page.locator('.zone-card[data-zone="creativity-meadow"]').click();
+  await expect(page.locator('#game-screen canvas')).toBeVisible();
+  await page.locator('#hud-shelf').click();
+  await expect(page.locator('#game-shelf')).toBeVisible();
+  await expect(page.locator('.shelf-card')).toHaveCount(18); /* 2 seed + 16 derived */
+  await page.locator('.shelf-card[data-spec="creativity-open-create-02"]').click();
+  await expect(page.locator('#game-shelf')).toBeHidden();
+  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('open-create');
+  expect(await page.evaluate(() => window.__lenny?.spec())).toBe('creativity-open-create-02');
+  await page.locator('#game-back').click();
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 10_000 });
+
+  /* breath: a derived breath-guide card plays the LennyStory scene */
+  await page.locator('.zone-card[data-zone="breath-pool"]').click();
+  await expect(page.locator('#game-screen canvas')).toBeVisible();
+  await page.locator('#hud-shelf').click();
+  await expect(page.locator('#game-shelf')).toBeVisible();
+  await expect(page.locator('.shelf-card')).toHaveCount(18); /* 2 seed + 16 derived */
+  await page.locator('.shelf-card[data-spec="breath-breath-guide-00"]').click();
+  await expect(page.locator('#game-shelf')).toBeHidden();
+  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('lenny-story');
+  expect(await page.evaluate(() => window.__lenny?.spec())).toBe('breath-breath-guide-00');
+  expect(errors).toEqual([]);
+});
+
 test('picking an open card swaps the game without leaving the zone', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(String(err)));

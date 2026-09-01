@@ -20,10 +20,12 @@ import {
   tierUnlocked,
   tierMissing,
   TIER_UNLOCK_AFTER,
+  LEGACY_SPECS,
 } from '../content/catalog';
-import { validateCatalog } from '../content/SpecValidator';
+import { validateCatalog, validateSpec } from '../content/SpecValidator';
 import { SPEC_CATALOG, catalogForZone } from '../content/SpecGenerator';
 import { allFinishes, finishCountOf, recordGameFinish } from '../content/gameFinishes';
+import { sceneKeyForSpec } from '../games/scenes/registry';
 
 describe('catalog — the merged zone list', () => {
   it('installCatalog passes: 144/144 + the whole merged catalog validates', () => {
@@ -57,6 +59,39 @@ describe('catalog — the merged zone list', () => {
     }
     expect(SPEC_CATALOG).toHaveLength(144);
     expect(catalogForZone('light-path')).toHaveLength(0);
+  });
+});
+
+describe('legacy mapping — unique scenes stay reachable (commit 3)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('PlayPath maps to a spec with an existing kind and its own scene pin', () => {
+    const play = LEGACY_SPECS[0];
+    expect(validateSpec(play)).toBeNull(); /* legacy exemption via extra.scene */
+    expect(sceneKeyForSpec(play)).toBe('play');
+    expect(play.kind).toBe('open-create');
+    expect(zoneCatalog('light-path').map((s) => s.id)).toEqual(['light-path-play-1']);
+    /* the garden ring contract (garden.spec 0/1) reads the SEED registry:
+       light-path keeps zero seed specs there */
+    expect(GAME_REGISTRY.filter((s) => s.zone === 'light-path')).toHaveLength(0);
+  });
+
+  it('LennyStory + OpenCanvas were already spec-driven through their kinds', () => {
+    const breathSeed = GAME_REGISTRY.find((s) => s.kind === 'breath-guide')!;
+    const openSeed = GAME_REGISTRY.find((s) => s.kind === 'open-create')!;
+    expect(sceneKeyForSpec(breathSeed)).toBe('lenny-story');
+    expect(sceneKeyForSpec(openSeed)).toBe('open-create');
+    /* and the derived specs ride the same scenes */
+    expect(sceneKeyForSpec(SPEC_CATALOG.find((s) => s.id === 'breath-breath-guide-00')!)).toBe('lenny-story');
+    expect(sceneKeyForSpec(SPEC_CATALOG.find((s) => s.id === 'creativity-open-create-02')!)).toBe('open-create');
+  });
+
+  it('the whole merged catalog validates (seed + 144 + legacy)', () => {
+    expect(() => installCatalog()).not.toThrow();
+    const merged = [...GAME_REGISTRY, ...SPEC_CATALOG, ...LEGACY_SPECS];
+    expect(validateCatalog(merged)).toEqual({});
   });
 });
 
