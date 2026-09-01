@@ -3,6 +3,7 @@ import { ZONES } from '../../data/garden';
 import { uiButton } from '../components/common/Button';
 import { h } from '../components/common/el';
 import { buildCharts } from './charts';
+import { buildInsights, INTRO } from './insights';
 import type { LensData } from './lensData';
 
 /* ============================================================
@@ -155,6 +156,35 @@ function signalsCard(data: LensData): HTMLElement {
   );
 }
 
+function insightsCard(data: LensData): HTMLElement {
+  const list = buildInsights(data);
+  return h(
+    'section',
+    { class: 'parent-card parent-insights', 'aria-label': 'מה הדרך מספרת' },
+    h('h3', { class: 'parent-card-title' }, 'מָה הַדֶּרֶךְ מְסַפֶּרֶת'),
+    list.length
+      ? h('ul', { class: 'parent-insight-list' },
+          ...list.map((ins) =>
+            h('li', { class: `parent-insight parent-insight-${ins.kind}` },
+              h('span', { class: 'parent-insight-icon', 'aria-hidden': 'true' }, ins.icon),
+              h('span', { class: 'parent-insight-text' }, ins.text),
+            )),
+        )
+      : h('p', { class: 'parent-line' }, 'כְּכָל מִשְׂחָק יִצְטָרְפוּ כָּאן הַפְּתִיעוֹת הַקְּטַנּוֹת שֶׁל הַדֶּרֶךְ.'),
+  );
+}
+
+function introCard(): HTMLElement {
+  return h(
+    'section',
+    { class: 'parent-card parent-intro', 'aria-label': 'מה זו עדשת ההורה' },
+    h('h3', { class: 'parent-card-title' }, 'מָה זוֹ עֲדֶשֶׁת הַהוֹרֶה?'),
+    h('p', { class: 'parent-line' }, `💛 ${INTRO.what}`),
+    h('p', { class: 'parent-line' }, `🌿 ${INTRO.whatNot}`),
+    h('p', { class: 'parent-line' }, `🔒 ${INTRO.stored}`),
+  );
+}
+
 export function renderDashboard(data: LensData, callbacks: DashboardCallbacks): HTMLElement {
   const root = h('div', { class: 'parent-dashboard-body' });
 
@@ -178,8 +208,8 @@ export function renderDashboard(data: LensData, callbacks: DashboardCallbacks): 
      nothing has been collected yet */
   const charts = data.hasAnyData ? buildCharts(data) : null;
   const sections = data.hasAnyData && charts
-    ? [zonesCard(data), charts.weekly, charts.strengths, skillsCard(data), charts.errors, charts.blooming, signalsCard(data)]
-    : [zonesCard(data), emptyState()];
+    ? [insightsCard(data), zonesCard(data), charts.weekly, charts.strengths, skillsCard(data), charts.errors, charts.blooming, signalsCard(data), introCard()]
+    : [insightsCard(data), zonesCard(data), emptyState(), introCard()];
 
   root.append(
     h(
