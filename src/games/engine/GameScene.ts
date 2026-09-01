@@ -464,8 +464,9 @@ export abstract class GameScene {
 
   destroy(): void {
     this.tornDown = true;
-    /* the soundtrack keeps breathing — it just walks back to the garden */
-    music.setMood('calm');
+    /* NOTE: the soundtrack handback-to-calm lives in GameHost.close() —
+       destroying a scene during a shelf swap must NOT override the new
+       scene's mood (the new scene's constructor speaks last). */
     this.transitions?.destroy();
     this.lenny?.destroy();
     this.lenny = null;

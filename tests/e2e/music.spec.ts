@@ -71,6 +71,17 @@ test("after real gestures the soundtrack runs, in the zone's mood", async ({ pag
     .poll(async () => (await page.evaluate(() => window.__lenny?.music()))?.mood, { timeout: 10_000 })
     .toBe('night');
 
+  /* a shelf pick swaps scenes IN PLACE — the new scene's mood must win
+     (regression: the old scene's teardown used to walk back to calm) */
+  await page.locator('#hud-shelf').click();
+  await expect(page.locator('#game-shelf')).toBeVisible();
+  await page.locator('.shelf-card[data-spec="breath-breath-guide-00"]').click();
+  await expect(page.locator('#game-shelf')).toBeHidden();
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__lenny?.music()))?.mood, { timeout: 10_000 })
+    .toBe('night');
+  expect(await page.evaluate(() => window.__lenny?.spec())).toBe('breath-breath-guide-00');
+
   expect(errors).toEqual([]);
 });
 

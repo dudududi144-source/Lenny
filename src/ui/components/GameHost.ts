@@ -10,6 +10,7 @@ import type { GameSpec } from '../../games/builder/GameSpec';
 import type { GameScene } from '../../games/engine/GameScene';
 import { SCENE_REGISTRY, sceneKeyForSpec, sceneKeyForZone } from '../../games/scenes/registry';
 import { zoneCatalog } from '../../content/catalog';
+import { music } from '../../audio/MusicEngine';
 import { createGameHUD, type GameHUDHandle } from './GameHUD';
 import { createGameShelf, type GameShelfHandle } from './GameShelf';
 import { h } from './common/el';
@@ -160,6 +161,9 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
       if (gen !== closeGen) return; /* a new open superseded this close */
       gameApp.setPaused(false);
       gameApp.setScene(null);
+      /* the soundtrack walks back to the garden (NOT in GameScene.destroy —
+         a shelf swap destroys scenes too, and the new scene speaks last) */
+      music.setMood('calm');
       root.classList.remove('is-exiting');
       root.classList.add('hidden');
       zoneId = null;
