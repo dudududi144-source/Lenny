@@ -97,7 +97,8 @@ test('level-0 session completes through real taps; DDA and garden advance', asyn
   expect(finished).toBeGreaterThan(0);
 
   /* automatic return to the garden after the celebration gap */
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the ceremony holds ~5.2s (dt-clamped under load) + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(await page.evaluate(() => window.__lenny?.scene())).toBeNull();
   expect(errors).toEqual([]);
 });

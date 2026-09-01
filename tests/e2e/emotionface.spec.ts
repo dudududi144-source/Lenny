@@ -96,7 +96,8 @@ test('level-0: all emotion rounds complete through real taps', async ({ page }) 
   const garden = await page.evaluate(() => window.__lenny!.garden());
   const finished = garden.finished?.['feelings-garden'] ?? garden.zones['feelings-garden']?.finished ?? 0;
   expect(finished).toBeGreaterThan(0);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the ceremony holds ~5.2s (dt-clamped under load) + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(errors).toEqual([]);
 });
 

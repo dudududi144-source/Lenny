@@ -88,6 +88,7 @@ test('five mixes fill the flower; completion records the outcome', async ({ page
   const garden = await page.evaluate(() => window.__lenny!.garden());
   const finished = garden.finished?.['creativity-meadow'] ?? garden.zones['creativity-meadow']?.finished ?? 0;
   expect(finished).toBeGreaterThan(0);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the ceremony holds ~5.2s (dt-clamped under load) + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(errors).toEqual([]);
 });

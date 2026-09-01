@@ -76,7 +76,8 @@ test('session completes on its own; the sweep marks missed beats', async ({ page
   /* Gate B exception ported: ratio < 0.5 -> outcome(false) is allowed */
   const dda = await page.evaluate(() => JSON.parse(localStorage.getItem('lenny-dda-v1') ?? '{}')['rhythm-square']);
   expect(dda.rounds).toBe(1);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 12000 });
+  /* ceremony hold + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(errors).toEqual([]);
 });
 

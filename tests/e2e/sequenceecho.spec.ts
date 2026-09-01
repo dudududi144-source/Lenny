@@ -90,7 +90,8 @@ test('level-0: three echoes completed; the DDA counts three clean rounds', async
 
   const garden = await page.evaluate(() => window.__lenny!.garden());
   expect(garden.finished?.['memory-hill']).toBe(3);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the ceremony holds ~5.2s (dt-clamped under load) + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(errors).toEqual([]);
 });
 

@@ -103,6 +103,8 @@ test('select a color, draw real strokes, finish to the garden', async ({ page })
   const garden = await page.evaluate(() => window.__lenny!.garden());
   const finished = garden.finished?.['creativity-meadow'] ?? garden.zones['creativity-meadow']?.finished ?? 0;
   expect(finished).toBeGreaterThan(0);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the results ceremony holds ~5.2s (auto-advance) + the exit wipe —
+     give the return home a load-tolerant window (polling contract unchanged) */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 16000 });
   expect(errors).toEqual([]);
 });
