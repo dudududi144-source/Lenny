@@ -8,6 +8,7 @@
 import './ui/styles/tokens.css';
 import './ui/styles/global.css';
 import './ui/styles/animations.css';
+import './ui/styles/parentlens.css';
 
 import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';
 import { MemoryGarden } from './games/core/MemoryGarden';
@@ -91,6 +92,8 @@ function personalGreeting(): string {
 /* ---------- screens ---------- */
 
 let currentScreen = 'hero';
+/* where the parent lens was opened from — it returns to the same place */
+let parentSource: 'hero' | 'garden' = 'hero';
 
 function showScreen(name: 'hero' | 'garden' | 'game' | 'parent'): void {
   currentScreen = name;
@@ -117,7 +120,7 @@ const parent = createParentLens({
   loadGarden,
   onExit: () => {
     refreshAll();
-    showScreen('hero');
+    showScreen(parentSource);
   },
 });
 
@@ -125,6 +128,7 @@ const hero = createHero({
   onStart: () => openGarden(),
   onContinue: () => openGarden(),
   onParent: () => {
+    parentSource = 'hero';
     parent.open();
     showScreen('parent');
   },
@@ -146,6 +150,11 @@ const gameHost = createGameHost({
 
 const garden = createGardenMap({
   onBack: () => showScreen('hero'),
+  onParents: () => {
+    parentSource = 'garden';
+    parent.open();
+    showScreen('parent');
+  },
   onZone: (zoneId) => {
     void gameHost.open(zoneId).then((opened) => {
       if (opened) showScreen('game');

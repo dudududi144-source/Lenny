@@ -1,0 +1,228 @@
+/* ============================================================
+   ParentLens v2 (Stage 5) — "עֲדֶשֶׁת הַהוֹרֶה"
+   Complements the shared .parent-* styles in global.css.
+   RTL-first, niqqud, Heebo, glass cards, 8px grid,
+   touch targets ≥ 44px.
+   ============================================================ */
+
+/* ---------- gate: hold-to-enter ---------- */
+
+.parent-gate-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: rgba(255, 246, 236, 0.45);
+  font-size: var(--font-size-xs);
+  margin-block: var(--space-2);
+}
+
+.parent-gate-divider::before,
+.parent-gate-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.parent-hold-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.parent-hold {
+  position: relative;
+  inline-size: 88px;
+  block-size: 88px;
+  min-inline-size: 88px;
+  min-block-size: 88px; /* ≥44px touch target, doubled */
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 215, 106, 0.55);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(255, 233, 166, 0.28) 0%, rgba(255, 215, 106, 0.1) 52%, transparent 72%);
+  cursor: pointer;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-med) ease;
+}
+
+.parent-hold:active {
+  transform: scale(0.96);
+}
+
+.parent-hold:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.parent-hold-star {
+  font-size: 30px;
+  color: var(--color-glow);
+  text-shadow: 0 0 18px rgba(255, 215, 106, 0.75);
+  pointer-events: none;
+}
+
+.parent-hold-fill {
+  position: absolute;
+  inset: 0;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  background: linear-gradient(180deg, rgba(255, 215, 106, 0.42) 0%, rgba(242, 84, 154, 0.38) 100%);
+  transition: transform 2000ms linear; /* HOLD_MS — grows while held */
+  pointer-events: none;
+}
+
+.parent-hold.is-holding .parent-hold-fill {
+  transform: scaleY(1);
+}
+
+.parent-hold-hint {
+  font-size: var(--font-size-xs);
+  color: rgba(255, 246, 236, 0.6);
+}
+
+/* ---------- dashboard header ---------- */
+
+.parent-head-title {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff 0%, var(--color-glow) 60%, var(--color-coral) 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------- hero summary ---------- */
+
+.parent-hero {
+  gap: var(--space-4);
+}
+
+.parent-hero-ring {
+  flex: 0 0 auto;
+  inline-size: 84px;
+  block-size: 84px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 233, 166, 0.24) 0%, rgba(124, 77, 255, 0.16) 55%, transparent 75%),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 215, 106, 0.4);
+}
+
+.parent-hero-bloom {
+  font-size: 26px;
+  color: var(--color-glow);
+  text-shadow: 0 0 16px rgba(255, 215, 106, 0.8);
+}
+
+.parent-hero-bloom-label {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-cream);
+}
+
+.parent-hero-line {
+  font-size: var(--font-size-sm);
+  color: var(--color-cream);
+  line-height: 1.65;
+}
+
+.parent-streak {
+  color: var(--color-glow);
+  font-weight: 700;
+}
+
+/* ---------- sections grid ---------- */
+
+.parent-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 560px) {
+  .parent-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .parent-grid .parent-card:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.parent-grid .parent-card {
+  margin-block-end: 0;
+}
+
+/* ---------- empty state ---------- */
+
+.parent-empty {
+  text-align: center;
+  padding-block: var(--space-7);
+}
+
+.parent-empty-icon {
+  display: block;
+  font-size: 42px;
+  color: var(--color-glow);
+  opacity: 0.75;
+  margin-block-end: var(--space-3);
+  animation: parent-float 3.4s ease-in-out infinite;
+}
+
+@keyframes parent-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* ---------- garden foot (parents entry) ---------- */
+
+.garden-foot {
+  display: flex;
+  justify-content: flex-start;
+  padding-block: var(--space-2) var(--space-4);
+}
+
+.garden-parents-link {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 246, 236, 0.55);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  padding: 12px 16px; /* ≥44px touch target */
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: color var(--dur-fast) ease, background var(--dur-fast) ease;
+}
+
+.garden-parents-link:hover,
+.garden-parents-link:focus-visible {
+  color: var(--color-cream);
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
+}
+
+/* ---------- scrollbars inside the dashboard ---------- */
+
+.parent-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.parent-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 215, 106, 0.3);
+  border-radius: 999px;
+}
