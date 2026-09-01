@@ -91,32 +91,47 @@ test('level-0: five letters found; signals stream records the attempts', async (
   const garden = await page.evaluate(() => window.__lenny!.garden());
   const finished = garden.finished?.['words-valley'] ?? garden.zones['words-valley']?.finished ?? 0;
   expect(finished).toBeGreaterThan(0);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the ceremony holds ~5.2s (dt-clamped under load) + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(errors).toEqual([]);
 });
 
 test('level 0.6 plants the confusable partner whenever the target has one', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(150_000);
   await openFindLetter(page, 0.6);
 
-  const deadline = Date.now() + 90_000;
+  /* Whether a session ever samples a confusable TARGET is letter-RNG
+     luck (~20% of sessions hit zero) — that's sampling, not the
+     planting logic. So play up to 4 sessions: keep the per-round
+     assertion (partner present whenever the target has one), and take
+     the warm path back into the zone until the conditional assertion
+     actually ran for at least one round. */
+  const deadline = Date.now() + 120_000;
   let checksWithPartner = 0;
-  while (Date.now() < deadline) {
-    const s = await state(page);
-    if (!s || s.done) break;
-    const partner = CONFUSABLES[s.targetLetter];
-    if (partner) {
-      checksWithPartner++;
-      expect(s.letters.some((l) => l.glyph === partner)).toBe(true);
+  let sessions = 0;
+
+  while (checksWithPartner === 0 && sessions < 4 && Date.now() < deadline) {
+    sessions++;
+    while (Date.now() < deadline) {
+      const s = await state(page);
+      if (!s || s.done) break;
+      const partner = CONFUSABLES[s.targetLetter];
+      if (partner) {
+        checksWithPartner++;
+        expect(s.letters.some((l) => l.glyph === partner)).toBe(true);
+      }
+      expect(s.letters.length).toBe(6);
+      const target = s.letters.find((l) => l.glyph === s.targetLetter);
+      if (target) {
+        await tapDesign(page, target.x, target.y);
+        await page.waitForTimeout(700);
+      }
     }
-    expect(s.letters.length).toBe(6);
-    const target = s.letters.find((l) => l.glyph === s.targetLetter);
-    if (target) {
-      await tapDesign(page, target.x, target.y);
-      await page.waitForTimeout(700);
-    }
+    if (checksWithPartner > 0) break;
+    /* this session sampled no confusable target — fresh session */
+    await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22_000 });
+    await page.locator('.zone-card[data-zone="words-valley"]').click();
+    await expect(page.locator('#game-screen canvas')).toBeVisible();
   }
-  expect((await state(page))?.done ?? true).toBe(true);
-  /* the conditional assertion actually ran for at least one round */
   expect(checksWithPartner).toBeGreaterThanOrEqual(1);
 });

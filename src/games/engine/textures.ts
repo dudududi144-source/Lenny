@@ -112,3 +112,21 @@ export function verticalGradientTexture(key: string, stops: Array<[number, strin
   cache.set(key, tex);
   return tex;
 }
+
+/** Radial gradient backdrop (Layer-1 far sky), cached per key. */
+export function radialGradientTexture(key: string, stops: Array<[number, string]>, size = 512): Texture {
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2d context unavailable for texture baking');
+  const g = ctx.createRadialGradient(size / 2, size * 0.24, size * 0.06, size / 2, size * 0.34, size * 0.78);
+  for (const [offset, color] of stops) g.addColorStop(offset, color);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  const tex = Texture.from(canvas);
+  cache.set(key, tex);
+  return tex;
+}

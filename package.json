@@ -13,6 +13,7 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "pixi-filters": "^6",
     "pixi.js": "^8.20.1"
   },
   "devDependencies": {

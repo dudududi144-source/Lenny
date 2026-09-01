@@ -1,15 +1,18 @@
-import { Container, Sprite, Text } from 'pixi.js';
 import type { GameSpec } from '../builder/GameSpec';
 import { AdaptiveDifficulty, type HintStrength } from '../core/AdaptiveDifficulty';
 import { LearningSignals } from '../core/LearningSignals';
 import { recordZoneFinish } from '../core/ProgressStore';
 import type { HudBridge } from '../../ui/components/GameHUD';
+import { Application, Container, Sprite, Text } from 'pixi.js';
 import { AnimationSystem, ease } from './AnimationSystem';
 import { audio } from './AudioEngine';
-import { GardenBackdrop } from './GardenBackdrop';
+import { GardenBackdrop, backdropThemeForZone } from './GardenBackdrop';
 import { FX } from './FX';
+import { FXManager } from './FXManager';
+import { SceneTransition } from './SceneTransition';
+import { LennyActor, type LennyMood } from './LennyActor';
 import { ResultsCeremony } from './ResultsCeremony';
-import { bursts, ParticleSystem } from './ParticleSystem';
+import { bursts, ParticleSystem, themed, type ParticleTheme } from './ParticleSystem';
 import { ringTexture, softGlowTexture } from './textures';
 import { COLORS } from './theme';
 import type { SessionStats } from './ScoreDirector';
@@ -28,6 +31,23 @@ export interface SceneCtx {
 
 /** Reference design space — the Arena scales this to any screen. */
 export const REFERENCE = { w: 420, h: 720 } as const;
+
+/** Zone → ambient particle language (Stage 5). */
+export function themeForZone(zone: string): ParticleTheme {
+  switch (zone) {
+    case 'attention-stream': return 'water';
+    case 'memory-hill': return 'night';
+    case 'thinking-forest': return 'forest';
+    case 'space-sky': return 'wind';
+    case 'words-valley':
+    case 'feelings-garden':
+    case 'creativity-meadow': return 'garden';
+    case 'rhythm-square': return 'music';
+    case 'breath-pool': return 'water';
+    case 'light-path':
+    default: return 'light';
+  }
+}
 
 /**
  * GameScene v2 (Arena) — full-bleed responsive base for every game.
@@ -53,6 +73,15 @@ export abstract class GameScene {
   readonly anim = new AnimationSystem();
   readonly score: ScoreDirector;
   readonly fx: FX;
+  /** Stage-5 filter layer — glow/blur/color-matrix, renderer-aware. */
+  readonly gfx: FXManager;
+  /** Ambient particle language for this world (zone-derived, overridable). */
+  protected particleTheme: ParticleTheme;
+  /** Stage-5 entrance/exit choreography (staggered, visual-only). */
+  readonly transitions = new SceneTransition(this.anim);
+  /** Lenny v2 — the living companion in the top corner. */
+  protected lenny: LennyActor | null = null;
+  protected lastPointerWorld: { x: number; y: number } | null = null;
 
   protected ctx: SceneCtx;
   protected backdrop: GardenBackdrop;
@@ -67,11 +96,15 @@ export abstract class GameScene {
   private finished = false;
   private ceremony: ResultsCeremony | null = null;
   private comboNotified = 0;
+  private vignette: Container | null = null;
+  private ambientStarted = false;
+  private ambientAcc = 0;
+  private entrancePlayed = false;
 
   protected constructor(ctx: SceneCtx) {
     this.ctx = ctx;
     this.dda = new AdaptiveDifficulty(ctx.zone);
-    this.backdrop = new GardenBackdrop(this.worldW, this.worldH);
+    this.backdrop = new GardenBackdrop(this.worldW, this.worldH, backdropThemeForZone(ctx.zone));
     this.root.addChild(this.backdrop.container);
     this.root.addChild(this.particles.container);
 
@@ -80,13 +113,31 @@ export abstract class GameScene {
       if (combo !== this.comboNotified) {
         this.comboNotified = combo;
         this.ctx.hud.combo?.(combo, mult);
+        /* Lenny reacts to the session's heartbeat */
+        if (combo >= 2) this.lenny?.celebrate();
+        else if (combo === 0) this.lenny?.setMood('neutral');
       }
       this.ctx.hud.score?.(this.score.points);
     });
     this.root.addChild(this.score.layer);
     this.root.addChild(this.fxLayer);
 
+    /* Lenny drops in from the roof with his own bounce */
+    this.lenny = new LennyActor(this.anim, {
+      size: this.scaled(52),
+      glow: (target) => this.gfx.glow(target, { color: COLORS.glow, strength: 1.9, distance: 14, pulse: { amount: 0.4, periodMs: 2400 } }),
+      pointer: () => this.lastPointerWorld,
+    });
+    this.lenny.root.x = 56;
+    this.lenny.root.y = 132; /* below the DOM HUD row */
+    this.lenny.enter(-130, 132);
+    this.root.addChild(this.lenny.root);
+
     this.fx = new FX(this.anim, this.fxLayer);
+    this.gfx = new FXManager();
+    this.gfx.attach(ctx.app as Application | null);
+    this.particleTheme = themeForZone(ctx.zone);
+    this.rebuildVignette(); /* default world size — resize refines it */
     ctx.hud.ringReset();
     ctx.hud.pauseEnabled?.(true);
 
@@ -131,7 +182,20 @@ export abstract class GameScene {
     this.worldH = h;
     this.root.scale.set(this.worldUnit);
     this.backdrop.resize(this.worldW, this.worldH);
+    this.rebuildVignette();
     this.layout();
+  }
+
+  /** Scene-wide subjective vignette, rebuilt with the world size. */
+  private rebuildVignette(): void {
+    if (this.vignette && !this.vignette.destroyed) {
+      this.vignette.destroy();
+      this.vignette = null;
+    }
+    if (this.gfx) {
+      this.gfx.atmosphere(this.fxLayer, this.worldW, this.worldH);
+      this.vignette = this.fxLayer.children[0] ?? null;
+    }
   }
 
   /** Scenes reposition their content here on resize. */
@@ -148,6 +212,7 @@ export abstract class GameScene {
 
   pointerMove(px: number, py: number): void {
     const p = this.toWorld(px, py);
+    this.lastPointerWorld = p;
     this.onDragMove(p.x, p.y);
   }
 
@@ -184,7 +249,33 @@ export abstract class GameScene {
       ceremonyOpen: (c?.ceremony as boolean) ?? false,
       ceremonyStars: (c?.stars as number) ?? 0,
       newRecord: (c?.newRecord as boolean) ?? false,
+      /* Stage 5 — filter-layer observability (additive keys) */
+      fxKind: this.gfx?.rendererKind ?? 'none',
+      fxFilters: this.gfx?.activeCount ?? 0,
+      fxGlowCap: this.gfx?.capabilities.glow ?? false,
+      lennyMood: (this.lenny?.moodNow() ?? 'none') as LennyMood | 'none',
     };
+  }
+
+  /** Lenny celebrates (scenes call on their own success beats). */
+  protected lennyCelebrate(): void {
+    this.lenny?.celebrate();
+  }
+
+  /** Lenny empathizes with a miss — never scolds. */
+  protected lennyEmpathize(): void {
+    this.lenny?.empathize();
+  }
+
+  /** Real glow filter on a glowing element (pooled + reported). */
+  protected glowOn(target: Container, color?: number, strength = 1.6, pulse = true): void {
+    if (!this.gfx) return;
+    this.gfx.glow(target, {
+      color,
+      strength,
+      distance: 16,
+      pulse: pulse ? { amount: 0.45, periodMs: 1900 } : undefined,
+    });
   }
 
   /* ---------- shared helpers ---------- */
@@ -273,6 +364,7 @@ export abstract class GameScene {
     this.root.addChild(ceremony.root);
 
     if (!opts.quiet) {
+      themed.celebrate(this.particles, this.w / 2, this.h * 0.4, this.particleTheme);
       bursts.confetti(this.particles, this.w / 2, this.h * 0.3);
       bursts.sparkle(this.particles, this.w / 2, this.h * 0.24);
       this.fx.shake(this.root, 0, 0, 4, 240);
@@ -296,6 +388,7 @@ export abstract class GameScene {
     this.finished = true;
     const secs = Math.max(1, Math.round((performance.now() - this.startedAt) / 1000));
     recordZoneFinish(this.ctx.zone, secs);
+    themed.celebrate(this.particles, this.w / 2, this.h * 0.4, this.particleTheme);
     bursts.confetti(this.particles, this.w / 2, this.h * 0.32);
     bursts.sparkle(this.particles, this.w / 2, this.h * 0.26);
     audio.play('fanfare');
@@ -321,11 +414,36 @@ export abstract class GameScene {
     this.particles.update(dt);
     this.anim.update(dt);
     this.score.update();
+    this.gfx?.update(dt);
+    this.lenny?.update(dt);
+    if (!this.ambientStarted) {
+      this.ambientStarted = true;
+      themed.ambient(this.particles, this.worldW, this.worldH, this.particleTheme);
+    }
+    if (!this.entrancePlayed) {
+      this.entrancePlayed = true;
+      /* staggered entrance in z-order: backdrop fades, content scales in */
+      const layers = this.root.children.filter((c) => c !== this.fxLayer && c !== this.lenny?.root);
+      const [backdropLayer, ...contentLayers] = layers;
+      if (backdropLayer) this.transitions.enter([backdropLayer], { staggerMs: 0, durMs: 420, fadeOnly: true });
+      if (contentLayers.length > 0) {
+        this.transitions.enter(contentLayers, { staggerMs: 50, durMs: 300, fadeOnly: false });
+      }
+    }
+    this.ambientAcc += dt;
+    if (this.ambientAcc > 1500) {
+      this.ambientAcc = 0;
+      themed.ambient(this.particles, this.worldW, this.worldH, this.particleTheme, 2);
+    }
   }
 
   destroy(): void {
     this.tornDown = true;
     audio.stopMusic();
+    this.transitions?.destroy();
+    this.lenny?.destroy();
+    this.lenny = null;
+    this.gfx?.dispose();
     this.fx.destroy();
     this.anim.destroy();
     this.particles.dispose();

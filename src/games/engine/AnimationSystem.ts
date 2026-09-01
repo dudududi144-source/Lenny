@@ -14,7 +14,44 @@ export const ease = {
   outBack: (t: number): number => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2),
   outElastic: (t: number): number =>
     t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1,
+  outBounce: (t: number): number => {
+    const n1 = 7.5625;
+    const d1 = 2.75;
+    if (t < 1 / d1) return n1 * t * t;
+    if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+    if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+    return n1 * (t -= 2.625 / d1) * t + 0.984375;
+  },
 } satisfies Record<string, Easing>;
+
+/* cubic-bezier(0.4, 0, 0.2, 1) — the shared entrance/exit curve (Stage 5).
+   Lives beside the named easings so DOM CSS and canvas tweens agree. */
+function cubicBezier(x1: number, y1: number, x2: number, y2: number): Easing {
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const sampleX = (t: number): number => ((ax * t + bx) * t + cx) * t;
+  const slopeX = (t: number): number => (3 * ax * t + 2 * bx) * t + cx;
+  return (x: number): number => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const X = sampleX(t) - x;
+      if (Math.abs(X) < 1e-5) break;
+      const d = slopeX(t);
+      if (Math.abs(d) < 1e-6) break;
+      t -= X / d;
+    }
+    return ((ay * t + by) * t + cy) * t;
+  };
+}
+
+/** the standard smooth curve, exported for scenes that hand-roll choreography */
+export const easeStandard: Easing = cubicBezier(0.4, 0, 0.2, 1);
 
 export interface TweenOptions {
   durationMs: number;
@@ -29,9 +66,16 @@ export interface TweenHandle {
 
 type NumberBox = Record<string, number>;
 
+interface TweenProp {
+  obj: NumberBox;
+  key: string;
+  to: number;
+  from: number;
+}
+
 interface TweenRec {
   target: NumberBox;
-  props: Array<{ key: string; to: number; from: number }>;
+  props: TweenProp[];
   age: number;
   durationMs: number;
   ease: Easing;
@@ -58,12 +102,34 @@ export class AnimationSystem {
   private loops: LoopRec[] = [];
   private afters: AfterRec[] = [];
 
-  /** Tween numeric properties of any object (e.g. sprite.x, scale, alpha). */
+  /**
+   * Tween numeric properties of any object (e.g. sprite.x, alpha, width).
+   * Point-valued props (container.scale, container.pivot, container.position)
+   * are auto-detected and tweened as their numeric x/y — a uniform number
+   * target scales both axes. Writing a Point object directly would corrupt
+   * the transform (NaN), which is exactly what this guard prevents.
+   */
   to(target: object, props: Record<string, number>, options: TweenOptions): TweenHandle {
     const box = target as NumberBox;
+    const expanded: TweenProp[] = [];
+    for (const [key, to] of Object.entries(props)) {
+      const cur = (target as Record<string, unknown>)[key];
+      if (
+        typeof to === 'number' &&
+        cur && typeof cur === 'object' &&
+        typeof (cur as NumberBox).x === 'number' &&
+        typeof (cur as NumberBox).y === 'number'
+      ) {
+        const pt = cur as NumberBox;
+        expanded.push({ obj: pt, key: 'x', to, from: NaN });
+        expanded.push({ obj: pt, key: 'y', to, from: NaN });
+      } else {
+        expanded.push({ obj: box, key, to, from: NaN });
+      }
+    }
     const rec: TweenRec = {
       target: box,
-      props: Object.entries(props).map(([key, to]) => ({ key, to, from: NaN })),
+      props: expanded,
       age: 0,
       durationMs: Math.max(1, options.durationMs),
       ease: options.ease ?? ease.outCubic,
@@ -120,13 +186,13 @@ export class AnimationSystem {
       if (rec.age < rec.delayMs) continue;
       if (!rec.started) {
         rec.started = true;
-        for (const p of rec.props) p.from = rec.target[p.key];
+        for (const p of rec.props) p.from = p.obj[p.key];
       }
       const raw = Math.min(1, (rec.age - rec.delayMs) / rec.durationMs);
       const t = rec.ease(raw);
       try {
         for (const p of rec.props) {
-          rec.target[p.key] = p.from + (p.to - p.from) * t;
+          p.obj[p.key] = p.from + (p.to - p.from) * t;
         }
       } catch {
         rec.killed = true;

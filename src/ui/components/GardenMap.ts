@@ -20,6 +20,8 @@ export interface GardenMapCallbacks {
   onZone(zoneId: string): void;
   onLockedTap(zoneId: string): void;
   onFreshZones(zoneIds: string[]): void;
+  /** Stage-5: quiet entrance for the grown-ups (bottom corner). */
+  onParents?(): void;
 }
 
 export interface GardenMapHandle {
@@ -212,6 +214,21 @@ export function createGardenMap(callbacks: GardenMapCallbacks): GardenMapHandle 
     ),
     greeting,
     path,
+    h(
+      'div',
+      { class: 'garden-foot' },
+      h(
+        'button',
+        {
+          class: 'garden-parents-link',
+          id: 'garden-parent-link',
+          type: 'button',
+          'aria-label': 'פינת ההורים',
+          onClick: () => callbacks.onParents?.(),
+        },
+        'לְהוֹרִים',
+      ),
+    ),
   );
 
   let list: HTMLElement | null = null;

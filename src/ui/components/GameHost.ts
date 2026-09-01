@@ -66,6 +66,9 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   let mounted = false;
   let zoneId: string | null = null;
   let sceneKey: string | null = null;
+  /* Stage-5 exit wipe: generation-guarded so a fast re-open never
+     gets closed by a stale close timeout. */
+  let closeGen = 0;
 
   function spawn(): void {
     if (!zoneId) return;
@@ -86,6 +89,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
     sceneKey = resolvedKey;
     hud.setZone(zoneName(target));
     hud.clear();
+    hud.playEnter();
     const scene: GameScene = factory({
       app: gameApp.pixiApp,
       zone: target,
@@ -98,6 +102,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   }
 
   async function open(target: string): Promise<boolean> {
+    closeGen++; /* invalidate any pending close */
     const data = safeLoad(callbacks.loadGarden);
     const specs = gamesInZone(target);
     const done = finishedCount(data, target);
@@ -128,12 +133,18 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   }
 
   function close(): void {
-    gameApp.setPaused(false);
-    gameApp.setScene(null);
-    root.classList.add('hidden');
-    zoneId = null;
-    sceneKey = null;
-    callbacks.onExit();
+    const gen = ++closeGen;
+    root.classList.add('is-exiting');
+    window.setTimeout(() => {
+      if (gen !== closeGen) return; /* a new open superseded this close */
+      gameApp.setPaused(false);
+      gameApp.setScene(null);
+      root.classList.remove('is-exiting');
+      root.classList.add('hidden');
+      zoneId = null;
+      sceneKey = null;
+      callbacks.onExit();
+    }, 260);
   }
 
   return {

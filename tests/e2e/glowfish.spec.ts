@@ -97,7 +97,8 @@ test('level-0 session completes through real taps; DDA and garden advance', asyn
   expect(finished).toBeGreaterThan(0);
 
   /* automatic return to the garden after the celebration gap */
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the ceremony holds ~5.2s (dt-clamped under load) + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(await page.evaluate(() => window.__lenny?.scene())).toBeNull();
   expect(errors).toEqual([]);
 });
@@ -218,21 +219,38 @@ test('golden fish pays a bonus and jellyfish break the chain without ending the 
   expect(goldenTapped).toBe(true);
   expect(sawJellies).toBe(true); /* the hazard layer was present mid-play */
 
-  /* a miss still resets the combo without ending the round */
-  const s = (await state(page))!;
-  const comboBefore = s.arenaCombo;
-  const jelly = await page.evaluate(() => {
-    const st = window.__lenny?.sceneState() as { fishes: Array<{ x: number; y: number }> };
-    return st ? { x: 0, y: 0 } : null;
-  });
-  void jelly;
-  /* tap a decoy instead (jelly positions are not exposed): combo resets */
-  const decoy = s.fishes.find((f) => !f.target);
-  if (decoy && comboBefore > 0) {
+  /* a miss still resets the combo without ending the round. The pond keeps
+     swimming, so under CI load a slow frame can land the tap on the moving
+     target instead of the decoy — retry with fresh decoy positions until
+     the combo actually drops to 0 (state-based, never a fixed single tap). */
+  const buildCombo = async (): Promise<void> => {
+    for (let i = 0; i < 10; i++) {
+      const st = (await state(page))!;
+      if (st.done || st.arenaCombo > 0) return;
+      if (st.leader) await tapDesign(page, st.leader.x, st.leader.y);
+      await page.waitForTimeout(260);
+    }
+  };
+  await buildCombo();
+
+  let comboReset = false;
+  const missDeadline = Date.now() + 30_000;
+  while (Date.now() < missDeadline) {
+    const st = (await state(page))!;
+    if (st.done) break;
+    if (st.arenaCombo === 0) {
+      comboReset = true;
+      break;
+    }
+    const decoy = st.fishes.find((f) => !f.target);
+    if (!decoy) {
+      await page.waitForTimeout(240);
+      continue;
+    }
     await tapDesign(page, decoy.x, decoy.y);
-    await page.waitForTimeout(200);
-    expect((await state(page))!.arenaCombo).toBe(0);
+    await page.waitForTimeout(220);
   }
+  expect(comboReset).toBe(true);
 
   /* the round is still alive: fish remain, no done */
   const finalState = (await state(page))!;

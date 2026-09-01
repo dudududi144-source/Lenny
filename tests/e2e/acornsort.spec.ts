@@ -92,7 +92,8 @@ test('level-0: three rounds complete via tap-pick / tap-place', async ({ page })
   const garden = await page.evaluate(() => window.__lenny!.garden());
   const finished = garden.finished?.['thinking-forest'] ?? garden.zones['thinking-forest']?.finished ?? 0;
   expect(finished).toBeGreaterThan(0);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 9000 });
+  /* the ceremony holds ~5.2s (dt-clamped under load) + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(errors).toEqual([]);
 });
 

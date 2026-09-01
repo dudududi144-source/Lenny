@@ -93,6 +93,8 @@ export class BreathPoolScene extends GameScene {
         this.litCount++;
         this.ctx.hud.ringCounts(this.litCount, this.total);
         lantern.halo.alpha = 0.55;
+        /* Stage 5: a lit lantern earns its real glow */
+        this.glowOn(lantern.view, COLORS.glow, 2.1);
         this.sparkle(lantern.view.x, lantern.view.y);
         this.score.hit(15, { x: lantern.view.x, y: lantern.view.y });
         audio.play('chime', this.litCount % 4);

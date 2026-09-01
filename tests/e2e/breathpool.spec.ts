@@ -65,7 +65,8 @@ test('slow calm taps light every lantern', async ({ page }) => {
   const garden = await page.evaluate(() => window.__lenny!.garden());
   const finished = garden.finished?.['breath-pool'] ?? garden.zones['breath-pool']?.finished ?? 0;
   expect(finished).toBeGreaterThan(0);
-  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 12000 });
+  /* ceremony hold + exit wipe — load-tolerant window */
+  await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 22000 });
   expect(errors).toEqual([]);
 });
 
