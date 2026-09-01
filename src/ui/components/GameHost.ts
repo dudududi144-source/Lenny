@@ -1,4 +1,3 @@
-import { gamesInZone } from '../../games/builder/GameRegistry';
 import {
   finishedCount,
   LocalProgressStore,
@@ -7,9 +6,12 @@ import {
 } from '../../games/core/ProgressStore';
 import { getZone, type ZoneId } from '../../data/garden';
 import { GameApp } from '../../games/engine/GameApp';
+import type { GameSpec } from '../../games/builder/GameSpec';
 import type { GameScene } from '../../games/engine/GameScene';
 import { SCENE_REGISTRY, sceneKeyForSpec, sceneKeyForZone } from '../../games/scenes/registry';
+import { zoneCatalog } from '../../content/catalog';
 import { createGameHUD, type GameHUDHandle } from './GameHUD';
+import { createGameShelf, type GameShelfHandle } from './GameShelf';
 import { h } from './common/el';
 
 export interface GameHostCallbacks {
@@ -26,6 +28,8 @@ export interface GameHostHandle {
   isZoneOpen(zoneId: string): boolean;
   currentZoneId(): string | null;
   currentSceneKey(): string | null;
+  /** Spec id currently playing (seed or derived) — Stage 6, additive. */
+  currentSpecId(): string | null;
   rendererKind(): string | null;
   sceneDebug(): Record<string, unknown> | null;
   canvasRect(): { x: number; y: number; width: number; height: number } | null;
@@ -54,6 +58,15 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   const hud: GameHUDHandle = createGameHUD({
     onBack: () => close(),
     onPauseToggle: (paused) => gameApp.setPaused(paused),
+    onShelf: () => {
+      if (zoneId) shelf.open(zoneId, currentSpecId);
+    },
+  });
+  const shelf: GameShelfHandle = createGameShelf({
+    onPick: (spec) => {
+      if (!zoneId) return;
+      spawn(spec);
+    },
   });
   const stage = h('div', { class: 'game-stage', id: 'game-stage' });
   const root = h(
@@ -61,22 +74,28 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
     { class: 'screen screen--game hidden', id: 'game-screen', 'aria-label': 'משחק בגן' },
     stage,
     hud.root,
+    shelf.root,
   );
 
   let mounted = false;
   let zoneId: string | null = null;
   let sceneKey: string | null = null;
+  let currentSpecId: string | null = null;
   /* Stage-5 exit wipe: generation-guarded so a fast re-open never
      gets closed by a stale close timeout. */
   let closeGen = 0;
 
-  function spawn(): void {
+  function spawn(pickedSpec?: GameSpec): void {
     if (!zoneId) return;
     const target = zoneId;
     const data = safeLoad(callbacks.loadGarden);
-    const specs = gamesInZone(target);
+    /* Stage 6: the zone's full catalog (seed spine first, then the
+       derived games). A shelf pick overrides the default progression. */
+    const specs = zoneCatalog(target);
     const done = finishedCount(data, target);
-    const spec = specs.length > 0 ? specs[Math.min(done, specs.length - 1)] : null;
+    const spec =
+      pickedSpec ??
+      (specs.length > 0 ? specs[Math.min(done, specs.length - 1)] : null);
     const wanted = spec
       ? sceneKeyForSpec(spec)
       : sceneKeyForZone(target, getZone(target as ZoneId)?.gameScene);
@@ -87,6 +106,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
       return;
     }
     sceneKey = resolvedKey;
+    currentSpecId = spec ? spec.id : null;
     hud.setZone(zoneName(target));
     hud.clear();
     hud.playEnter();
@@ -104,7 +124,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   async function open(target: string): Promise<boolean> {
     closeGen++; /* invalidate any pending close */
     const data = safeLoad(callbacks.loadGarden);
-    const specs = gamesInZone(target);
+    const specs = zoneCatalog(target);
     const done = finishedCount(data, target);
     const spec = specs.length > 0 ? specs[Math.min(done, specs.length - 1)] : null;
     const wanted = spec
@@ -121,6 +141,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
 
     zoneId = target;
     sceneKey = resolvedKey;
+    currentSpecId = spec ? spec.id : null;
     /* Reveal the game screen BEFORE mounting so the Pixi canvas measures
        its real size on the first frame (no mount-hidden resize race). */
     root.classList.remove('hidden');
@@ -143,6 +164,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
       root.classList.add('hidden');
       zoneId = null;
       sceneKey = null;
+      currentSpecId = null;
       callbacks.onExit();
     }, 260);
   }
@@ -156,6 +178,8 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
     },
     currentZoneId: () => zoneId,
     currentSceneKey: () => sceneKey,
+    /** Spec id currently playing (seed or derived) — Stage 6, additive. */
+    currentSpecId: () => currentSpecId,
     rendererKind: () => gameApp.rendererKind,
     sceneDebug: () => {
       const scene = gameApp.getScene();

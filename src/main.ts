@@ -8,6 +8,7 @@
 import './ui/styles/tokens.css';
 import './ui/styles/global.css';
 import './ui/styles/animations.css';
+import './ui/styles/shelf.css';
 import './ui/styles/parentlens.css';
 
 import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';
@@ -18,6 +19,7 @@ import { createGameHost } from './ui/components/GameHost';
 import { createGardenMap } from './ui/components/GardenMap';
 import { createParentLens } from './ui/components/ParentLens';
 import { createHero } from './ui/components/Hero';
+import { installCatalog } from './content/catalog';
 import { h } from './ui/components/common/el';
 
 declare global {
@@ -29,6 +31,8 @@ declare global {
       zoneLevel(zone: string): number;
       scene(): string | null;
       sceneState(): Record<string, unknown> | null;
+      /** Stage 6 (additive): the catalog spec currently playing. */
+      spec(): string | null;
       renderer(): string | null;
       canvasRect(): { x: number; y: number; width: number; height: number } | null;
       design: { w: number; h: number };
@@ -37,6 +41,10 @@ declare global {
 }
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
+
+/* ---------- the 144-game catalog (validated at boot) ---------- */
+
+installCatalog();
 
 /* ---------- toast (the shell's gentle error surface) ---------- */
 
@@ -183,6 +191,8 @@ window.__lenny = {
   zoneLevel: (zone: string) => new AdaptiveDifficulty(zone).level(),
   scene: () => gameHost.currentSceneKey(),
   sceneState: () => gameHost.sceneDebug(),
+  /** Stage 6 (additive): the spec currently playing. */
+  spec: () => gameHost.currentSpecId(),
   renderer: () => gameHost.rendererKind(),
   canvasRect: () => gameHost.canvasRect(),
   /* live world space (Arena): scenes lay out in these units */

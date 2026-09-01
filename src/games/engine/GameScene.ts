@@ -2,6 +2,7 @@ import type { GameSpec } from '../builder/GameSpec';
 import { AdaptiveDifficulty, type HintStrength } from '../core/AdaptiveDifficulty';
 import { LearningSignals } from '../core/LearningSignals';
 import { recordZoneFinish } from '../core/ProgressStore';
+import { recordGameFinish } from '../../content/gameFinishes';
 import type { HudBridge } from '../../ui/components/GameHUD';
 import { Application, Container, Sprite, Text } from 'pixi.js';
 import { AnimationSystem, ease } from './AnimationSystem';
@@ -352,6 +353,8 @@ export abstract class GameScene {
     this.finished = true;
     const stats: SessionStats = this.score.stats();
     recordZoneFinish(this.ctx.zone, stats.secs);
+    /* Stage 6: per-game completion (feeds the shelf's tier locks) */
+    if (this.ctx.spec) recordGameFinish(this.ctx.spec.id);
 
     const ceremony = new ResultsCeremony(this.anim, this.w, this.h, {
       onReplay: () => {
@@ -388,6 +391,8 @@ export abstract class GameScene {
     this.finished = true;
     const secs = Math.max(1, Math.round((performance.now() - this.startedAt) / 1000));
     recordZoneFinish(this.ctx.zone, secs);
+    /* Stage 6: per-game completion (feeds the shelf's tier locks) */
+    if (this.ctx.spec) recordGameFinish(this.ctx.spec.id);
     themed.celebrate(this.particles, this.w / 2, this.h * 0.4, this.particleTheme);
     bursts.confetti(this.particles, this.w / 2, this.h * 0.32);
     bursts.sparkle(this.particles, this.w / 2, this.h * 0.26);
