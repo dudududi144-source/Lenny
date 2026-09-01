@@ -66,6 +66,12 @@ export class ResultsCeremony {
     return this.state.visible;
   }
 
+  /** Silent close (auto-advance path) — no actions invoked. */
+  dismiss(): void {
+    this.state.visible = false;
+    this.root.visible = false;
+  }
+
   /** Show the ceremony. Returns the (possibly new) record flag. */
   show(zone: string, stats: SessionStats, title = 'כָּל הַכָּבוֹד!'): void {
     if (this.state.visible) return;

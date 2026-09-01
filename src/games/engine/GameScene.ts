@@ -278,7 +278,16 @@ export abstract class GameScene {
       this.fx.shake(this.root, 0, 0, 4, 240);
       audio.play('fanfare');
     }
-    this.anim.after(700, () => ceremony.show(this.ctx.zone, stats, opts.title));
+    this.anim.after(700, () => {
+      if (this.tornDown) return;
+      ceremony.show(this.ctx.zone, stats, opts.title);
+      /* auto-advance: watch the stars, then the garden takes over */
+      this.anim.after(5200, () => {
+        if (this.tornDown || !ceremony.isOpen()) return;
+        ceremony.dismiss();
+        this.ctx.onExit();
+      });
+    });
   }
 
   /** Legacy instant finish (non-migrated scenes): record + celebrate + leave. */

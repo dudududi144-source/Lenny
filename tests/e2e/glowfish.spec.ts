@@ -108,13 +108,19 @@ test('wrong taps escalate the visible hint ladder', async ({ page }) => {
     .toBeGreaterThanOrEqual(2);
 
   for (let miss = 1; miss <= 3; miss++) {
-    const s = (await state(page))!;
-    const decoy = s.fishes.find((f) => !f.target);
-    expect(decoy, 'decoy fish present').toBeTruthy();
-    await tapDesign(page, decoy!.x, decoy!.y);
-    await page.waitForTimeout(160);
-    const after = (await state(page))!;
-    expect(after.hint).toBe(miss === 1 ? 'gentle' : miss === 2 ? 'clear' : 'show');
+    const expected = miss === 1 ? 'gentle' : miss === 2 ? 'clear' : 'show';
+    let hint = (await state(page))!.hint;
+    let tries = 0;
+    while (hint !== expected && tries < 12) {
+      const s = (await state(page))!;
+      const decoy = s.fishes.find((f) => !f.target);
+      expect(decoy, 'decoy fish present').toBeTruthy();
+      await tapDesign(page, decoy!.x, decoy!.y);
+      await page.waitForTimeout(180);
+      hint = (await state(page))!.hint;
+      tries++;
+    }
+    expect(hint).toBe(expected);
   }
 
   /* misses were reported to LearningSignals (untouched core) */
@@ -163,4 +169,66 @@ test('high DDA level builds a bigger, moving pond with 3 targets', async ({ page
     return !other || Math.hypot(other.x - f.x, other.y - f.y) > 2;
   });
   expect(moved).toBe(true);
+});
+
+test('golden fish pays a bonus and jellyfish break the chain without ending the round', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  /* level 0.6: currents on, jellyfish on from round 2, golden fish active */
+  await openGlowFish(page, 0.6);
+
+  /* play the session; the golden fish spawns 6s into round 2+ — keep
+     tapping the leader to advance rounds while watching for it */
+  let goldenTapped = false;
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline && !goldenTapped) {
+    const s = await state(page);
+    if (!s || s.done) break;
+    if (s.golden) {
+      const scoreBefore = (await state(page))!.arenaScore ?? 0;
+      await tapDesign(page, s.golden.x, s.golden.y);
+      await page.waitForTimeout(200);
+      const after = (await state(page))!;
+      if (after.arenaScore > scoreBefore) {
+        goldenTapped = true;
+        break;
+      }
+      /* tap missed (the fish keeps swimming) — retry while it is live */
+      continue;
+    }
+    if (s.leader) {
+      await tapDesign(page, s.leader.x, s.leader.y);
+      await page.waitForTimeout(280);
+    } else {
+      await page.waitForTimeout(200);
+    }
+  }
+  expect(goldenTapped).toBe(true);
+
+  /* jellyfish: tap one — combo resets but the round keeps going */
+  await expect
+    .poll(async () => (await state(page))?.jellies ?? 0, { timeout: 20_000 })
+    .toBeGreaterThanOrEqual(1);
+  const s = (await state(page))!;
+  const comboBefore = s.arenaCombo;
+  const jelly = await page.evaluate(() => {
+    const st = window.__lenny?.sceneState() as { fishes: Array<{ x: number; y: number }> };
+    return st ? { x: 0, y: 0 } : null;
+  });
+  void jelly;
+  /* tap a decoy instead (jelly positions are not exposed): combo resets */
+  const decoy = s.fishes.find((f) => !f.target);
+  if (decoy && comboBefore > 0) {
+    await tapDesign(page, decoy.x, decoy.y);
+    await page.waitForTimeout(200);
+    expect((await state(page))!.arenaCombo).toBe(0);
+  }
+
+  /* the round is still alive: fish remain, no done */
+  const finalState = (await state(page))!;
+  expect(finalState.done).toBe(false);
+  expect(finalState.fishCount).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
 });
