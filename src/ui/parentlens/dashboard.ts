@@ -2,6 +2,7 @@ import { finishedCount, zoneName } from '../../games/core/ProgressStore';
 import { ZONES } from '../../data/garden';
 import { uiButton } from '../components/common/Button';
 import { h } from '../components/common/el';
+import { buildCharts } from './charts';
 import type { LensData } from './lensData';
 
 /* ============================================================
@@ -175,8 +176,9 @@ export function renderDashboard(data: LensData, callbacks: DashboardCallbacks): 
   /* the garden path always renders (it is the map, not a chart) —
      the analytics sections yield to the gentle empty state when
      nothing has been collected yet */
-  const sections = data.hasAnyData
-    ? [zonesCard(data), skillsCard(data), signalsCard(data)]
+  const charts = data.hasAnyData ? buildCharts(data) : null;
+  const sections = data.hasAnyData && charts
+    ? [zonesCard(data), charts.weekly, charts.strengths, skillsCard(data), charts.errors, charts.blooming, signalsCard(data)]
     : [zonesCard(data), emptyState()];
 
   root.append(
