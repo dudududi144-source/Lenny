@@ -10,7 +10,7 @@ import { GardenBackdrop } from './GardenBackdrop';
 import { FX } from './FX';
 import { FXManager } from './FXManager';
 import { ResultsCeremony } from './ResultsCeremony';
-import { bursts, ParticleSystem } from './ParticleSystem';
+import { bursts, ParticleSystem, themed, type ParticleTheme } from './ParticleSystem';
 import { ringTexture, softGlowTexture } from './textures';
 import { COLORS } from './theme';
 import type { SessionStats } from './ScoreDirector';
@@ -29,6 +29,23 @@ export interface SceneCtx {
 
 /** Reference design space — the Arena scales this to any screen. */
 export const REFERENCE = { w: 420, h: 720 } as const;
+
+/** Zone → ambient particle language (Stage 5). */
+export function themeForZone(zone: string): ParticleTheme {
+  switch (zone) {
+    case 'attention-stream': return 'water';
+    case 'memory-hill': return 'night';
+    case 'thinking-forest': return 'forest';
+    case 'space-sky': return 'wind';
+    case 'words-valley':
+    case 'feelings-garden':
+    case 'creativity-meadow': return 'garden';
+    case 'rhythm-square': return 'music';
+    case 'breath-pool': return 'water';
+    case 'light-path':
+    default: return 'light';
+  }
+}
 
 /**
  * GameScene v2 (Arena) — full-bleed responsive base for every game.
@@ -56,6 +73,8 @@ export abstract class GameScene {
   readonly fx: FX;
   /** Stage-5 filter layer — glow/blur/color-matrix, renderer-aware. */
   readonly gfx: FXManager;
+  /** Ambient particle language for this world (zone-derived, overridable). */
+  protected particleTheme: ParticleTheme;
 
   protected ctx: SceneCtx;
   protected backdrop: GardenBackdrop;
@@ -71,6 +90,8 @@ export abstract class GameScene {
   private ceremony: ResultsCeremony | null = null;
   private comboNotified = 0;
   private vignette: Container | null = null;
+  private ambientStarted = false;
+  private ambientAcc = 0;
 
   protected constructor(ctx: SceneCtx) {
     this.ctx = ctx;
@@ -93,6 +114,7 @@ export abstract class GameScene {
     this.fx = new FX(this.anim, this.fxLayer);
     this.gfx = new FXManager();
     this.gfx.attach(ctx.app as Application | null);
+    this.particleTheme = themeForZone(ctx.zone);
     this.rebuildVignette(); /* default world size — resize refines it */
     ctx.hud.ringReset();
     ctx.hud.pauseEnabled?.(true);
@@ -308,6 +330,7 @@ export abstract class GameScene {
     this.root.addChild(ceremony.root);
 
     if (!opts.quiet) {
+      themed.celebrate(this.particles, this.w / 2, this.h * 0.4, this.particleTheme);
       bursts.confetti(this.particles, this.w / 2, this.h * 0.3);
       bursts.sparkle(this.particles, this.w / 2, this.h * 0.24);
       this.fx.shake(this.root, 0, 0, 4, 240);
@@ -331,6 +354,7 @@ export abstract class GameScene {
     this.finished = true;
     const secs = Math.max(1, Math.round((performance.now() - this.startedAt) / 1000));
     recordZoneFinish(this.ctx.zone, secs);
+    themed.celebrate(this.particles, this.w / 2, this.h * 0.4, this.particleTheme);
     bursts.confetti(this.particles, this.w / 2, this.h * 0.32);
     bursts.sparkle(this.particles, this.w / 2, this.h * 0.26);
     audio.play('fanfare');
@@ -357,6 +381,15 @@ export abstract class GameScene {
     this.anim.update(dt);
     this.score.update();
     this.gfx?.update(dt);
+    if (!this.ambientStarted) {
+      this.ambientStarted = true;
+      themed.ambient(this.particles, this.worldW, this.worldH, this.particleTheme);
+    }
+    this.ambientAcc += dt;
+    if (this.ambientAcc > 1500) {
+      this.ambientAcc = 0;
+      themed.ambient(this.particles, this.worldW, this.worldH, this.particleTheme, 2);
+    }
   }
 
   destroy(): void {

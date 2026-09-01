@@ -573,6 +573,13 @@ export class GlowFishScene extends GameScene {
     if (this.tornDown) return;
     const dt = dtMs / 1000;
 
+    /* Stage 5: gravity well — pond motes drift toward the golden fish
+       (or the wish bubble while it sleeps). Food draws the school. */
+    if (!this.golden && !this.wishBubble?.destroyed) {
+      this.particles.setWells([
+        { x: this.wishBubble?.x ?? this.w / 2, y: this.wishBubble?.y ?? 78, strength: 26, radius: 260 },
+      ]);
+    }
 
     const level = this.effectiveLevel();
     const mode = movementModeFor(level);
@@ -616,6 +623,10 @@ export class GlowFishScene extends GameScene {
       const g = this.golden;
       g.x += g.vx * dtMs;
       g.view.x = g.x;
+      /* Stage 5: while the golden fish swims, the pond is drawn to it */
+      if (!g.view.destroyed) {
+        this.particles.setWells([{ x: g.x, y: g.view.y, strength: 42, radius: 320 }]);
+      }
       g.view.y = g.y + Math.sin(this.t / 240) * 8;
       g.view.rotation = Math.sin(this.t / 240) * 0.08;
       if (g.x < -60 || g.x > this.w + 60 || this.t - g.bornAt > GOLDEN_LIFETIME_MS) {

@@ -80,6 +80,7 @@ export class SequenceEchoScene extends GameScene {
 
   constructor(ctx: SceneCtx) {
     super(ctx);
+    this.particleTheme = 'music'; /* the crystal choir sings in its own language */
     this.root.addChild(this.board);
 
     this.melodyPath = new Graphics();
