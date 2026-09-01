@@ -59,14 +59,16 @@ test('five mixes fill the flower; completion records the outcome', async ({ page
   const a = s.primarySpots[0];
   const b = s.primarySpots[1];
 
-  /* every different-primary pair mixes and auto-fills the next petal */
+  /* every different-primary pair mixes and auto-fills the next petal.
+     The bee flies before the fill lands — poll instead of sleeping so
+     slow CI runners are never racing the animation. */
   for (let i = 0; i < 5; i++) {
     await tapDesign(page, a.x, a.y);
     await page.waitForTimeout(200);
     await tapDesign(page, b.x, b.y);
-    await page.waitForTimeout(450);
-    const after = (await state(page))!;
-    expect(after.petalsFilled).toBe(i + 1);
+    await expect
+      .poll(async () => (await state(page))?.petalsFilled ?? 0, { timeout: 15_000 })
+      .toBe(i + 1);
   }
 
   await expect

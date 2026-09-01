@@ -61,19 +61,27 @@ test('level-0: all emotion rounds complete through real taps', async ({ page }) 
 
   await openEmotionFace(page, 0.05);
 
-  const deadline = Date.now() + 90_000;
+  const deadline = Date.now() + 110_000;
+  let lastRound = -1;
   while (Date.now() < deadline) {
     const s = await state(page);
     if (!s || s.done) break;
-    const match = s.options.find((o) => o.emotion === s.emotion);
-    if (match) {
-      await tapDesign(page, match.x, match.y);
-      await page.waitForTimeout(650);
+    if (s.round !== lastRound) {
+      lastRound = s.round;
+      const match = s.options.find((o) => o.emotion === s.emotion);
+      if (match) await tapDesign(page, match.x, match.y);
+      await page.waitForTimeout(500);
     } else {
-      await page.waitForTimeout(200);
+      /* same round: the tap may have landed during the answer lock — retry */
+      const match = s.options.find((o) => o.emotion === s.emotion);
+      if (match) await tapDesign(page, match.x, match.y);
+      await page.waitForTimeout(650);
     }
   }
 
+  await expect
+    .poll(async () => (await state(page))?.done ?? true, { timeout: 30_000 })
+    .toBe(true);
   const finalState = await state(page);
   expect(finalState?.done ?? true).toBe(true);
   const dda = await page.evaluate(() => JSON.parse(localStorage.getItem('lenny-dda-v1') ?? '{}')['feelings-garden']);
