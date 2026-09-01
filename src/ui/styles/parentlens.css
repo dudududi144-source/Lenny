@@ -226,3 +226,260 @@
   background: rgba(255, 215, 106, 0.3);
   border-radius: 999px;
 }
+
+/* ---------- charts (Stage 5, commit 7) ---------- */
+
+.parent-chart--wide {
+  grid-column: 1 / -1;
+}
+
+.parent-chart-note {
+  font-size: var(--font-size-xs);
+  color: rgba(255, 246, 236, 0.66);
+  margin-block-end: var(--space-3);
+  line-height: 1.6;
+}
+
+.pl-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 360px;
+  margin-inline: auto;
+}
+
+.pl-axis-label {
+  font-size: 10px;
+  font-weight: 600;
+  fill: rgba(255, 246, 236, 0.55);
+  font-family: var(--font-family);
+}
+
+.pl-value-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  fill: var(--color-glow);
+  font-family: var(--font-family);
+}
+
+.pl-bar {
+  transition: opacity var(--dur-fast) ease;
+}
+
+.pl-bar:hover {
+  opacity: 0.82;
+}
+
+/* strengths & gaps */
+.parent-power-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.parent-power-row {
+  display: grid;
+  grid-template-columns: minmax(76px, auto) 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.parent-power-name {
+  font-size: var(--font-size-xs);
+  color: var(--color-cream);
+  white-space: nowrap;
+}
+
+.parent-power-track {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.parent-power-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width var(--dur-slow) var(--ease-out-soft);
+}
+
+.parent-power-value {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: rgba(255, 246, 236, 0.8);
+  min-width: 34px;
+  text-align: left;
+}
+
+.parent-power-high .parent-power-value { color: var(--color-mint); }
+.parent-power-warm .parent-power-value { color: var(--color-coral); }
+
+/* blooming rings */
+.parent-blooming {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.parent-blooming-overall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.parent-blooming-overall-label {
+  font-size: var(--font-size-xs);
+  color: rgba(255, 246, 236, 0.7);
+}
+
+.parent-blooming-zones {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: var(--space-3);
+  justify-items: center;
+}
+
+.pl-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.pl-ring-label {
+  font-size: 10px;
+  color: rgba(255, 246, 236, 0.6);
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-ring-value {
+  font-size: 12px;
+  font-weight: 800;
+  fill: var(--color-cream);
+  font-family: var(--font-family);
+}
+
+.pl-ring-big {
+  font-size: 17px;
+  font-weight: 900;
+  fill: var(--color-cream);
+  font-family: var(--font-family);
+}
+
+/* error donut */
+.parent-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.parent-donut-wrap .pl-svg {
+  flex: 0 0 auto;
+  width: 120px;
+  margin-inline-start: 0;
+}
+
+.pl-legend {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  min-width: 150px;
+}
+
+.pl-legend-item {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-cream);
+}
+
+.pl-legend-swatch {
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 4px;
+}
+
+.pl-legend-count {
+  font-weight: 800;
+  color: rgba(255, 246, 236, 0.85);
+}
+
+/* gentle empty illustration */
+.parent-gentle {
+  display: grid;
+  place-items: center;
+  padding-block: var(--space-4);
+}
+
+.parent-gentle-icon {
+  font-size: 34px;
+  color: var(--color-glow);
+  opacity: 0.55;
+  animation: parent-float 3.4s ease-in-out infinite;
+}
+
+/* ---------- insights (Stage 5, commit 8) ---------- */
+
+.parent-insights {
+  border-color: rgba(255, 215, 106, 0.35);
+}
+
+.parent-insight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.parent-insight {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  align-items: start;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.65;
+  color: var(--color-cream);
+}
+
+.parent-insight-icon {
+  font-size: 17px;
+  text-align: center;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 106, 0.35));
+}
+
+.parent-insight-streak .parent-insight-text {
+  color: var(--color-glow);
+  font-weight: 700;
+}
+
+.parent-insight-gaps .parent-insight-text,
+.parent-insight-balance .parent-insight-text {
+  color: rgba(255, 246, 236, 0.92);
+}
+
+.parent-intro {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.parent-intro .parent-line {
+  line-height: 1.75;
+}
