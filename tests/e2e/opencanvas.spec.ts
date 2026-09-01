@@ -35,6 +35,9 @@ async function openOpenCanvas(page: Page): Promise<void> {
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await page.locator('.zone-card[data-zone="creativity-meadow"]').click();
   await expect(page.locator('#game-screen canvas')).toBeVisible();
+  /* the scene bridge must be live before the first tap */
+  await expect.poll(async () => (await state(page))?.kind ?? '', { timeout: 10_000 }).toBe('open-create');
+  await page.waitForTimeout(350);
 }
 
 async function state(page: Page): Promise<CanvasState | null> {

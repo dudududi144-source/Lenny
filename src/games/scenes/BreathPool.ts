@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { softGlowTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 const TAP_MIN_GAP_MS = 700;
 const HIT_R = 44;
@@ -93,6 +94,9 @@ export class BreathPoolScene extends GameScene {
         this.ctx.hud.ringCounts(this.litCount, this.total);
         lantern.halo.alpha = 0.55;
         this.sparkle(lantern.view.x, lantern.view.y);
+        this.score.hit(15, { x: lantern.view.x, y: lantern.view.y });
+        audio.play('chime', this.litCount % 4);
+        this.ctx.hud.mission?.(`הֻדְלְקוּ ${this.litCount} מִתּוֹךְ ${this.total} פְּנָסִים`);
         this.ripple(lantern.view.x, this.h * 0.62, COLORS.sparkLight);
         if (this.litCount >= this.total) this.finale();
         return true;
@@ -103,7 +107,10 @@ export class BreathPoolScene extends GameScene {
 
   private finale(): void {
     this.say(['וָאו, כָּל הַכָּבוֹד!', 'הַפָּנָסִים מְאִירִים אֶת הַבְּרֵכָה.']);
-    this.finish(3200);
+    this.score.hit(30, { x: this.w / 2, y: this.h * 0.5 }, 'הַבְּרֵכָה זוֹהֶרֶת');
+    audio.play('unlock');
+    this.fx.sparkleRain(this.particles, this.w);
+    this.finishWithCeremony({ title: 'הַבְּרֵכָה זוֹהֶרֶת', quiet: true });
   }
 
   update(dtMs: number): void {

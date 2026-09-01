@@ -10,6 +10,7 @@ import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { ease } from '../engine/AnimationSystem';
 import { discTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 interface Petal {
   angle: number;      /* position around the flower center */
@@ -265,6 +266,9 @@ export class BeePaintScene extends GameScene {
     const pos = this.petalPos(petal);
     this.bloom(pos.x, pos.y, petal.color);
     this.beeFlyTo(pos.x, pos.y);
+    this.score.hit(12, { x: pos.x, y: pos.y });
+    audio.play('pop', this.petals.indexOf(petal) % 4);
+    this.ctx.hud.mission?.(`מִלֵּאת ${this.petals.filter((p) => p.filled).length} מִתּוֹךְ ${PETALS} עָלִים`);
     if (announce) this.setMsg('וָאו! הֶעָלֶה פּוֹרֵחַ!');
     this.ctx.hud.ringCounts(this.petals.filter((p) => p.filled).length, PETALS);
     this.checkComplete();
@@ -284,10 +288,13 @@ export class BeePaintScene extends GameScene {
     const c = this.flowerCenter();
     this.setMsg('וָאו, כָּל הַכָּבוֹד! הַפֶּרַח פָּרַח!');
     this.sparkle(c.x, c.y, [COLORS.glow, 0xffa552, 0xffffff]);
+    this.score.hit(30, { x: c.x, y: c.y }, 'הַפֶּרַח פָּרַח!');
+    audio.play('fanfare');
+    this.ctx.hud.mission?.('הַפֶּרַח פָּרַח!');
 
     /* open-ended game: completion is the single DDA outcome */
     this.dda.outcome(true, 1);
-    this.finish(WIN_GAP_MS);
+    this.finishWithCeremony({ title: 'הַפֶּרַח פָּרַח!' });
   }
 
   /* ---------- drawing (same geometry as the Phaser Graphics) ---------- */

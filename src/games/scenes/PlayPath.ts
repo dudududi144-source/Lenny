@@ -2,6 +2,7 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { softGlowTexture, sparkTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 const GRAV = 1500;
 const JUMP = -680;
@@ -269,7 +270,9 @@ export class PlayPathScene extends GameScene {
     }
     if (this.starCount >= 1) {
       this.say([`נִקּוּד: ${this.points}`, `שִׂיא: ${this.best}`]);
-      this.finish(1800);
+      this.score.hit(this.points, { x: this.w / 2, y: this.h * 0.35 }, 'הַשְּׁבִיל נִדְלַק!');
+      audio.play('fanfare');
+      this.finishWithCeremony({ title: 'הַשְּׁבִיל נִדְלַק!' });
     } else {
       /* the original records garden progress only with at least one star */
       this.say([`נִקּוּד: ${this.points}`, 'אַסְפִּי לְפָחוֹת כּוֹכָב אֶחָד כְּדֵי לְהַדְלִיק אֶת הַשְּׁבִיל!']);

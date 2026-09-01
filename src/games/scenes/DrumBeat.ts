@@ -3,6 +3,7 @@ import { RhythmEngine } from '../fx/RhythmEngine';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { discTexture, ringTexture, softGlowTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 
 /* old timing constants */
 const LEAD_IN = 2.0;          /* seconds of count-in before the first beat */
@@ -180,12 +181,15 @@ export class DrumBeatScene extends GameScene {
       this.consecutiveMiss = 0;
       if (j.beatIndex >= 0) this.judgedBeats[j.beatIndex] = true;
       this.showGrade('מֻשְׁלָם!', 0xffd76a);
+      this.score.hit(15, { x: this.w / 2, y: this.hitY });
       this.sparkle(this.w / 2, this.hitY);
+      this.fx.shake(this.root, 0, 0, 2, 120);
     } else if (j.grade === 'good') {
       this.goods++;
       this.consecutiveMiss = 0;
       if (j.beatIndex >= 0) this.judgedBeats[j.beatIndex] = true;
       this.showGrade('יוֹפִי!', 0x7dffb8);
+      this.score.hit(8, { x: this.w / 2, y: this.hitY });
     } else {
       this.consecutiveMiss++;
       this.signals.attempt('rhythm.timing', false);
@@ -250,7 +254,9 @@ export class DrumBeatScene extends GameScene {
 
     this.setMsg('וָאו, כָּל הַכָּבוֹד! הַתֹּף חָזַר לְתַפְתֵּף!');
     this.ctx.hud.ringCounts(hits, total);
-    this.finish(FINISH_GAP_MS);
+    this.score.hit(25, { x: this.w / 2, y: this.h * 0.4 }, `דיוק ${Math.round(ratio * 100)}%`);
+    audio.play('fanfare');
+    this.finishWithCeremony({ title: passed ? 'הַקֶצֶב שֶׁלְּךָ!' : 'כַּמְעַט — נִנְסֶה שׁוּב?' });
   }
 
   update(dtMs: number): void {
