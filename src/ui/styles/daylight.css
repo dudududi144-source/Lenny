@@ -1,0 +1,124 @@
+/* ============================================================
+ * Daylight — the garden's atmosphere follows the real hour
+ * (Stage 6, commit 7). Four phases, 5s crossfades between them,
+ * visual only: the day changes the LIGHT, never the challenge.
+ * ============================================================ */
+
+/* ---------- the tint veil (four stacked layers, active one fades in) ---------- */
+
+.daylight-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 5000ms ease;
+  z-index: 0;
+}
+
+.daylight-veil.veil-morning {
+  background: linear-gradient(180deg, rgba(255, 215, 106, 0.20), rgba(255, 233, 166, 0.06) 55%, rgba(255, 215, 106, 0.10));
+}
+
+.daylight-veil.veil-midday {
+  background: linear-gradient(180deg, rgba(255, 250, 235, 0.12), rgba(255, 255, 255, 0.03) 60%, rgba(200, 236, 255, 0.08));
+}
+
+.daylight-veil.veil-evening {
+  background: linear-gradient(180deg, rgba(255, 150, 82, 0.22), rgba(255, 120, 90, 0.10) 55%, rgba(120, 70, 120, 0.14));
+}
+
+.daylight-veil.veil-night {
+  background: linear-gradient(180deg, rgba(24, 18, 54, 0.42), rgba(30, 22, 66, 0.22) 55%, rgba(14, 10, 36, 0.38));
+}
+
+[data-daylight='morning'] .daylight-veil.veil-morning,
+[data-daylight='midday'] .daylight-veil.veil-midday,
+[data-daylight='evening'] .daylight-veil.veil-evening,
+[data-daylight='night'] .daylight-veil.veil-night {
+  opacity: 1;
+}
+
+/* ---------- the ambient layer (moon, stars, sun-haze, day butterflies) ---------- */
+
+.daylight-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+.day-obj {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 5000ms ease;
+  transform: translate(-50%, -50%);
+}
+
+.day-obj svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* shown only in their phase */
+[data-daylight='night'] .day-obj.night-only,
+[data-daylight='evening'] .day-obj.evening-only,
+[data-daylight='morning'] .day-obj.morning-only,
+[data-daylight='midday'] .day-obj.midday-only {
+  opacity: 1;
+}
+
+.day-moon {
+  width: 54px;
+  height: 54px;
+  top: 9%;
+  inset-inline-end: 12%;
+  filter: drop-shadow(0 0 14px rgba(255, 246, 214, 0.55));
+}
+
+.day-star {
+  width: 18px;
+  height: 18px;
+  animation: day-twinkle calc(2s + var(--d, 2s)) ease-in-out infinite alternate;
+}
+
+.day-firefly {
+  width: 20px;
+  height: 20px;
+  animation: day-drift calc(10s + var(--d, 2s) * 2) ease-in-out infinite alternate,
+    day-twinkle calc(1.7s + var(--d, 2s)) ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 6px rgba(255, 233, 166, 0.85));
+}
+
+.day-butterfly {
+  width: 30px;
+  height: 30px;
+  animation: day-drift calc(12s + var(--d, 2s) * 2) ease-in-out infinite alternate;
+}
+
+.day-butterfly svg {
+  animation: day-flutter 0.55s ease-in-out infinite alternate;
+}
+
+@keyframes day-twinkle {
+  from { opacity: 0.25; }
+  to { opacity: 1; }
+}
+
+@keyframes day-drift {
+  from { translate: -20px 10px; }
+  to { translate: 24px -16px; }
+}
+
+@keyframes day-flutter {
+  from { transform: scaleX(0.82) rotate(-4deg); }
+  to { transform: scaleX(1.1) rotate(4deg); }
+}
+
+/* keep the veil behind the life layer and the cards */
+.screen--garden .daylight-veil,
+.screen--garden .daylight-ambient {
+  border-radius: var(--radius-lg);
+}

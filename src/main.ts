@@ -10,11 +10,13 @@ import './ui/styles/global.css';
 import './ui/styles/animations.css';
 import './ui/styles/shelf.css';
 import './ui/styles/garden-life.css';
+import './ui/styles/daylight.css';
 import './ui/styles/parentlens.css';
 
 import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';
 import { MemoryGarden } from './games/core/MemoryGarden';
 import { bloomLevel, freshGarden, LocalProgressStore, type GardenData } from './games/core/ProgressStore';
+import { isFirstVisitToday, markGreetedToday, phaseNow, timeGreeting, todayKey } from './content/dayCycle';
 
 import { createGameHost } from './ui/components/GameHost';
 import { createGardenMap } from './ui/components/GardenMap';
@@ -110,6 +112,21 @@ function baseGreeting(): string {
   }
 }
 
+/* Stage 6: first hello of the day is hour-aware — the garden says
+   בֹּקֶר טוֹב / עֶרֶב טוֹב before the core's warm lines. The MARK is
+   set only when the garden screen actually shows (never at boot). */
+function gardenGreeting(): string {
+  const base = baseGreeting();
+  try {
+    if (isFirstVisitToday(todayKey())) {
+      return `${timeGreeting(phaseNow())} ${base}`;
+    }
+  } catch {
+    /* fall through to the plain greeting */
+  }
+  return base;
+}
+
 function personalGreeting(): string {
   const name = localStorage.getItem('lenny-name')?.trim() ?? '';
   return name ? `שָׁלוֹם ${name}! בָּא לְךָ לְשַׂחֵק?` : baseGreeting();
@@ -126,6 +143,14 @@ function showScreen(name: 'hero' | 'garden' | 'game' | 'parent'): void {
   for (const [key, el] of Object.entries(screens)) {
     el.classList.toggle('hidden', key !== name);
   }
+  /* Stage 6: the day's hello counts only when the garden is SEEN */
+  if (name === 'garden') {
+    try {
+      markGreetedToday(todayKey());
+    } catch {
+      /* private mode: the hello repeats — harmless */
+    }
+  }
 }
 
 function refreshAll(): void {
@@ -133,7 +158,7 @@ function refreshAll(): void {
   hero.setGreeting(personalGreeting());
   hero.setShowContinue(hasProgress(data));
   hero.setBloomLit(bloomLevel(data) > 0);
-  garden.setGreeting(baseGreeting());
+  garden.setGreeting(gardenGreeting());
   garden.refresh();
 }
 

@@ -13,6 +13,7 @@ import {
 } from '../../games/core/ProgressStore';
 import { ZONE_ICONS } from './zoneIcons';
 import { bloomStageFor, buildLifeLayer, buildZoneGrowth, type BloomStage } from './gardenLife';
+import { phaseNow, type DayPhase } from '../../content/dayCycle';
 import { uiButton } from './common/Button';
 import { ProgressRing } from './common/ProgressRing';
 import { h, svg } from './common/el';
@@ -41,6 +42,69 @@ function loadGarden(): GardenData {
   } catch {
     return freshGarden();
   }
+}
+
+/** Serpentine golden ribbon behind the zone cards; draws itself on load. */
+/* ---------- daylight (Stage 6, commit 7): visual-only hour phases ---------- */
+
+function dayObj(cls: string, left: string, top: string, svgHtml: string): HTMLElement {
+  const el = h('span', { class: `day-obj ${cls}`, style: `left:${left};top:${top};--d:${(left.length % 5) + 1}s` });
+  el.innerHTML = svgHtml;
+  return el;
+}
+
+const MOON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 14.6A8.6 8.6 0 0 1 9.4 3.8a8.6 8.6 0 1 0 10.8 10.8Z" fill="#f3ecd0"/></svg>';
+const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9l.9 2.1L15 12l-2.1.9L12 15l-.9-2.1L9 12l2.1-.9Z" fill="#fff7d6"/></svg>';
+const FIREFLY_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.2" fill="#ffe9a6" opacity="0.24"/><circle cx="12" cy="12" r="1.7" fill="#fff7d6"/></svg>';
+const BUTTERFLY_SVG = (tint: string): string =>
+  `<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="8.6" cy="10.6" rx="4.4" ry="3.1" transform="rotate(-24 8.6 10.6)" fill="${tint}" opacity="0.92"/><ellipse cx="15.4" cy="10.6" rx="4.4" ry="3.1" transform="rotate(24 15.4 10.6)" fill="${tint}" opacity="0.92"/><ellipse cx="9.4" cy="14.2" rx="3" ry="2.2" fill="${tint}" opacity="0.7"/><ellipse cx="14.6" cy="14.2" rx="3" ry="2.2" fill="${tint}" opacity="0.7"/><rect x="11.3" y="7.4" width="1.4" height="8.4" rx="0.7" fill="#4a3560"/></svg>`;
+
+/**
+ * Build the two atmosphere layers (tint veil + ambient objects) once,
+ * then swap the phase attribute — CSS crossfades the veils over 5s.
+ */
+export function createDaylight(root: HTMLElement): { apply(): void } {
+  const veil = h(
+    'div',
+    { class: 'daylight-veil veil-morning', 'aria-hidden': 'true' },
+  );
+  const veilMid = h('div', { class: 'daylight-veil veil-midday', 'aria-hidden': 'true' });
+  const veilEve = h('div', { class: 'daylight-veil veil-evening', 'aria-hidden': 'true' });
+  const veilNight = h('div', { class: 'daylight-veil veil-night', 'aria-hidden': 'true' });
+  const ambient = h('div', { class: 'daylight-ambient', id: 'daylight-ambient', 'aria-hidden': 'true' });
+  root.prepend(veilNight, veilEve, veilMid, veil, ambient);
+
+  let lastPhase: DayPhase | null = null;
+
+  function fill(phase: DayPhase): void {
+    ambient.replaceChildren();
+    const put = (cls: string, svgHtml: string, spots: Array<[string, string]>): void => {
+      for (const [l, t] of spots) ambient.append(dayObj(cls, l, t, svgHtml));
+    };
+    if (phase === 'morning') {
+      put('morning-only day-butterfly', BUTTERFLY_SVG('#ffd76a'), [['22%', '30%'], ['58%', '22%'], ['80%', '38%']]);
+      put('morning-only day-butterfly', BUTTERFLY_SVG('#7dffb8'), [['40%', '46%']]);
+    } else if (phase === 'midday') {
+      put('midday-only day-butterfly', BUTTERFLY_SVG('#f2549a'), [['30%', '26%'], ['70%', '34%']]);
+    } else if (phase === 'evening') {
+      put('evening-only day-star', STAR_SVG, [['14%', '12%'], ['82%', '18%']]);
+    } else {
+      put('night-only day-moon', MOON_SVG, [['84%', '9%']]);
+      put('night-only day-star', STAR_SVG, [['10%', '10%'], ['26%', '18%'], ['45%', '8%'], ['62%', '16%'], ['74%', '24%'], ['92%', '30%']]);
+      put('night-only day-firefly', FIREFLY_SVG, [['18%', '58%'], ['38%', '70%'], ['55%', '52%'], ['72%', '64%']]);
+    }
+  }
+
+  return {
+    apply(): void {
+      const phase = phaseNow();
+      if (phase === lastPhase) return;
+      lastPhase = phase;
+      root.dataset.daylight = phase;
+      root.setAttribute('data-daylight', phase);
+      fill(phase);
+    },
+  };
 }
 
 /** Serpentine golden ribbon behind the zone cards; draws itself on load. */
@@ -244,6 +308,12 @@ export function createGardenMap(callbacks: GardenMapCallbacks): GardenMapHandle 
       ),
     ),
   );
+
+  /* Stage 6: the hour's atmosphere (tint veil + moon/stars/butterflies),
+     refreshed with the garden and every half minute (5s crossfades) */
+  const daylight = createDaylight(root);
+  daylight.apply();
+  window.setInterval(() => daylight.apply(), 30_000);
 
   let list: HTMLElement | null = null;
   let lastLights = -1;
