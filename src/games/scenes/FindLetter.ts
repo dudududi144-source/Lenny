@@ -1,7 +1,9 @@
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
-import { softGlowTexture } from '../engine/textures';
+import { ease } from '../engine/AnimationSystem';
+import { softGlowTexture, sparkTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
+import { audio } from '../engine/AudioEngine';
 import { SkillBridge } from '../core/SkillBridge';
 
 const TARGET_HIT = 40;
@@ -11,8 +13,11 @@ const TILE_H = 50;
 interface LetterSpot {
   x: number;
   y: number;
+  baseX: number;
+  baseY: number;
   glyph: string;
   tile: Container;
+  phase: number;
 }
 
 /**
@@ -83,7 +88,7 @@ export class FindLetterScene extends GameScene {
   }
 
   private newRound(): void {
-    for (const spot of this.spots) spot.tile.destroy({ children: true });
+    for (const spot of this.spots) if (!spot.tile.destroyed) spot.tile.destroy({ children: true });
     this.spots = [];
 
     const pool = [...this.LETTERS];
@@ -104,6 +109,7 @@ export class FindLetterScene extends GameScene {
     }
 
     this.say([`אֵיפֹה הָאוֹת ${target}?`]);
+    this.ctx.hud.mission?.(`מְבֻקֶּשֶׁת הָאוֹת ${target}`);
 
     for (let i = 0; i < 6; i++) {
       const x = this.w * (0.25 + (i % 3) * 0.25);
@@ -112,11 +118,10 @@ export class FindLetterScene extends GameScene {
       tile.x = x;
       tile.y = y;
 
+      /* firefly-lantern: warm glass tile with a glowing letter */
       const shape = new Graphics();
-      shape.roundRect(-TILE_W / 2, -TILE_H / 2, TILE_W, TILE_H, 12);
-      shape.fill({ color: 0x7c4dff, alpha: 0.92 });
-      shape.roundRect(-TILE_W / 2 + 2, -TILE_H / 2 + 2, TILE_W - 4, TILE_H - 4, 10);
-      shape.stroke({ color: 0x9b74ff, width: 2, alpha: 0.9 });
+      shape.roundRect(-TILE_W / 2, -TILE_H / 2, TILE_W, TILE_H, 14).fill({ color: 0x7c4dff, alpha: 0.92 });
+      shape.roundRect(-TILE_W / 2 + 2, -TILE_H / 2 + 2, TILE_W - 4, TILE_H - 4, 12).stroke({ color: 0x9b74ff, width: 2, alpha: 0.9 });
       tile.addChild(shape);
 
       const halo = new Sprite(softGlowTexture());
@@ -131,8 +136,10 @@ export class FindLetterScene extends GameScene {
 
       const glyph = this.label(chosen[i], 38, COLORS.cream, '700');
       tile.addChild(glyph);
+      tile.scale.set(0);
       this.board.addChild(tile);
-      this.spots.push({ x, y, glyph: chosen[i], tile });
+      this.anim.to(tile, { scale: 1 }, { durationMs: 420, delayMs: i * 60, ease: ease.outBack });
+      this.spots.push({ x, y, baseX: x, baseY: y, glyph: chosen[i], tile, phase: Math.random() * Math.PI * 2 });
     }
   }
 
@@ -148,7 +155,23 @@ export class FindLetterScene extends GameScene {
       this.signals.attempt(this.skillIdFor(this.targetLetter), true);
       this.wrongSinceLastFind = 0;
       this.lastHint = 'none';
+      this.score.hit(20, { x: spot.x, y: spot.y }, `א ${this.targetLetter}`);
+      audio.play('chime', this.found % 4);
       this.sparkle(spot.x, spot.y);
+      /* the letter FLIES to the bunny — the collection moment */
+      const star = new Sprite(sparkTexture());
+      star.anchor.set(0.5);
+      star.tint = COLORS.glow;
+      star.blendMode = 'add';
+      star.width = 34;
+      star.height = 34;
+      star.x = spot.x;
+      star.y = spot.y;
+      this.board.addChild(star);
+      this.anim.to(star, { x: this.bunny.x, y: this.bunny.y - 12, scale: 0.5 }, { durationMs: 620, ease: ease.inOutCubic, onDone: () => {
+        this.sparkle(this.bunny.x, this.bunny.y - 12, [COLORS.glow, 0xffffff]);
+        star.destroy();
+      } });
 
       if (this.found >= this.totalRounds) {
         this.win();
@@ -162,6 +185,7 @@ export class FindLetterScene extends GameScene {
       }
     } else {
       this.wrongSinceLastFind++;
+      this.score.miss({ x: spot.x, y: spot.y });
       this.signals.attempt(this.skillIdFor(this.targetLetter), false);
       this.signals.errorKind('language.letter-recognition', this.getLetterErrorKind(spot.glyph));
       const hint = this.suggestHint(this.wrongSinceLastFind);
@@ -193,12 +217,23 @@ export class FindLetterScene extends GameScene {
 
   private win(): void {
     this.say(['וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!']);
-    this.finish(1800);
+    audio.play('fanfare');
+    this.fx.sparkleRain(this.particles, this.w);
+    this.finishWithCeremony({ title: 'כָּל הָאוֹתִיּוֹת נִמְצְאוּ!' });
   }
 
   update(dtMs: number): void {
     super.update(dtMs);
     if (this.tornDown) return;
+    /* firefly drift: the lanterns wander gently and the bridge
+       positions stay live (hit tests + e2e use the same coords) */
+    for (const spot of this.spots) {
+      if (spot.tile.destroyed) continue;
+      spot.x = spot.baseX + Math.sin(this.t / 900 + spot.phase) * 9;
+      spot.y = spot.baseY + Math.sin(this.t / 700 + spot.phase * 1.7) * 6;
+      spot.tile.x = spot.x;
+      spot.tile.y = spot.y;
+    }
   }
 
   debugState(): Record<string, unknown> {

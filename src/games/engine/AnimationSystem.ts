@@ -98,13 +98,24 @@ export class AnimationSystem {
       rec.remaining -= dt;
       if (rec.remaining <= 0) {
         rec.killed = true;
-        rec.cb();
+        try {
+          rec.cb();
+        } catch {
+          /* a dead callback must never kill the ticker */
+        }
       }
     }
     this.afters = this.afters.filter((rec) => !rec.killed);
 
     for (const rec of this.tweens) {
       if (rec.killed) continue;
+      /* a destroyed view must never be written again (Pixi nulls its
+         transform on destroy) — kill the tween silently instead */
+      const box = rec.target as { destroyed?: unknown } | null;
+      if (box && typeof box === 'object' && box.destroyed === true) {
+        rec.killed = true;
+        continue;
+      }
       rec.age += dt;
       if (rec.age < rec.delayMs) continue;
       if (!rec.started) {
@@ -113,12 +124,21 @@ export class AnimationSystem {
       }
       const raw = Math.min(1, (rec.age - rec.delayMs) / rec.durationMs);
       const t = rec.ease(raw);
-      for (const p of rec.props) {
-        rec.target[p.key] = p.from + (p.to - p.from) * t;
+      try {
+        for (const p of rec.props) {
+          rec.target[p.key] = p.from + (p.to - p.from) * t;
+        }
+      } catch {
+        rec.killed = true;
+        continue;
       }
       if (raw >= 1) {
         rec.killed = true;
-        rec.onDone?.();
+        try {
+          rec.onDone?.();
+        } catch {
+          /* never kill the ticker from an onDone */
+        }
       }
     }
     this.tweens = this.tweens.filter((rec) => !rec.killed);
@@ -126,7 +146,11 @@ export class AnimationSystem {
     for (const rec of this.loops) {
       if (rec.killed) continue;
       rec.elapsed += dt;
-      rec.fn(dt, rec.elapsed);
+      try {
+        rec.fn(dt, rec.elapsed);
+      } catch {
+        rec.killed = true; /* a broken loop cancels itself, not the frame */
+      }
     }
     this.loops = this.loops.filter((rec) => !rec.killed);
   }
