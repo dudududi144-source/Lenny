@@ -14,7 +14,44 @@ export const ease = {
   outBack: (t: number): number => 1 + 2.70158 * Math.pow(t - 1, 3) + 1.70158 * Math.pow(t - 1, 2),
   outElastic: (t: number): number =>
     t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1,
+  outBounce: (t: number): number => {
+    const n1 = 7.5625;
+    const d1 = 2.75;
+    if (t < 1 / d1) return n1 * t * t;
+    if (t < 2 / d1) return n1 * (t -= 1.5 / d1) * t + 0.75;
+    if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
+    return n1 * (t -= 2.625 / d1) * t + 0.984375;
+  },
 } satisfies Record<string, Easing>;
+
+/* cubic-bezier(0.4, 0, 0.2, 1) — the shared entrance/exit curve (Stage 5).
+   Lives beside the named easings so DOM CSS and canvas tweens agree. */
+function cubicBezier(x1: number, y1: number, x2: number, y2: number): Easing {
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const sampleX = (t: number): number => ((ax * t + bx) * t + cx) * t;
+  const slopeX = (t: number): number => (3 * ax * t + 2 * bx) * t + cx;
+  return (x: number): number => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const X = sampleX(t) - x;
+      if (Math.abs(X) < 1e-5) break;
+      const d = slopeX(t);
+      if (Math.abs(d) < 1e-6) break;
+      t -= X / d;
+    }
+    return ((ay * t + by) * t + cy) * t;
+  };
+}
+
+/** the standard smooth curve, exported for scenes that hand-roll choreography */
+export const easeStandard: Easing = cubicBezier(0.4, 0, 0.2, 1);
 
 export interface TweenOptions {
   durationMs: number;

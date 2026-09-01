@@ -20,6 +20,8 @@ export interface GameHUDHandle {
   bridge: HudBridge;
   setZone(name: string): void;
   clear(): void;
+  /** Stage-5: staggered HUD entrance (top → mission → dialogue). */
+  playEnter(): void;
 }
 
 export interface GameHUDCallbacks {
@@ -206,6 +208,12 @@ export function createGameHUD(callbacks: GameHUDCallbacks): GameHUDHandle {
       missionChip.textContent = '';
       missionChip.classList.add('is-off');
       setPaused(false);
+    },
+    playEnter() {
+      root.classList.remove('hud-entering');
+      void root.offsetWidth; /* restart the CSS animation */
+      root.classList.add('hud-entering');
+      window.setTimeout(() => root.classList.remove('hud-entering'), 900);
     },
   };
 }

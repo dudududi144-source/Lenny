@@ -211,3 +211,46 @@
 .lenny-spark--c {
   animation-delay: 1.4s;
 }
+
+/* ============================================================
+   Stage 5 — SceneTransition choreography (DOM side)
+   Canvas scenes stagger via SceneTransition; the HUD and the
+   stage wipe share the same 300ms / cubic-bezier(0.4,0,0.2,1)
+   rhythm so shell and canvas move as one.
+   ============================================================ */
+
+@keyframes hud-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.game-hud.hud-entering .hud-top {
+  animation: hud-rise 300ms cubic-bezier(0.4, 0, 0.2, 1) 60ms backwards;
+}
+
+.game-hud.hud-entering .hud-mission-row {
+  animation: hud-rise 300ms cubic-bezier(0.4, 0, 0.2, 1) 120ms backwards;
+}
+
+.game-hud.hud-entering .hud-bottom {
+  animation: hud-rise 300ms cubic-bezier(0.4, 0, 0.2, 1) 180ms backwards;
+}
+
+@keyframes stage-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.985);
+  }
+}
+
+.screen--game.is-exiting .game-stage,
+.screen--game.is-exiting .game-hud {
+  animation: stage-exit 260ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}

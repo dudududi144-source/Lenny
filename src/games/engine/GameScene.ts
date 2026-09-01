@@ -9,6 +9,7 @@ import { audio } from './AudioEngine';
 import { GardenBackdrop } from './GardenBackdrop';
 import { FX } from './FX';
 import { FXManager } from './FXManager';
+import { SceneTransition } from './SceneTransition';
 import { ResultsCeremony } from './ResultsCeremony';
 import { bursts, ParticleSystem, themed, type ParticleTheme } from './ParticleSystem';
 import { ringTexture, softGlowTexture } from './textures';
@@ -75,6 +76,8 @@ export abstract class GameScene {
   readonly gfx: FXManager;
   /** Ambient particle language for this world (zone-derived, overridable). */
   protected particleTheme: ParticleTheme;
+  /** Stage-5 entrance/exit choreography (staggered, visual-only). */
+  readonly transitions = new SceneTransition(this.anim);
 
   protected ctx: SceneCtx;
   protected backdrop: GardenBackdrop;
@@ -92,6 +95,7 @@ export abstract class GameScene {
   private vignette: Container | null = null;
   private ambientStarted = false;
   private ambientAcc = 0;
+  private entrancePlayed = false;
 
   protected constructor(ctx: SceneCtx) {
     this.ctx = ctx;
@@ -385,6 +389,16 @@ export abstract class GameScene {
       this.ambientStarted = true;
       themed.ambient(this.particles, this.worldW, this.worldH, this.particleTheme);
     }
+    if (!this.entrancePlayed) {
+      this.entrancePlayed = true;
+      /* staggered entrance in z-order: backdrop fades, content scales in */
+      const layers = this.root.children.filter((c) => c !== this.fxLayer);
+      const [backdropLayer, ...contentLayers] = layers;
+      if (backdropLayer) this.transitions.enter([backdropLayer], { staggerMs: 0, durMs: 420, fadeOnly: true });
+      if (contentLayers.length > 0) {
+        this.transitions.enter(contentLayers, { staggerMs: 50, durMs: 300, fadeOnly: false });
+      }
+    }
     this.ambientAcc += dt;
     if (this.ambientAcc > 1500) {
       this.ambientAcc = 0;
@@ -395,6 +409,7 @@ export abstract class GameScene {
   destroy(): void {
     this.tornDown = true;
     audio.stopMusic();
+    this.transitions?.destroy();
     this.gfx?.dispose();
     this.fx.destroy();
     this.anim.destroy();
