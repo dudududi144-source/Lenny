@@ -2,6 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import type { AnimationSystem } from './AnimationSystem';
 import { ease } from './AnimationSystem';
 import { audio } from './AudioEngine';
+import type { EmitOptions } from './ParticleSystem';
 import { COLORS } from './theme';
 
 /**
@@ -140,16 +141,23 @@ export class FX {
   }
 
   /** Full-width sparkle rain (celebrations). */
-  sparkleRain(particles: { emit: (opts: Record<string, unknown>) => void }, w: number): void {
+  sparkleRain(particles: { emit: (opts: EmitOptions) => void }, w: number): void {
     for (let i = 0; i < 5; i++) {
       this.anim.after(i * 140, () => {
         particles.emit({
           x: Math.random() * w,
           y: -10,
-          count: 14,
-          preset: 'sparkle',
-          spread: 120,
-          vy: 90,
+          count: 12,
+          colors: [COLORS.glow, COLORS.glowSoft, COLORS.mint],
+          speedMin: 20,
+          speedMax: 60,
+          angleMin: Math.PI / 3,
+          angleMax: (2 * Math.PI) / 3,
+          gravity: 60,
+          sizeMin: 5,
+          sizeMax: 12,
+          lifeMin: 900,
+          lifeMax: 1600,
         });
       });
     }

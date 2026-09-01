@@ -173,3 +173,38 @@ test('level-0.95: misses escalate the hint ladder and light the dim aid', async 
   const dda = await page.evaluate(() => JSON.parse(localStorage.getItem('lenny-dda-v1') ?? '{}')['memory-hill']);
   expect(dda.rounds).toBe(1);
 });
+
+test('Arena: matches build score+combo and the mission chip tracks progress', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await openMemoryPairs(page, 0.1);
+  await page.waitForTimeout(1500);
+
+  let sawScore = false;
+  let sawMission = false;
+  const deadline = Date.now() + 70_000;
+  while (Date.now() < deadline) {
+    const s = await state(page);
+    if (!s || s.done) break;
+    if ((s.arenaScore ?? 0) > 0) sawScore = true;
+    const mission = await page.locator('#hud-mission').textContent();
+    if (mission && /נִמְצְאוּ/.test(mission)) sawMission = true;
+    const down = s.slots.filter((slot) => slot.state === 'down' && !slot.matched);
+    const pair = down.find(
+      (a) => down.find((b) => b !== a && b.kind.suit === a.kind.suit && b.kind.tone === a.kind.tone),
+    );
+    if (!pair) {
+      await page.waitForTimeout(150);
+      continue;
+    }
+    const mate = down.find((b) => b !== pair && b.kind.suit === pair.kind.suit && b.kind.tone === pair.kind.tone)!;
+    await revealPair(page, { x: pair.x, y: pair.y }, { x: mate.x, y: mate.y });
+  }
+
+  expect(sawScore).toBe(true);
+  expect(sawMission).toBe(true);
+  expect((await state(page))!.ceremonyOpen ?? true).toBe(true);
+  expect(errors).toEqual([]);
+});
