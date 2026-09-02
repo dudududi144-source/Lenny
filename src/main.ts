@@ -12,6 +12,7 @@ import './ui/styles/shelf.css';
 import './ui/styles/garden-life.css';
 import './ui/styles/daylight.css';
 import './ui/styles/parentlens.css';
+import './ui/styles/world.css';
 
 import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';
 import { MemoryGarden } from './games/core/MemoryGarden';
@@ -26,6 +27,13 @@ import { installCatalog } from './content/catalog';
 import { audio } from './games/engine/AudioEngine';
 import { music } from './audio/MusicEngine';
 import { h } from './ui/components/common/el';
+import {
+  markWorldFallbackToasted,
+  resolveGardenMode,
+  shouldToastWorldFallback,
+  writeGardenMode,
+} from './world/worldMode';
+import { createWorldScreen } from './world/WorldScreen';
 
 declare global {
   interface Window {
@@ -136,10 +144,15 @@ function personalGreeting(): string {
 
 let currentScreen = 'hero';
 /* where the parent lens was opened from — it returns to the same place */
-let parentSource: 'hero' | 'garden' = 'hero';
+let parentSource: 'hero' | 'garden' | 'world' = 'hero';
 
-function showScreen(name: 'hero' | 'garden' | 'game' | 'parent'): void {
+type ScreenName = 'hero' | 'garden' | 'world' | 'game' | 'parent';
+
+function showScreen(name: ScreenName): void {
   currentScreen = name;
+  /* the world disposes its engine whenever the child leaves it —
+     clean handoff, zero leaks (stage 7 memory rule) */
+  if (name !== 'world' && world.isOpen()) world.close();
   for (const [key, el] of Object.entries(screens)) {
     el.classList.toggle('hidden', key !== name);
   }
@@ -162,8 +175,27 @@ function refreshAll(): void {
   garden.refresh();
 }
 
+/* Stage 7: the garden routes by mode — classic (2D) today, world
+   (3D) when the mode says so. The classic map stays complete. */
 function openGarden(): void {
   refreshAll();
+  if (resolveGardenMode() === 'world') {
+    showScreen('world');
+    void world.open();
+  } else {
+    showScreen('garden');
+  }
+}
+
+/* The world refused to boot (or distressed): silently reroute to the
+   classic garden and give the GROWN-UPS one gentle note, ever. */
+function worldFallback(): void {
+  world.close();
+  writeGardenMode('classic');
+  if (shouldToastWorldFallback()) {
+    markWorldFallbackToasted();
+    toast('הַגַּן הַתְּלַת־מֶמְדִּי לֹא עָלָה כְּרָגַע — עָבַרְנוּ לְגַן קְלָאסִי.');
+  }
   showScreen('garden');
 }
 
@@ -171,7 +203,8 @@ const parent = createParentLens({
   loadGarden,
   onExit: () => {
     refreshAll();
-    showScreen(parentSource);
+    if (parentSource === 'world') openGarden();
+    else showScreen(parentSource);
   },
 });
 
@@ -199,6 +232,24 @@ const gameHost = createGameHost({
   onUnavailable: () => toast('הַמִּשְׂחָקִים מִתְעוֹרְרִים — בְּקָרוֹב נִשְׂחַק!'),
 });
 
+const world = createWorldScreen({
+  loadGarden,
+  onBack: () => showScreen('hero'),
+  onParents: () => {
+    parentSource = 'world';
+    parent.open();
+    showScreen('parent');
+  },
+  onClassic: () => {
+    world.close();
+    writeGardenMode('classic');
+    refreshAll();
+    showScreen('garden');
+  },
+  onWorldFailed: () => worldFallback(),
+  toast,
+});
+
 const garden = createGardenMap({
   onBack: () => showScreen('hero'),
   onParents: () => {
@@ -215,12 +266,13 @@ const garden = createGardenMap({
   onFreshZones: () => toast('הַשַּׁעַר נִפְתַּח! בּוֹא נִרְאֶה מָה יֵשׁ שָׁם!'),
 });
 
-const frame = h('div', { class: 'frame' }, hero.root, garden.root, gameHost.root, parent.root);
+const frame = h('div', { class: 'frame' }, hero.root, garden.root, world.root, gameHost.root, parent.root);
 appRoot?.append(frame);
 
-const screens: Record<'hero' | 'garden' | 'game' | 'parent', HTMLElement> = {
+const screens: Record<ScreenName, HTMLElement> = {
   hero: hero.root,
   garden: garden.root,
+  world: world.root,
   game: gameHost.root,
   parent: parent.root,
 };

@@ -1,0 +1,167 @@
+/* ============================================================
+   world.css — the 3D garden screen (Stage 7).
+   The canvas IS the screen; DOM stays as thin floating glass.
+   RTL, mobile-first, safe-area aware.
+   ============================================================ */
+
+.screen--world {
+  background: #bfe3f2; /* behind the first paint of the canvas */
+  overflow: hidden;
+}
+
+.world-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.world-stage canvas.world-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+  touch-action: none; /* Babylon pointer input owns the gestures */
+}
+
+/* ---------- loading veil (only until the engine boots) ---------- */
+
+.world-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: linear-gradient(180deg, #bfe3f2 0%, #e6f4d7 100%);
+  z-index: 3;
+}
+
+.world-loading.hidden {
+  display: none;
+}
+
+.world-loading-star {
+  font-size: 34px;
+  color: #ffd76a;
+  text-shadow: 0 0 18px rgba(255, 215, 106, 0.85);
+  animation: world-star-pulse 1.4s ease-in-out infinite;
+}
+
+.world-loading-text {
+  font-weight: 600;
+  color: #2c4a30;
+  opacity: 0.85;
+}
+
+@keyframes world-star-pulse {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.18) rotate(12deg);
+    opacity: 1;
+  }
+}
+
+/* ---------- floating glass header ---------- */
+
+.world-head {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.world-head > * {
+  pointer-events: auto;
+}
+
+.world-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #223d26;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.75),
+    0 0 14px rgba(255, 255, 255, 0.35);
+}
+
+.world-sub {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #3a5c3e;
+  opacity: 0.9;
+}
+
+.world-head-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screen--world .light-chip {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(6px);
+  color: #7a5a00;
+}
+
+/* ---------- grown-up corner ---------- */
+
+.world-foot {
+  position: absolute;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 4;
+}
+
+.world-parents-link,
+.world-classic-link {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  color: #33502f;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease;
+}
+
+.world-parents-link:hover,
+.world-classic-link:hover {
+  background: rgba(255, 255, 255, 0.75);
+  transform: translateY(-1px);
+}
+
+.world-parents-link:active,
+.world-classic-link:active {
+  transform: scale(0.96);
+}
+
+/* respect reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .world-loading-star {
+    animation: none;
+  }
+}

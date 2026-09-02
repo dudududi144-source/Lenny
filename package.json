@@ -13,6 +13,7 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@babylonjs/core": "^9.23.0",
     "pixi-filters": "^6",
     "pixi.js": "^8.20.1"
   },
@@ -28,5 +29,6 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "allowScripts": {}
 }
