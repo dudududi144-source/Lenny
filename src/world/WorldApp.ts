@@ -84,14 +84,55 @@ export type WorldPhaseLite = 'onboarding' | 'exploring';
 
 /* ---------- the day palette (commit 1: fixed pleasant day; commit 4 makes it hour-aware) ---------- */
 
+/** Some environments expose navigator.gpu but never answer (hung adapters in
+ *  headless/CI browsers). Hesitation is unavailability — the child waits for
+ *  no one. Found live in an automated browser: initAsync() hung forever with
+ *  zero errors, canvasless, phase stuck on 'closed'. */
+const WEBGPU_INIT_TIMEOUT_MS = 4000;
+
+function withTimeout<T>(p: Promise<T>, ms: number, reason: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new WorldUnsupportedError(reason)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function createEngine(
   canvas: HTMLCanvasElement,
 ): Promise<{ engine: Engine | WebGPUEngine; kind: WorldRendererKind }> {
-  /* WebGPU first — any hesitation falls through to WebGL2 */
+  /* WebGPU first — any hesitation (rejected, slow, or hung) falls through to WebGL2 */
   try {
     if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
       const gpu = new WebGPUEngine(canvas, { antialias: true, stencil: false });
-      await gpu.initAsync();
+      let owned = false;
+      const init = gpu.initAsync();
+      /* if the abandoned init ever finishes late, release whatever it built */
+      void init.then(
+        () => {
+          if (!owned) {
+            try {
+              gpu.dispose();
+            } catch {
+              /* half-initialized engine — nothing to salvage */
+            }
+          }
+        },
+        () => {
+          /* rejected late — already clean */
+        },
+      );
+      try {
+        await withTimeout(init, WEBGPU_INIT_TIMEOUT_MS, 'webgpu-init-hesitation');
+      } catch {
+        try {
+          gpu.dispose();
+        } catch {
+          /* dispose during init can be noisy — the canvas stays free for WebGL2 */
+        }
+        throw new WorldUnsupportedError('webgpu-init-hesitation');
+      }
+      owned = true;
       return { engine: gpu, kind: 'webgpu' };
     }
   } catch {
