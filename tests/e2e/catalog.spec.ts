@@ -170,16 +170,17 @@ test('שׁחק שוב replays THE SAME game (never skips ahead)', async ({ page 
     await page.waitForTimeout(230);
   }
 
-  /* tap שחק שוב THE MOMENT the ceremony shows (the auto-advance races us) */
-  let replay: { x: number; y: number; w: number; h: number } | null = null;
-  const tapDeadline = Date.now() + 30_000;
-  while (Date.now() < tapDeadline) {
-    replay = (await page.evaluate(
-      () => (window.__lenny?.sceneState() as { ceremonyReplay: { x: number; y: number; w: number; h: number } | null; ceremonyOpen?: boolean } | null)?.ceremonyReplay ?? null,
-    )) ?? null;
-    if (replay) break;
-    await page.waitForTimeout(120);
-  }
+  /* tap שחק שוב THE INSTANT the ceremony shows — waitForFunction polls
+     INSIDE the page, so the race against the 5.2s auto-advance is won
+     within one rendered frame */
+  await page.waitForFunction(
+    () => ((window.__lenny?.sceneState() as { ceremonyOpen?: boolean } | null)?.ceremonyOpen) === true,
+    undefined,
+    { timeout: 30_000, polling: 50 },
+  );
+  const replay = (await page.evaluate(
+    () => (window.__lenny?.sceneState() as { ceremonyReplay: { x: number; y: number; w: number; h: number } | null } | null)?.ceremonyReplay ?? null,
+  )) ?? null;
   expect(replay).not.toBeNull();
   const rect = await page.evaluate(() => window.__lenny?.canvasRect());
   const design = await page.evaluate(() => window.__lenny?.design);
@@ -193,9 +194,26 @@ test('שׁחק שוב replays THE SAME game (never skips ahead)', async ({ page 
   expect(await page.evaluate(() => window.__lenny?.spec())).toBe(specBefore);
   expect(await page.evaluate(() => window.__lenny?.scene())).toBe('glow-fish');
   /* the replayed session is FRESH — not finished, playing again */
-  await expect
-    .poll(async () => (await page.evaluate(() => (window.__lenny?.sceneState() as { done?: boolean } | null))?.done) ?? true, { timeout: 60_000, intervals: [500] })
-    .toBe(false);
+  const deadline2 = Date.now() + 60_000;
+  let fresh = false;
+  let lastRaw = '';
+  while (Date.now() < deadline2) {
+    const raw = await page.evaluate(() => {
+      const st = (window.__lenny?.sceneState() ?? null) as { done?: boolean } | null;
+      return st === null ? 'null' : JSON.stringify({ done: st.done, round: st.round });
+    });
+    if (raw !== lastRaw) { console.log('POLL-READ:', raw); lastRaw = raw; }
+    if (raw.includes('"done":false')) { fresh = true; break; }
+    await page.waitForTimeout(400);
+  }
+  if (!fresh) {
+    const dump = await page.evaluate(() => {
+      const st = window.__lenny?.sceneState() as Record<string, unknown> | null;
+      return { screen: window.__lenny?.screen(), spec: window.__lenny?.spec(), paused: st?.hostPaused, round: st?.round, done: st?.done, open: st?.ceremonyOpen };
+    });
+    console.log('REPLAY-FAIL-DUMP:', JSON.stringify(dump));
+  }
+  expect(fresh, 'replayed session is fresh and playing').toBe(true);
   expect(errors).toEqual([]);
 });
 
