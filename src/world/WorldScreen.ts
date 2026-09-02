@@ -12,11 +12,12 @@
  * Zones, movement, creatures and Lenny arrive in commits 2-6.
  * ============================================================ */
 
-import { freshGarden, LocalProgressStore, type GardenData } from '../games/core/ProgressStore';
+import { freshGarden, LocalProgressStore, isUnlocked, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT, type ZoneId } from '../data/garden';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
 import { bubbleLineFor } from './LennyStar';
 import { music } from '../audio/MusicEngine';
+import { createGameShelf, type GameShelfHandle } from '../ui/components/GameShelf';
 import { h } from '../ui/components/common/el';
 import { uiButton } from '../ui/components/common/Button';
 import type { WorldApp } from './WorldApp';
@@ -30,6 +31,8 @@ export interface WorldScreenCallbacks {
   /** Engine missing/failed/perf-distress — the shell falls back silently. */
   onWorldFailed(): void;
   toast(message: string): void;
+  /** The child picked a game from the world shelf — the shell opens the arena. */
+  onZonePick(zoneId: string, specId: string): void;
 }
 
 export type WorldPhase = 'onboarding' | 'exploring' | 'shelf-open' | 'closed';
@@ -70,6 +73,21 @@ declare global {
 }
 
 export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenHandle {
+
+  /* ---------- the world's game shelf (the existing DOM shelf) ---------- */
+
+  const shelf: GameShelfHandle = createGameShelf({
+    onPick: (spec) => {
+      const zone = shelfZone;
+      shelfZone = null;
+      phase = 'exploring';
+      if (zone && spec) callbacks.onZonePick(zone, spec.id);
+    },
+    onClose: () => {
+      if (phase === 'shelf-open') phase = 'exploring';
+    },
+  }, { id: 'world-shelf' });
+
   const stage = h('div', { class: 'world-stage', id: 'world-stage' });
   const loading = h(
     'div',
@@ -125,6 +143,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     { class: 'screen screen--world hidden', id: 'world-screen', 'aria-label': 'הגן התלת-ממדי' },
     stage,
     bubble,
+    shelf.root,
     loading,
     h(
       'header',
@@ -168,9 +187,12 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   let app: WorldApp | null = null;
   let opening: Promise<void> | null = null;
   let phase: WorldPhase = 'closed';
+  let shelfZone: string | null = null;
   /* the growth diary: which zones grew since the world was last seen?
      Their new flowers open with the bloom-in payoff on return. */
   let prevCounts: Record<string, number> | null = null;
+
+
 
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
 
@@ -206,6 +228,16 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         onArrive: (zone) => {
           const line = bubbleLineFor(zone);
           if (line) showBubble(line);
+          /* arriving at an OPEN zone slides in the game shelf — once
+             per arrival; closing it and staying put never re-opens it */
+          if (zone) {
+            const unlocked = isUnlocked(loadGarden(), zone);
+            if (unlocked && !shelf.isOpen()) {
+              shelfZone = zone;
+              shelf.open(zone, null);
+              phase = 'shelf-open';
+            }
+          }
         },
         onPhase: (p) => {
           phase = p;
@@ -284,6 +316,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   }
 
   function close(): void {
+    if (shelf.isOpen()) shelf.close();
+    shelfZone = null;
     if (app) {
       app.dispose();
       app = null;

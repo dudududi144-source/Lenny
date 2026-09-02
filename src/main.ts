@@ -153,6 +153,8 @@ function showScreen(name: ScreenName): void {
   /* the world disposes its engine whenever the child leaves it —
      clean handoff, zero leaks (stage 7 memory rule) */
   if (name !== 'world' && world.isOpen()) world.close();
+  /* the classic garden's chip shows only on the classic map */
+  worldChip.classList.toggle('hidden', !(name === 'garden' && resolveGardenMode() === 'classic'));
   for (const [key, el] of Object.entries(screens)) {
     el.classList.toggle('hidden', key !== name);
   }
@@ -226,8 +228,9 @@ const hero = createHero({
 const gameHost = createGameHost({
   loadGarden,
   onExit: () => {
-    refreshAll();
-    showScreen('garden');
+    /* stage 7: exiting a game returns to the garden — the world kind
+       when the mode says so (with the bloom-in payoff on arrival) */
+    openGarden();
   },
   onUnavailable: () => toast('הַמִּשְׂחָקִים מִתְעוֹרְרִים — בְּקָרוֹב נִשְׂחַק!'),
 });
@@ -252,6 +255,13 @@ const world = createWorldScreen({
   },
   onWorldFailed: () => worldFallback(),
   toast,
+  onZonePick: (zoneId, specId) => {
+    /* the world stays mounted until the game screen shows — the arena
+       claims the soundtrack (GameScene sets its own mood on enter) */
+    void gameHost.open(zoneId, specId).then((opened) => {
+      if (opened) showScreen('game');
+    });
+  },
 });
 
 const garden = createGardenMap({
@@ -271,6 +281,25 @@ const garden = createGardenMap({
 });
 
 const frame = h('div', { class: 'frame' }, hero.root, garden.root, world.root, gameHost.root, parent.root);
+
+/* Stage 7: the classic garden's bridge to the world — a small floating
+   chip in the garden footer's quiet corner. Shell-level DOM: the classic
+   GardenMap itself stays byte-identical (maintenance mode). */
+const worldChip = h(
+  'button',
+  {
+    class: 'world-chip hidden',
+    id: 'world-chip',
+    type: 'button',
+    'aria-label': 'מעבר לגן התלת-ממדי',
+    onClick: () => {
+      writeGardenMode('world');
+      openGarden();
+    },
+  },
+  '✦ הַגַּן הַתְּלַת־מֶמְדִּי',
+);
+frame.append(worldChip);
 appRoot?.append(frame);
 
 const screens: Record<ScreenName, HTMLElement> = {

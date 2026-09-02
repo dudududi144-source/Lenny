@@ -36,13 +36,32 @@ export function readExplicitGardenMode(storage: StorageLike = localStorage): Gar
 }
 
 /**
- * The mode this session opens in. Stage 7 (commit 7) turns the
- * fallback default into "world for real visitors, classic under
- * automation"; until that flip, an unset key resolves to classic
- * so the live product behaves byte-identically to stage 6.
+ * Automation pin: under test runners (Playwright sets navigator.webdriver)
+ * the garden resolves to CLASSIC so the 60+ legacy contracts keep running
+ * against the exact UI they were written for. Real visitors get the world.
  */
-export function resolveGardenMode(storage: StorageLike = localStorage): GardenMode {
-  return readExplicitGardenMode(storage) ?? 'classic';
+export function isAutomation(detect: () => boolean | undefined = (): boolean | undefined => {
+  try {
+    return navigator.webdriver === true;
+  } catch {
+    return false;
+  }
+}): boolean {
+  return detect() === true;
+}
+
+/**
+ * The mode this session opens in:
+ *   1. an explicit parent-corner choice always wins
+ *   2. real visitors → the 3D world (the stage-7 default flip)
+ *   3. automation (navigator.webdriver) → the classic map, so every
+ *      legacy e2e contract stays pinned to the UI it tests
+ */
+export function resolveGardenMode(
+  storage: StorageLike = localStorage,
+  automation: boolean = isAutomation(),
+): GardenMode {
+  return readExplicitGardenMode(storage) ?? (automation ? 'classic' : 'world');
 }
 
 /** Persist a parent-corner choice (best effort — private mode is fine). */
