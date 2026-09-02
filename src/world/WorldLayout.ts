@@ -84,6 +84,45 @@ export function nearestZone(
   return best;
 }
 
+export interface WalkResolution {
+  x: number;
+  z: number;
+  /** true when the tap landed on a locked (fog) island — the child is
+      gently held at the rim instead of walking into the fog */
+  blocked: boolean;
+  /** the locked zone that caused the block (when blocked) */
+  blockedZone: ZoneId | null;
+}
+
+/**
+ * Resolve a walk target against the locked gates: unlocked islands
+ * and open grass accept the point as-is; a locked fog island holds
+ * the child at its rim (never inside the fog — nothing to do there
+ * but feel locked out).
+ */
+export function resolveWalkTarget(
+  x: number,
+  z: number,
+  isZoneLocked: (zone: ZoneId) => boolean,
+): WalkResolution {
+  const clamped = clampToWalkArea(x, z);
+  for (const p of WORLD_ISLANDS) {
+    const d = Math.hypot(clamped.x - p.x, clamped.z - p.z);
+    if (d < p.radius + 0.15 && isZoneLocked(p.zone)) {
+      /* push the target out to the island's rim (a dead-center tap
+         still gets a real direction: back toward the world center) */
+      const ang =
+        d < 0.01
+          ? Math.atan2(-p.z, -p.x)
+          : Math.atan2(clamped.z - p.z, clamped.x - p.x);
+      const rr = p.radius + 0.45;
+      const rim = clampToWalkArea(p.x + Math.cos(ang) * rr, p.z + Math.sin(ang) * rr);
+      return { x: rim.x, z: rim.z, blocked: true, blockedZone: p.zone };
+    }
+  }
+  return { x: clamped.x, z: clamped.z, blocked: false, blockedZone: null };
+}
+
 /**
  * Control points for the path: the world center, then every island,
  * with arc midpoints between consecutive islands so the ribbon

@@ -13,6 +13,7 @@
  * ============================================================ */
 
 import { freshGarden, LocalProgressStore, type GardenData } from '../games/core/ProgressStore';
+import { GARDEN_TEXT } from '../data/garden';
 import { h } from '../ui/components/common/el';
 import { uiButton } from '../ui/components/common/Button';
 import type { WorldApp } from './WorldApp';
@@ -160,6 +161,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       {
         onDistress: () => {
           callbacks.onWorldFailed();
+        },
+        onLockedTap: () => {
+          callbacks.toast(GARDEN_TEXT.lockedSoon);
         },
       },
       loadGarden(),

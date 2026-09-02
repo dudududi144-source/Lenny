@@ -24,10 +24,11 @@ import { WebGPUEngine } from '@babylonjs/core/Engines/webgpuEngine';
 import '@babylonjs/core/Engines/Extensions/engine.dynamicTexture';
 import { Scene } from '@babylonjs/core/scene';
 import { Color3, Color4 } from '@babylonjs/core/Maths/math.color';
-import { Vector3 } from '@babylonjs/core/Maths/math.vector';
+import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
+import { Ray } from '@babylonjs/core/Culling/ray.js'; /* Ray's module also patches the scene's ray machinery */
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
 import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
@@ -38,7 +39,9 @@ import type { GardenData } from '../games/core/ProgressStore';
 import { createWorldCamera } from './WorldCamera';
 import { FpsGovernor } from './FpsGovernor';
 import { buildIslands, type IslandsHandle } from './WorldIslands';
-import { islandCenter } from './WorldLayout';
+import { islandCenter, nearestZone, resolveWalkTarget, WORLD_ISLANDS } from './WorldLayout';
+import { pressEnd, pressStart, isDragDistance, type PointerSnapshot } from './Gestures';
+import type { ZoneId } from '../data/garden';
 
 /** Thrown when the device cannot render the world at all. */
 export class WorldUnsupportedError extends Error {
@@ -53,6 +56,10 @@ export type WorldRendererKind = 'webgpu' | 'webgl2';
 export interface WorldAppEvents {
   /** Sustained fps below the floor — the shell should fall back. */
   onDistress?(): void;
+  /** The presence point settled (walking finished). */
+  onArrive?(zone: ZoneId | null): void;
+  /** A tap tried to enter a fog island — the shell whispers gently. */
+  onLockedTap?(zone: ZoneId): void;
 }
 
 /* ---------- the day palette (commit 1: fixed pleasant day; commit 4 makes it hour-aware) ---------- */
@@ -260,6 +267,60 @@ export async function createWorldApp(
   const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z));
   scene.activeCamera = camera;
 
+  /* ---------- the presence point (commit 3: the child IS here) ---------- */
+
+  const presenceMat = new StandardMaterial('presence-mat', scene);
+  presenceMat.emissiveColor = Color3.FromHexString('#ffe9a6');
+  presenceMat.diffuseColor = Color3.Black();
+  presenceMat.specularColor = Color3.Black();
+  presenceMat.disableLighting = true;
+
+  const presenceMesh = MeshBuilder.CreateSphere('presence', { diameter: 0.34, segments: 10 }, scene);
+  presenceMesh.material = presenceMat;
+  presenceMesh.position.set(home.x, 0.72, home.z);
+  presenceMesh.isPickable = false;
+
+  const ringMat = new StandardMaterial('presence-ring-mat', scene);
+  ringMat.emissiveColor = Color3.FromHexString('#ffd76a');
+  ringMat.diffuseColor = Color3.Black();
+  ringMat.specularColor = Color3.Black();
+  ringMat.disableLighting = true;
+  ringMat.alpha = 0.6;
+
+  const presenceRing = MeshBuilder.CreateTorus('presence-ring', { diameter: 0.62, thickness: 0.05, tessellation: 22 }, scene);
+  presenceRing.scaling.y = 0.32;
+  presenceRing.material = ringMat;
+  presenceRing.isPickable = false;
+
+  /* destination ripple — appears while walking, fades on arrival */
+  const destMat = new StandardMaterial('dest-mat', scene);
+  destMat.emissiveColor = Color3.FromHexString('#fff3b0');
+  destMat.diffuseColor = Color3.Black();
+  destMat.specularColor = Color3.Black();
+  destMat.disableLighting = true;
+  destMat.alpha = 0;
+  const destRing = MeshBuilder.CreateTorus('dest-ring', { diameter: 0.8, thickness: 0.05, tessellation: 22 }, scene);
+  destRing.scaling.y = 0.3;
+  destRing.material = destMat;
+  destRing.isPickable = false;
+
+  /* movement state */
+  const presencePos = { x: home.x, z: home.z };
+  let walkTarget: { x: number; z: number } | null = null;
+  let near: ZoneId | null = null;
+  let lockedToastAt = 0;
+
+  const NEAR_DIST = 1.35;
+  const ARRIVE_EPS = 0.09;
+  const WALK_RATE = 2.1; /* exponential ease — calm, never teleporty */
+
+  function presenceY(): number {
+    for (const p of WORLD_ISLANDS) {
+      if (Math.hypot(presencePos.x - p.x, presencePos.z - p.z) < p.radius - 0.15) return 0.66;
+    }
+    return 0.72;
+  }
+
   /* ---------- fps governor (spec: soften below 25, distress below 15×5s) ---------- */
   const baseScale = 1 / Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
   const governor = new FpsGovernor({ baseScale });
@@ -272,8 +333,54 @@ export async function createWorldApp(
 
   engine.runRenderLoop(() => {
     if (paused || disposed) return;
+    const now = performance.now();
+    const dt = Math.min(0.1, engine.getDeltaTime() / 1000);
+
+    /* presence easing + camera follow */
+    if (walkTarget) {
+      const dx = walkTarget.x - presencePos.x;
+      const dz = walkTarget.z - presencePos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < ARRIVE_EPS) {
+        presencePos.x = walkTarget.x;
+        presencePos.z = walkTarget.z;
+        walkTarget = null;
+        destMat.alpha = 0;
+        try {
+          events.onArrive?.(near);
+        } catch {
+          /* arrival handlers never crash the garden */
+        }
+      } else {
+        const k = Math.min(1, dt * WALK_RATE * (0.55 + Math.min(1, d / 2.5)));
+        presencePos.x += (dx * k);
+        presencePos.z += (dz * k);
+        destMat.alpha = Math.max(0.25, destMat.alpha - dt * 0.1);
+      }
+    }
+    const t = now / 1000;
+    presenceMesh.position.set(presencePos.x, presenceY() + Math.sin(t * 2.2) * 0.045, presencePos.z);
+    presenceRing.position.set(presencePos.x, presenceY() - 0.06, presencePos.z);
+    const ringPulse = 1 + Math.sin(t * 3.1) * 0.1;
+    presenceRing.scaling.x = ringPulse;
+    presenceRing.scaling.z = ringPulse;
+
+    /* camera target follows the presence softly */
+    const camT = camera.target;
+    camT.x += (presencePos.x - camT.x) * Math.min(1, dt * 1.9);
+    camT.z += (presencePos.z - camT.z) * Math.min(1, dt * 1.9);
+    camT.y += (0.66 - camT.y) * Math.min(1, dt * 1.4);
+
+    /* near-zone: the zone the child is visiting right now */
+    const nz = nearestZone(presencePos.x, presencePos.z, NEAR_DIST);
+    const zoneId = nz ? nz.zone : null;
+    if (zoneId !== near) {
+      near = zoneId;
+      islands.setNear(zoneId);
+    }
+
     scene.render();
-    governor.push(performance.now(), engine.getDeltaTime());
+    governor.push(now, engine.getDeltaTime());
   });
 
   const applyInterval = window.setInterval(() => {
@@ -298,11 +405,70 @@ export async function createWorldApp(
   };
   window.addEventListener('resize', onResize);
 
+  /* ---------- tap-to-move (commit 3): the physical gesture contract ---------- */
+
+  let press: PointerSnapshot | null = null;
+  let dragAborted = false;
+
+  const onPointerDown = (ev: PointerEvent): void => {
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    press = pressStart(ev.offsetX, ev.offsetY, performance.now());
+    dragAborted = false;
+  };
+
+  const onPointerMove = (ev: PointerEvent): void => {
+    if (!press || dragAborted) return;
+    if (isDragDistance(press, ev.offsetX, ev.offsetY)) {
+      dragAborted = true; /* this press is an orbit now — the camera eats it */
+    }
+  };
+
+  const onPointerUp = (ev: PointerEvent): void => {
+    if (!press) return;
+    const start = press;
+    press = null;
+    if (dragAborted) return; /* this press became an orbit — the camera ate it */
+    if (pressEnd(start, ev.offsetX, ev.offsetY, performance.now()) !== 'tap') return;
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+
+    /* ray-based pick: a REAL Ray use keeps the ray module in the bundle
+       (its side effect patches the scene's ray machinery), CSS coords in,
+       walkable-surface predicate on */
+    const ray = new Ray(Vector3.Zero(), Vector3.Zero());
+    scene.createPickingRayToRef(ev.offsetX, ev.offsetY, Matrix.Identity(), ray, camera);
+    const pick = scene.pickWithRay(ray, (m) => m.isPickable && (m.name === 'ground' || m.name.startsWith('plat-mesh-')));
+    if (!pick || !pick.hit || !pick.pickedPoint) return;
+
+    const zoneLock = new Set(islands.zones().filter((z) => !z.unlocked).map((z) => z.id));
+    const resolved = resolveWalkTarget(pick.pickedPoint.x, pick.pickedPoint.z, (zone) => zoneLock.has(zone));
+    walkTarget = { x: resolved.x, z: resolved.z };
+    destRing.position.set(resolved.x, 0.14, resolved.z);
+    destMat.alpha = 0.75;
+    if (resolved.blocked && resolved.blockedZone) {
+      const now = performance.now();
+      if (now - lockedToastAt > 2600) {
+        lockedToastAt = now;
+        try {
+          events.onLockedTap?.(resolved.blockedZone);
+        } catch {
+          /* a toast never crashes the garden */
+        }
+      }
+    }
+  };
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', () => {
+    press = null;
+  });
+
   return {
     fps: () => governor.fps(performance.now()),
     rendererKind: () => kind,
-    presencePos: () => null,
-    nearZone: () => null,
+    presencePos: () => ({ x: presencePos.x, z: presencePos.z }),
+    nearZone: () => near,
     zones: () => islands.zones(),
     refresh: (fresh: GardenData) => islands.refresh(fresh),
     setPaused(value: boolean): void {
@@ -320,6 +486,9 @@ export async function createWorldApp(
       disposed = true;
       window.clearInterval(applyInterval);
       window.removeEventListener('resize', onResize);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
       engine.stopRenderLoop();
       islands.dispose();
       scene.dispose();

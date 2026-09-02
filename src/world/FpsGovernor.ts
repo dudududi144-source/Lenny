@@ -20,6 +20,8 @@ export interface GovernorOptions {
   minFps?: number;
   /** how long fps may stay below minFps before distress (ms) */
   distressMs?: number;
+  /** shader-compilation warmup: distress never arms during this */
+  distressGraceMs?: number;
   /** hard cap for the hardware-scaling multiplier */
   maxScale?: number;
   /** the engine's base hardware scaling level (1 / min(dpr, 2)) */
