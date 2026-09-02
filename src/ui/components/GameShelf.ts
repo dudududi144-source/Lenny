@@ -20,6 +20,12 @@ export interface GameShelfHandle {
   isOpen(): boolean;
 }
 
+/** Optional shell metadata (Stage 7): a distinct DOM id when more than
+ *  one shelf lives on the page (the world has its own). */
+export interface GameShelfOptions {
+  id?: string;
+}
+
 function hex(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`;
 }
@@ -62,12 +68,12 @@ function lockChipSvg(): SVGSVGElement {
  * The zone tap still opens the default game directly — the shelf is
  * the optional "which game?" layer, never a gate in front of play.
  */
-export function createGameShelf(callbacks: GameShelfCallbacks): GameShelfHandle {
-  const row = h('div', { class: 'shelf-row', id: 'shelf-row', role: 'list' });
+export function createGameShelf(callbacks: GameShelfCallbacks, options: GameShelfOptions = {}): GameShelfHandle {
+  const row = h('div', { class: 'shelf-row', id: options.id ? `${options.id}-row` : 'shelf-row', role: 'list' });
   const title = h('h3', { class: 'shelf-title' }, '');
   const closeBtn = h(
     'button',
-    { class: 'hud-icon-btn shelf-close', id: 'shelf-close', type: 'button', 'aria-label': 'סגירת מדף המשחקים', onClick: () => close() },
+    { class: 'hud-icon-btn shelf-close', id: options.id ? `${options.id}-close` : 'shelf-close', type: 'button', 'aria-label': 'סגירת מדף המשחקים', onClick: () => close() },
     '✕',
   );
   const panel = h(
@@ -78,7 +84,7 @@ export function createGameShelf(callbacks: GameShelfCallbacks): GameShelfHandle 
   );
   const root = h(
     'div',
-    { class: 'game-shelf hidden', id: 'game-shelf', 'aria-hidden': 'true' },
+    { class: 'game-shelf hidden', id: options.id ?? 'game-shelf', 'aria-hidden': 'true' },
     h('div', { class: 'shelf-backdrop', onClick: () => close() }),
     panel,
   );

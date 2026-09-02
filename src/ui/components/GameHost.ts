@@ -23,8 +23,11 @@ export interface GameHostCallbacks {
 
 export interface GameHostHandle {
   root: HTMLElement;
-  /** Opens a zone's game; resolves false when no scene is registered yet. */
-  open(zoneId: string): Promise<boolean>;
+  /** Opens a zone's game; resolves false when no scene is registered yet.
+   *  `specId` (Stage 7, additive) pins an exact catalog game — the world
+   *  shelf hands its pick through here; omitting it keeps the default
+   *  progression untouched. */
+  open(zoneId: string, specId?: string | null): Promise<boolean>;
   close(): void;
   isZoneOpen(zoneId: string): boolean;
   currentZoneId(): string | null;
@@ -133,12 +136,13 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
     gameApp.setScene(scene);
   }
 
-  async function open(target: string): Promise<boolean> {
+  async function open(target: string, specId?: string | null): Promise<boolean> {
     closeGen++; /* invalidate any pending close */
     const data = safeLoad(callbacks.loadGarden);
     const specs = zoneCatalog(target);
     const done = finishedCount(data, target);
-    const spec = specs.length > 0 ? specs[Math.min(done, specs.length - 1)] : null;
+    const defaultSpec = specs.length > 0 ? specs[Math.min(done, specs.length - 1)] : null;
+    const spec = specId ? (anySpec(specId) ?? defaultSpec) : defaultSpec;
     const wanted = spec
       ? sceneKeyForSpec(spec)
       : sceneKeyForZone(target, getZone(target as ZoneId)?.gameScene);
@@ -161,7 +165,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
       await gameApp.mount(stage);
       mounted = true;
     }
-    spawn();
+    spawn(spec ?? undefined);
     return true;
   }
 
