@@ -132,3 +132,14 @@ describe('SpecGenerator — the 144 catalog', () => {
     expect(validateSpec(spec)).toContain('skills');
   });
 });
+
+describe('derived param spread — tiers feel different', () => {
+  it('rhythm tempo climbs with tier (tier-0 stays at the seed 78)', () => {
+    const speeds = [0, 1, 2, 3].map((t) => {
+      const s = SPEC_CATALOG.find((x) => x.category === 'rhythm' && x.baseTier === t)!;
+      return s.params.speed;
+    });
+    expect(speeds[0]).toBe(78); /* seed parity */
+    expect(speeds).toEqual([78, 86, 94, 102]);
+  });
+});

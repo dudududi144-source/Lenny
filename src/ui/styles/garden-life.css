@@ -179,3 +179,13 @@
   align-items: center;
   gap: 2px;
 }
+
+/* ---------- zone card games count (catalog visibility) ---------- */
+
+.zone-count {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--zc, #ffd76a) 80%, #fff6ec);
+  opacity: 0.85;
+  margin-block-start: 1px;
+}

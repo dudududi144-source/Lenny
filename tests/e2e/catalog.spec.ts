@@ -51,8 +51,11 @@ test('zone tap still opens the game; the shelf lists seed + derived catalog', as
   await expect(tier0).toBeEnabled();
   await expect(tier0.locator('.shelf-dots')).toHaveAttribute('aria-label', /דַּרְגָּה 1/);
 
-  /* every card shows the child-facing niqqud name */
-  await expect(page.locator('.shelf-card[data-spec="attention-find-target-00"] .shelf-name')).not.toBeEmpty();
+  /* every card shows a child-facing Hebrew name — never a raw id */
+  await expect(page.locator('.shelf-card[data-spec="attention-find-target-00"] .shelf-name')).toHaveText(/\p{Script=Hebrew}/u);
+  await expect(page.locator('.shelf-card[data-spec="find-fish-1"] .shelf-name')).toHaveText('הַדָּג הַזָּהוּב');
+  const names = await page.locator('.shelf-card .shelf-name').allTextContents();
+  for (const n of names) expect(n).not.toMatch(/^[a-z][a-z-]*\d*$/);
   expect(errors).toEqual([]);
 });
 
@@ -122,7 +125,7 @@ test('finishing a tier-0 game three times (live) opens tier 1', async ({ page })
       await page.waitForTimeout(260);
     }
     /* ceremony auto-advances back to the garden */
-    await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 25_000 });
+    await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 45_000 });
     await page.locator('.zone-card[data-zone="attention-stream"]').click();
     await expect(page.locator('#game-screen canvas')).toBeVisible();
   }
@@ -134,6 +137,112 @@ test('finishing a tier-0 game three times (live) opens tier 1', async ({ page })
   expect(errors).toEqual([]);
 });
 
+
+test('שׁחק שוב replays THE SAME game (never skips ahead)', async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await page.addInitScript((state) => {
+    localStorage.setItem('lenny-garden', JSON.stringify(state));
+  }, UNLOCK_STREAM);
+  await enterZone(page);
+  const specBefore = await page.evaluate(() => window.__lenny?.spec());
+
+  /* play to completion (the ceremony entrance is armed at done) */
+  const deadline = Date.now() + 90_000;
+  for (;;) {
+    const st = (await page.evaluate(() => (window.__lenny?.sceneState() as { done?: boolean } | null)))!;
+    if (st?.done || Date.now() > deadline) break;
+    const fish = (await page.evaluate(
+      () => (window.__lenny?.sceneState() as { leader?: { x: number; y: number } | null; fishes?: Array<{ x: number; y: number; target: boolean }> | null })?.leader ?? (window.__lenny?.sceneState() as { fishes?: Array<{ x: number; y: number; target: boolean }> } | null)?.fishes?.find((f) => f.target) ?? null,
+    ));
+    if (!fish) {
+      await page.waitForTimeout(200);
+      continue;
+    }
+    const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+    const design = await page.evaluate(() => window.__lenny?.design);
+    await page.mouse.click(
+      rect!.x + (fish.x / design!.w) * rect!.width,
+      rect!.y + (fish.y / design!.h) * rect!.height,
+    );
+    await page.waitForTimeout(230);
+  }
+
+  /* tap שחק שוב THE MOMENT the ceremony shows (the auto-advance races us) */
+  let replay: { x: number; y: number; w: number; h: number } | null = null;
+  const tapDeadline = Date.now() + 30_000;
+  while (Date.now() < tapDeadline) {
+    replay = (await page.evaluate(
+      () => (window.__lenny?.sceneState() as { ceremonyReplay: { x: number; y: number; w: number; h: number } | null; ceremonyOpen?: boolean } | null)?.ceremonyReplay ?? null,
+    )) ?? null;
+    if (replay) break;
+    await page.waitForTimeout(120);
+  }
+  expect(replay).not.toBeNull();
+  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  const design = await page.evaluate(() => window.__lenny?.design);
+  await page.mouse.click(
+    rect!.x + ((replay!.x + replay!.w / 2) / design!.w) * rect!.width,
+    rect!.y + ((replay!.y + replay!.h / 2) / design!.h) * rect!.height,
+  );
+  await page.waitForTimeout(900);
+
+  /* THE CONTRACT: same spec, same scene, ceremony closed, still in game */
+  expect(await page.evaluate(() => window.__lenny?.spec())).toBe(specBefore);
+  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('glow-fish');
+  /* the replayed session is FRESH — not finished, playing again */
+  await expect
+    .poll(async () => (await page.evaluate(() => (window.__lenny?.sceneState() as { done?: boolean } | null))?.done) ?? true, { timeout: 60_000, intervals: [500] })
+    .toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('the shelf freezes the game while choosing, resumes on close', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await page.addInitScript((state) => {
+    localStorage.setItem('lenny-garden', JSON.stringify(state));
+  }, UNLOCK_STREAM);
+  await enterZone(page);
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__lenny?.sceneState()))?.fishCount ?? 0, { timeout: 10_000 })
+    .toBeGreaterThan(0);
+
+  await page.locator('#hud-shelf').click();
+  await expect(page.locator('#game-shelf')).toBeVisible();
+
+  /* frozen: two reads 700ms apart are identical while the shelf is open
+     (reads wait for a live fish — respawn waves may briefly empty the pond) */
+  const firstFish = async (): Promise<number | null> =>
+    page.evaluate(() => {
+      const st = window.__lenny?.sceneState() as { fishes?: Array<{ x: number }> } | null;
+      return st?.fishes?.[0]?.x ?? null;
+    });
+  let a: number | null = null;
+  for (let i = 0; i < 20 && a === null; i++) {
+    a = await firstFish();
+    if (a === null) await page.waitForTimeout(400);
+  }
+  expect(a).not.toBeNull();
+  await page.waitForTimeout(700);
+  const b = await firstFish();
+  expect(b).toBe(a); /* PAUSED: the exact same fish at the exact same x */
+
+  /* closed: the pond swims again */
+  await page.locator('#shelf-close').click();
+  await expect(page.locator('#game-shelf')).toBeHidden();
+  let moved = false;
+  for (let i = 0; i < 12 && !moved; i++) {
+    await page.waitForTimeout(500);
+    const c = await firstFish();
+    moved = c !== null && c !== a;
+  }
+  expect(moved).toBe(true);
+  expect(errors).toEqual([]);
+});
 
 test('legacy unique scenes stay reachable through the catalog', async ({ page }) => {
   const errors: string[] = [];

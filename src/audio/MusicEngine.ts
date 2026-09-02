@@ -196,6 +196,7 @@ export class MusicEngine {
   private crossfadeUntil = 0;
   private prevMood: Mood | null = null;
   private peakQueued = false;
+  private holdUntil = 0;
 
   /* ---------- context plumbing (no API calls before a gesture) ---------- */
 
@@ -272,9 +273,17 @@ export class MusicEngine {
     }
   }
 
-  /** DDA feeds this: higher difficulty = denser arpeggio + extra pulse. */
-  setIntensity(v: number): void {
+  /** DDA feeds this: higher difficulty = denser arpeggio + extra pulse.
+   *  A scene may HOLD its intensity (e.g. GlowFish diving deeper) so the
+   *  generic DDA feed doesn't stomp it for holdMs milliseconds. */
+  setIntensity(v: number, holdMs = 0): void {
     this.intensity = Math.max(0, Math.min(1, v));
+    if (holdMs > 0) this.holdUntil = Date.now() + holdMs;
+  }
+
+  /** True while a scene's held intensity overrides the generic feed. */
+  isHeld(): boolean {
+    return Date.now() < this.holdUntil;
   }
 
   /** Melody enters only on special moments (breath peak). */

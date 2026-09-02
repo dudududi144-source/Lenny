@@ -1,7 +1,6 @@
 import { CATEGORIES } from '../../data/games';
 import type { GameSpec } from '../../games/builder/GameSpec';
-import { zoneCatalog, tierUnlocked, tierMissing } from '../../content/catalog';
-import { catalogName } from '../../content/SpecGenerator';
+import { zoneCatalog, tierUnlocked, tierMissing, displayNameFor } from '../../content/catalog';
 import { zoneName } from '../../games/core/ProgressStore';
 import { ZONE_ICONS } from './zoneIcons';
 import { h } from './common/el';
@@ -9,6 +8,8 @@ import { h } from './common/el';
 export interface GameShelfCallbacks {
   /** The child picked an open game — the host swaps the scene. */
   onPick(spec: GameSpec): void;
+  /** The shelf closed without a pick — the host un-freezes the scene. */
+  onClose?(): void;
 }
 
 export interface GameShelfHandle {
@@ -82,12 +83,22 @@ export function createGameShelf(callbacks: GameShelfCallbacks): GameShelfHandle 
     panel,
   );
 
+  function close(): void {
+    if (root.classList.contains('hidden')) return;
+    root.classList.remove('is-open');
+    root.classList.add('hidden');
+    root.setAttribute('aria-hidden', 'true');
+    callbacks.onClose?.();
+  }
+
   function build(zoneId: string, activeSpecId: string | null): void {
     title.textContent = `מִשְׂחָקִים בְּ${zoneName(zoneId)}`;
     row.replaceChildren();
 
     for (const spec of zoneCatalog(zoneId)) {
-      const unlocked = tierUnlocked(spec.category, spec.baseTier);
+      /* the game the garden's path brought the child to is ALWAYS open —
+         the shelf lock governs free choice, never the guided journey */
+      const unlocked = tierUnlocked(spec.category, spec.baseTier) || spec.id === activeSpecId;
       const missing = unlocked ? 0 : tierMissing(spec.category, spec.baseTier);
       const current = spec.id === activeSpecId;
 
@@ -116,7 +127,7 @@ export function createGameShelf(callbacks: GameShelfCallbacks): GameShelfHandle 
           },
         },
         iconHolder,
-        h('span', { class: 'shelf-name' }, catalogName(spec.id) ?? spec.id),
+        h('span', { class: 'shelf-name' }, displayNameFor(spec)),
         tierDots(spec),
         unlocked
           ? h('span', { class: 'shelf-go', 'aria-hidden': 'true' }, '▶')
@@ -136,12 +147,6 @@ export function createGameShelf(callbacks: GameShelfCallbacks): GameShelfHandle 
     root.classList.remove('hidden');
     root.classList.add('is-open');
     root.setAttribute('aria-hidden', 'false');
-  }
-
-  function close(): void {
-    root.classList.remove('is-open');
-    root.classList.add('hidden');
-    root.setAttribute('aria-hidden', 'true');
   }
 
   return { root, open, close, isOpen: () => !root.classList.contains('hidden') };

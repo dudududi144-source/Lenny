@@ -9,7 +9,7 @@ import { GameApp } from '../../games/engine/GameApp';
 import type { GameSpec } from '../../games/builder/GameSpec';
 import type { GameScene } from '../../games/engine/GameScene';
 import { SCENE_REGISTRY, sceneKeyForSpec, sceneKeyForZone } from '../../games/scenes/registry';
-import { zoneCatalog } from '../../content/catalog';
+import { zoneCatalog, anySpec } from '../../content/catalog';
 import { music } from '../../audio/MusicEngine';
 import { createGameHUD, type GameHUDHandle } from './GameHUD';
 import { createGameShelf, type GameShelfHandle } from './GameShelf';
@@ -60,13 +60,21 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
     onBack: () => close(),
     onPauseToggle: (paused) => gameApp.setPaused(paused),
     onShelf: () => {
-      if (zoneId) shelf.open(zoneId, currentSpecId);
+      if (!zoneId) return;
+      /* the game freezes while choosing — the pond doesn't move on */
+      wasPausedBeforeShelf = gameApp.isPaused();
+      gameApp.setPaused(true);
+      shelf.open(zoneId, currentSpecId);
     },
   });
+  let wasPausedBeforeShelf = false;
   const shelf: GameShelfHandle = createGameShelf({
     onPick: (spec) => {
       if (!zoneId) return;
       spawn(spec);
+    },
+    onClose: () => {
+      gameApp.setPaused(wasPausedBeforeShelf);
     },
   });
   const stage = h('div', { class: 'game-stage', id: 'game-stage' });
@@ -117,7 +125,10 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
       spec,
       hud: hud.bridge,
       onExit: () => close(),
-      onReplay: () => spawn(),
+      /* REPLAY replays THE SAME GAME — the zone's done counter already
+         advanced when the finish was recorded, so a bare spawn() would
+         jump to the next game instead of honoring "שחק שוב" */
+      onReplay: () => spawn(currentSpecId ? anySpec(currentSpecId) : undefined),
     });
     gameApp.setScene(scene);
   }
@@ -188,7 +199,7 @@ export function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
     sceneDebug: () => {
       const scene = gameApp.getScene();
       if (!scene) return null;
-      return { ...scene.debugState(), ...scene.sessionDebug() };
+      return { ...scene.debugState(), ...scene.sessionDebug(), hostPaused: gameApp.isPaused() };
     },
     canvasRect() {
       const canvas = gameApp.canvasElement();

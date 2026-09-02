@@ -262,7 +262,11 @@ export abstract class GameScene {
       ceremonyOpen: (c?.ceremony as boolean) ?? false,
       ceremonyStars: (c?.stars as number) ?? 0,
       newRecord: (c?.newRecord as boolean) ?? false,
+      /* ceremony button hit-boxes (world coords) — additive, e2e replays */
+      ceremonyReplay: (c?.replayHit as { x: number; y: number; w: number; h: number } | null) ?? null,
+      ceremonyExit: (c?.exitHit as { x: number; y: number; w: number; h: number } | null) ?? null,
       /* Stage 5 — filter-layer observability (additive keys) */
+      fxTimeScale: this.fx.timeScale,
       fxKind: this.gfx?.rendererKind ?? 'none',
       fxFilters: this.gfx?.activeCount ?? 0,
       fxGlowCap: this.gfx?.capabilities.glow ?? false,
@@ -387,15 +391,35 @@ export abstract class GameScene {
       this.fx.shake(this.root, 0, 0, 4, 240);
       audio.play('fanfare');
     }
-    this.anim.after(700, () => {
-      if (this.tornDown) return;
-      ceremony.show(this.ctx.zone, stats, opts.title);
-      /* auto-advance: watch the stars, then the garden takes over */
-      this.anim.after(5200, () => {
-        if (this.tornDown || !ceremony.isOpen()) return;
-        ceremony.dismiss();
-        this.ctx.onExit();
-      });
+    /* the auto-advance is armed by armCeremony so the self-healing
+       watchdog can re-arm it if the entrance ever needs forcing */
+    this.anim.after(700, () => this.armCeremony(ceremony, stats, opts));
+  }
+
+  /** Show the ceremony + watch the stars, then the garden takes over.
+   *  Also the self-healing re-entry point: a swallowed tween hiccup
+   *  must NEVER strand a child on a finished game (watchdog at 1.6s). */
+  private armCeremony(ceremony: ResultsCeremony, stats: SessionStats, opts: { title?: string; quiet?: boolean }): void {
+    if (this.tornDown) return;
+    try {
+      if (!ceremony.isOpen()) ceremony.show(this.ctx.zone, stats, opts.title);
+    } catch (err) {
+      console.error('[ceremony] show failed — returning to the garden', err);
+      this.ctx.onExit();
+      return;
+    }
+    /* auto-advance: watch the stars, then the garden takes over */
+    this.anim.after(5200, () => {
+      if (this.tornDown || !ceremony.isOpen()) return;
+      ceremony.dismiss();
+      this.ctx.onExit();
+    });
+    /* the watchdog: if the ceremony STILL isn't open (a lost timer),
+       try once more; if show is impossible, walk home */
+    this.anim.after(1600, () => {
+      if (this.tornDown || this.ceremony?.isOpen()) return;
+      console.error('[ceremony] missed its entrance — self-healing');
+      this.armCeremony(ceremony, stats, opts);
     });
   }
 
@@ -435,9 +459,11 @@ export abstract class GameScene {
     this.score.update();
     this.gfx?.update(dt);
     this.lenny?.update(dt);
-    /* Stage 6: DDA level → musical intensity, throttled to ~1s */
+    /* Stage 6: DDA level → musical intensity, throttled to ~1s.
+       A scene that HELD its intensity (GlowFish depth) wins until the
+       hold expires — the generic feed never stomps a deliberate mix. */
     this.intensityAcc += dt;
-    if (this.intensityAcc > 1000) {
+    if (this.intensityAcc > 1000 && !music.isHeld()) {
       this.intensityAcc = 0;
       music.setIntensity(this.dda.level());
     }

@@ -100,7 +100,7 @@ export class MemoryPairsScene extends GameScene {
     const exposure = exposureFor(level);
     const spec = this.ctx.spec;
 
-    const specPairs = spec?.params.itemCount ? Math.min(spec.params.itemCount, 6) : null;
+    const specPairs = spec?.params.itemCount ? Math.min(spec.params.itemCount, 8) : null;
     this.totalPairs = specPairs ?? [3, 4, 6, 6][this.dda.tier()];
     const { rows, cols } = layoutFor(this.totalPairs);
 
@@ -523,5 +523,6 @@ export class MemoryPairsScene extends GameScene {
 function layoutFor(pairs: number): { rows: number; cols: number } {
   if (pairs <= 3) return { rows: 2, cols: 3 };
   if (pairs <= 4) return { rows: 2, cols: 4 };
-  return { rows: 3, cols: 4 };
+  if (pairs <= 6) return { rows: 3, cols: 4 };
+  return { rows: 4, cols: 4 }; /* 7-8 pairs: a 4×4 field, slot sizes shrink */
 }

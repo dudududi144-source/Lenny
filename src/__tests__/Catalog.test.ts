@@ -21,6 +21,7 @@ import {
   tierMissing,
   TIER_UNLOCK_AFTER,
   LEGACY_SPECS,
+  displayNameFor,
 } from '../content/catalog';
 import { validateCatalog, validateSpec } from '../content/SpecValidator';
 import { SPEC_CATALOG, catalogForZone } from '../content/SpecGenerator';
@@ -147,5 +148,23 @@ describe('tier locking — opens one rung at a time', () => {
     expect(JSON.parse(localStorage.getItem('lenny-game-finishes-v1')!)).toMatchObject({
       'breath-breath-guide-00': 2,
     });
+  });
+});
+
+describe('display names — every shelf card reads Hebrew', () => {
+  it('derived specs use their seed name, seed + legacy use the display map', () => {
+    const derived = SPEC_CATALOG.find((s) => s.id === 'breath-breath-guide-00')!;
+    expect(displayNameFor(derived)).toBe('נְשִׁימַת הַכּוֹכָב');
+    const seed = GAME_REGISTRY.find((s) => s.id === 'breath-lanterns-1')!;
+    expect(displayNameFor(seed)).toBe('פָּנָסֵי הַלַּיְלָה');
+    const legacy = LEGACY_SPECS[0];
+    expect(displayNameFor(legacy)).toBe('שְׁבִיל הַפָּנָסִים');
+  });
+
+  it('EVERY playable spec resolves to a Hebrew name (no raw ids on cards)', () => {
+    for (const spec of [...GAME_REGISTRY, ...SPEC_CATALOG, ...LEGACY_SPECS]) {
+      expect(displayNameFor(spec), spec.id).not.toMatch(/^[a-z-]+\d*$/); /* never a raw id */
+      expect(displayNameFor(spec).length).toBeGreaterThan(1);
+    }
   });
 });

@@ -223,3 +223,25 @@ describe('MusicEngine — autoplay policy + scheduling', () => {
     expect(created.oscillators).toBeGreaterThan(before);
   });
 });
+
+describe('MusicEngine — intensity holds', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('a held intensity wins over later plain feeds until it expires', () => {
+    const engine = new MusicEngine();
+    engine.setIntensity(0.9, 5_000); /* GlowFish dives — hold 5s */
+    expect(engine.isHeld()).toBe(true);
+    expect(engine.debug().intensity).toBe(0.9);
+    engine.setIntensity(0.2); /* generic DDA feed arrives — NOT held, applies */
+    expect(engine.debug().intensity).toBe(0.2);
+    /* a held call then blocks only via isHeld() gate in the caller */
+    engine.setIntensity(0.95, 5_000);
+    vi.advanceTimersByTime(6_000);
+    expect(engine.isHeld()).toBe(false); /* expired — generic feed resumes */
+  });
+});
