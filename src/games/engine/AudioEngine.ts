@@ -1,8 +1,9 @@
 /* ============================================================
    AudioEngine — fully procedural WebAudio. Zero assets.
    Every sound is synthesized (oscillators + noise + envelopes):
-   safe, tiny, instant. Music = quiet generative pentatonic pad.
-   Mute state persists at `lenny-muted` (additive key).
+   safe, tiny, instant. Ambience = the MusicEngine soundtrack
+   (three synthesized layers, five moods). Buses: master limiter,
+   music bus, sfx bus. Mute persists at `lenny-muted` (additive).
    ============================================================ */
 
 type SfxName =
@@ -18,12 +19,16 @@ type SfxName =
   | 'unlock'
   | 'star';
 
+import { music } from '../../audio/MusicEngine';
+
 const PENTATONIC = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private musicGain: GainNode | null = null;
+  private musicLayer: GainNode | null = null;
+  private sfxGain: GainNode | null = null;
   private musicTimer: number | null = null;
   private musicStep = 0;
   private muted = false;
@@ -50,12 +55,28 @@ export class AudioEngine {
       const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctor) return;
       this.ctx = new Ctor();
+      /* master limiter — no clipping, ever (Stage 6 acceptance) */
+      const limiter = this.ctx.createDynamicsCompressor();
+      limiter.threshold.value = -8;
+      limiter.knee.value = 6;
+      limiter.ratio.value = 12;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.16;
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : 0.85;
-      this.master.connect(this.ctx.destination);
+      this.master.connect(limiter).connect(this.ctx.destination);
+      /* separate buses: sfx straight to master, music through its own bus */
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.value = 1;
+      this.sfxGain.connect(this.master);
       this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = 0.05;
+      this.musicGain.gain.value = 0.9;
       this.musicGain.connect(this.master);
+      /* the layer the MusicEngine voices connect to */
+      this.musicLayer = this.ctx.createGain();
+      this.musicLayer.gain.value = 0.16;
+      this.musicLayer.connect(this.musicGain);
+      music.bindContext(this.ctx, this.musicLayer);
     } catch {
       this.ctx = null;
     }
@@ -78,10 +99,15 @@ export class AudioEngine {
     return this.muted;
   }
 
+  /** AudioContext state for the e2e bridge ('none' = not created yet). */
+  contextState(): string {
+    return this.ctx ? this.ctx.state : 'none';
+  }
+
   /* ---------------- low-level voices ---------------- */
 
   private tone(freq: number, durMs: number, opts: { type?: OscillatorType; vol?: number; slideTo?: number; delayMs?: number } = {}): void {
-    if (!this.ctx || !this.master || this.muted) return;
+    if (!this.ctx || !this.sfxGain || this.muted) return;
     const t0 = this.ctx.currentTime + (opts.delayMs ?? 0) / 1000;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -92,13 +118,13 @@ export class AudioEngine {
     gain.gain.setValueAtTime(0.0001, t0);
     gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durMs / 1000);
-    osc.connect(gain).connect(this.master);
+    osc.connect(gain).connect(this.sfxGain);
     osc.start(t0);
     osc.stop(t0 + durMs / 1000 + 0.05);
   }
 
   private noise(durMs: number, opts: { vol?: number; freq?: number; delayMs?: number; q?: number } = {}): void {
-    if (!this.ctx || !this.master || this.muted) return;
+    if (!this.ctx || !this.sfxGain || this.muted) return;
     const t0 = this.ctx.currentTime + (opts.delayMs ?? 0) / 1000;
     const len = Math.max(1, Math.floor((this.ctx.sampleRate * durMs) / 1000));
     const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -112,7 +138,7 @@ export class AudioEngine {
     filter.Q.value = opts.q ?? 1.2;
     const gain = this.ctx.createGain();
     gain.gain.value = (opts.vol ?? 0.18) * 0.5;
-    src.connect(filter).connect(gain).connect(this.master);
+    src.connect(filter).connect(gain).connect(this.sfxGain);
     src.start(t0);
   }
 
@@ -172,49 +198,18 @@ export class AudioEngine {
     }
   }
 
-  /* ---------------- generative ambience ---------------- */
+  /* ---------------- generative ambience ----------------
+     Stage 6: delegated to the MusicEngine — the old quiet pad is now
+     the full three-layer soundtrack. startMusic = "want sound" (harmless
+     before the first gesture: nothing plays until unlock), stopMusic
+     = "stop the music" (kept for compatibility). */
 
   startMusic(): void {
-    if (!this.ctx || !this.musicGain || this.musicTimer !== null) return;
-    const step = (): void => {
-      if (!this.ctx || this.muted) return;
-      const idx = [0, 2, 4, 2, 5, 4, 2, 0][this.musicStep % 8];
-      const f = PENTATONIC[idx] / 2;
-      this.padTone(f, 1900);
-      if (this.musicStep % 4 === 0) this.padTone(f / 2, 2600, 0.06);
-      this.musicStep++;
-    };
-    step();
-    this.musicTimer = window.setInterval(step, 2100);
-  }
-
-  private padTone(freq: number, durMs: number, vol = 0.08): void {
-    if (!this.ctx || !this.musicGain || this.muted) return;
-    const t0 = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    const det = this.ctx.createOscillator();
-    det.type = 'sine';
-    det.frequency.value = freq * 1.004;
-    gain.gain.setValueAtTime(0.0001, t0);
-    gain.gain.linearRampToValueAtTime(vol, t0 + durMs * 0.0006);
-    gain.gain.linearRampToValueAtTime(0.0001, t0 + durMs / 1000);
-    osc.connect(gain);
-    det.connect(gain);
-    gain.connect(this.musicGain);
-    osc.start(t0);
-    det.start(t0);
-    osc.stop(t0 + durMs / 1000 + 0.1);
-    det.stop(t0 + durMs / 1000 + 0.1);
+    music.resume();
   }
 
   stopMusic(): void {
-    if (this.musicTimer !== null) {
-      window.clearInterval(this.musicTimer);
-      this.musicTimer = null;
-    }
+    music.pause();
   }
 
   destroy(): void {

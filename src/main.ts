@@ -8,16 +8,23 @@
 import './ui/styles/tokens.css';
 import './ui/styles/global.css';
 import './ui/styles/animations.css';
+import './ui/styles/shelf.css';
+import './ui/styles/garden-life.css';
+import './ui/styles/daylight.css';
 import './ui/styles/parentlens.css';
 
 import { AdaptiveDifficulty } from './games/core/AdaptiveDifficulty';
 import { MemoryGarden } from './games/core/MemoryGarden';
 import { bloomLevel, freshGarden, LocalProgressStore, type GardenData } from './games/core/ProgressStore';
+import { isFirstVisitToday, markGreetedToday, phaseNow, timeGreeting, todayKey } from './content/dayCycle';
 
 import { createGameHost } from './ui/components/GameHost';
 import { createGardenMap } from './ui/components/GardenMap';
 import { createParentLens } from './ui/components/ParentLens';
 import { createHero } from './ui/components/Hero';
+import { installCatalog } from './content/catalog';
+import { audio } from './games/engine/AudioEngine';
+import { music } from './audio/MusicEngine';
 import { h } from './ui/components/common/el';
 
 declare global {
@@ -29,6 +36,10 @@ declare global {
       zoneLevel(zone: string): number;
       scene(): string | null;
       sceneState(): Record<string, unknown> | null;
+      /** Stage 6 (additive): the catalog spec currently playing. */
+      spec(): string | null;
+      /** Stage 6 (additive): soundtrack state (mood/intensity/running). */
+      music(): { mood: string; intensity: number; running: boolean; hasContext: boolean; crossfading: boolean; prevMood: string | null };
       renderer(): string | null;
       canvasRect(): { x: number; y: number; width: number; height: number } | null;
       design: { w: number; h: number };
@@ -37,6 +48,10 @@ declare global {
 }
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
+
+/* ---------- the 144-game catalog (validated at boot) ---------- */
+
+installCatalog();
 
 /* ---------- toast (the shell's gentle error surface) ---------- */
 
@@ -57,6 +72,19 @@ function oops(): void {
 
 window.addEventListener('error', oops);
 window.addEventListener('unhandledrejection', oops);
+
+/* Stage 6 (autoplay policy): the soundtrack needs a gesture. ANY first
+   interaction (hero button, zone card) counts — the context is created
+   only here, never before. */
+const unlockAudio = (): void => {
+  audio.unlock();
+  document.removeEventListener('pointerdown', unlockAudio);
+  document.removeEventListener('keydown', unlockAudio);
+  document.removeEventListener('touchstart', unlockAudio);
+};
+document.addEventListener('pointerdown', unlockAudio, { passive: true });
+document.addEventListener('keydown', unlockAudio);
+document.addEventListener('touchstart', unlockAudio, { passive: true });
 
 /* ---------- garden state (cognitive core, untouched) ---------- */
 
@@ -84,6 +112,21 @@ function baseGreeting(): string {
   }
 }
 
+/* Stage 6: first hello of the day is hour-aware — the garden says
+   בֹּקֶר טוֹב / עֶרֶב טוֹב before the core's warm lines. The MARK is
+   set only when the garden screen actually shows (never at boot). */
+function gardenGreeting(): string {
+  const base = baseGreeting();
+  try {
+    if (isFirstVisitToday(todayKey())) {
+      return `${timeGreeting(phaseNow())} ${base}`;
+    }
+  } catch {
+    /* fall through to the plain greeting */
+  }
+  return base;
+}
+
 function personalGreeting(): string {
   const name = localStorage.getItem('lenny-name')?.trim() ?? '';
   return name ? `שָׁלוֹם ${name}! בָּא לְךָ לְשַׂחֵק?` : baseGreeting();
@@ -100,6 +143,14 @@ function showScreen(name: 'hero' | 'garden' | 'game' | 'parent'): void {
   for (const [key, el] of Object.entries(screens)) {
     el.classList.toggle('hidden', key !== name);
   }
+  /* Stage 6: the day's hello counts only when the garden is SEEN */
+  if (name === 'garden') {
+    try {
+      markGreetedToday(todayKey());
+    } catch {
+      /* private mode: the hello repeats — harmless */
+    }
+  }
 }
 
 function refreshAll(): void {
@@ -107,7 +158,7 @@ function refreshAll(): void {
   hero.setGreeting(personalGreeting());
   hero.setShowContinue(hasProgress(data));
   hero.setBloomLit(bloomLevel(data) > 0);
-  garden.setGreeting(baseGreeting());
+  garden.setGreeting(gardenGreeting());
   garden.refresh();
 }
 
@@ -183,6 +234,9 @@ window.__lenny = {
   zoneLevel: (zone: string) => new AdaptiveDifficulty(zone).level(),
   scene: () => gameHost.currentSceneKey(),
   sceneState: () => gameHost.sceneDebug(),
+  /** Stage 6 (additive): the spec currently playing + music state. */
+  spec: () => gameHost.currentSpecId(),
+  music: () => music.debug(),
   renderer: () => gameHost.rendererKind(),
   canvasRect: () => gameHost.canvasRect(),
   /* live world space (Arena): scenes lay out in these units */

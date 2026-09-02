@@ -50,6 +50,11 @@ export const SCENE_REGISTRY: Record<string, SceneFactory> = {
 };
 
 export function sceneKeyForSpec(spec: GameSpec): string {
+  /* Stage 6: a spec may pin its unique legacy scene explicitly
+     (e.g. PlayPath mapped to kind 'open-create' but routed to 'play').
+     Unknown overrides fall through to the coming-soon guard in GameHost. */
+  const override = spec.params?.extra?.scene;
+  if (typeof override === 'string' && override.length > 0) return override;
   return KIND_TO_SCENE[spec.kind];
 }
 

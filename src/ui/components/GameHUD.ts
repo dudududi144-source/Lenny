@@ -27,6 +27,8 @@ export interface GameHUDHandle {
 export interface GameHUDCallbacks {
   onBack(): void;
   onPauseToggle?(paused: boolean): void;
+  /** Stage 6: open the in-zone game shelf (additive, optional). */
+  onShelf?(): void;
 }
 
 const muteIcon = (muted: boolean): string =>
@@ -95,6 +97,19 @@ export function createGameHUD(callbacks: GameHUDCallbacks): GameHUDHandle {
     svgIcon(muteIcon(muted)),
   );
 
+  /* shelf (Stage 6 — the zone's game list) */
+  const shelfBtn = h(
+    'button',
+    {
+      class: 'hud-icon-btn',
+      id: 'hud-shelf',
+      type: 'button',
+      'aria-label': 'מדף המשחקים של האזור',
+      onClick: () => callbacks.onShelf?.(),
+    },
+    svgIcon('M4 6h16 M4 12h16 M4 18h10 M17 15l3 3 3-3'),
+  );
+
   /* pause */
   let paused = false;
   const pauseBtn = h(
@@ -142,6 +157,7 @@ export function createGameHUD(callbacks: GameHUDCallbacks): GameHUDHandle {
       scoreChip,
       comboChip,
       h('span', { class: 'hud-ring', id: 'hud-ring' }, ring.el),
+      shelfBtn,
       muteBtn,
       pauseBtn,
     ),

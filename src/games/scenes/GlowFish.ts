@@ -16,6 +16,7 @@ import { softGlowTexture, sparkTexture } from '../engine/textures';
 import { bursts } from '../engine/ParticleSystem';
 import { COLORS } from '../engine/theme';
 import { audio } from '../engine/AudioEngine';
+import { music } from '../../audio/MusicEngine';
 
 const SESSION_ROUNDS = 3; /* DDA rounds — the golden finale comes after */
 const INTRA_ROUND_RAMP = 0.06;
@@ -210,6 +211,9 @@ export class GlowFishScene extends GameScene {
     this.lastHint = 'none';
     this.goldenAt = this.t + GOLDEN_AT_MS;
     this.finale = this.round > SESSION_ROUNDS;
+    /* Stage 6: the soundtrack dives with the child — the bass/pressure
+       of the mix rises with each round of depth (purely musical) */
+    music.setIntensity(Math.min(1, this.dda.level() * 0.7 + (this.round - 1) * 0.1));
 
     const level = this.finale ? 0.15 : this.effectiveLevel();
     this.toFind = this.finale ? 4 : level < 0.5 ? 2 : 3;
@@ -676,7 +680,6 @@ export class GlowFishScene extends GameScene {
   }
 
   destroy(): void {
-    audio.stopMusic();
     super.destroy();
   }
 }

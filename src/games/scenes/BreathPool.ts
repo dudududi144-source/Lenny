@@ -3,6 +3,7 @@ import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { softGlowTexture } from '../engine/textures';
 import { COLORS } from '../engine/theme';
 import { audio } from '../engine/AudioEngine';
+import { music } from '../../audio/MusicEngine';
 
 const TAP_MIN_GAP_MS = 700;
 const HIT_R = 44;
@@ -98,6 +99,9 @@ export class BreathPoolScene extends GameScene {
         this.sparkle(lantern.view.x, lantern.view.y);
         this.score.hit(15, { x: lantern.view.x, y: lantern.view.y });
         audio.play('chime', this.litCount % 4);
+        /* Stage 6: each slow tap IS one breath — the melody layer enters
+           only here, at the breath peak (night mood is pad-only otherwise) */
+        music.breathPeak();
         this.ctx.hud.mission?.(`הֻדְלְקוּ ${this.litCount} מִתּוֹךְ ${this.total} פְּנָסִים`);
         this.ripple(lantern.view.x, this.h * 0.62, COLORS.sparkLight);
         if (this.litCount >= this.total) this.finale();

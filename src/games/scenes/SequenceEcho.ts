@@ -15,6 +15,7 @@ import { softGlowTexture, ringTexture } from '../engine/textures';
 import { bursts } from '../engine/ParticleSystem';
 import { COLORS } from '../engine/theme';
 import { audio } from '../engine/AudioEngine';
+import { music } from '../../audio/MusicEngine';
 
 const LEAD_MS = 500;
 const REPLAY_DELAY_MS = 900;
@@ -209,6 +210,8 @@ export class SequenceEchoScene extends GameScene {
         this.litCell = cellsForSeq[i];
         this.flashT = flashS;
         audio.play('tick');
+        /* Stage 6: every crystal IS a scale note — the playback sings */
+        music.playEchoNote(cellsForSeq[i]);
         /* draw the melody path segment */
         if (i > 0) this.drawPathSegment(cellsForSeq[i - 1], cellsForSeq[i]);
       });
@@ -239,7 +242,9 @@ export class SequenceEchoScene extends GameScene {
 
     this.litCell = idx;
     this.flashT = 0.3;
-    audio.play('chime', idx % 4);
+    /* Stage 6: the echo tap rings the SAME note the playback sang —
+       correct sound = correct note, the hint is the harmony itself */
+    music.playEchoNote(idx);
 
     const userType = this.cells[idx].kind;
     const expected = this.sequence[this.inputIndex];
@@ -437,7 +442,6 @@ export class SequenceEchoScene extends GameScene {
   }
 
   destroy(): void {
-    audio.stopMusic();
     super.destroy();
   }
 }
