@@ -13,6 +13,7 @@ import {
 } from '../../games/core/ProgressStore';
 import { ZONE_ICONS } from './zoneIcons';
 import { bloomStageFor, buildLifeLayer, buildZoneGrowth, type BloomStage } from './gardenLife';
+import { zoneCatalog } from '../../content/catalog';
 import { phaseNow, type DayPhase } from '../../content/dayCycle';
 import { uiButton } from './common/Button';
 import { ProgressRing } from './common/ProgressRing';
@@ -195,8 +196,10 @@ function zoneCard(
 
   let slot: HTMLElement;
   if (unlocked) {
-    const ring = new ProgressRing({ size: 52, stroke: 5, ariaLabel: `${zone.name}: ${done} מתוך ${total}` });
-    ring.setCounts(done, total);
+    const ring = new ProgressRing({ size: 52, stroke: 5, ariaLabel: `${zone.name}: ${Math.min(done, total)} מתוך ${total}` });
+    /* the ring counts the milestone spine; the flowers below carry the
+       ongoing growth — clamp so a deep run never renders 7/3 */
+    ring.setCounts(Math.min(done, total), total);
     /* Stage 6: the zone's visible growth — one flower per finished game */
     slot = h(
       'span',
@@ -240,6 +243,9 @@ function zoneCard(
       { class: 'zone-body' },
       h('span', { class: 'zone-name' }, zone.name),
       h('span', { class: 'zone-desc' }, zone.desc),
+      unlocked
+        ? h('span', { class: 'zone-count' }, `${zoneCatalog(zone.id).length} מִשְׂחָקִים`)
+        : null,
       unlocked ? null : h('span', { class: 'zone-lockhint' }, lockHint),
     ),
     slot,

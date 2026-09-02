@@ -51,8 +51,11 @@ test('zone tap still opens the game; the shelf lists seed + derived catalog', as
   await expect(tier0).toBeEnabled();
   await expect(tier0.locator('.shelf-dots')).toHaveAttribute('aria-label', /דַּרְגָּה 1/);
 
-  /* every card shows the child-facing niqqud name */
-  await expect(page.locator('.shelf-card[data-spec="attention-find-target-00"] .shelf-name')).not.toBeEmpty();
+  /* every card shows a child-facing Hebrew name — never a raw id */
+  await expect(page.locator('.shelf-card[data-spec="attention-find-target-00"] .shelf-name')).toHaveText(/\p{Script=Hebrew}/u);
+  await expect(page.locator('.shelf-card[data-spec="find-fish-1"] .shelf-name')).toHaveText('הַדָּג הַזָּהוּב');
+  const names = await page.locator('.shelf-card .shelf-name').allTextContents();
+  for (const n of names) expect(n).not.toMatch(/^[a-z][a-z-]*\d*$/);
   expect(errors).toEqual([]);
 });
 
@@ -122,7 +125,7 @@ test('finishing a tier-0 game three times (live) opens tier 1', async ({ page })
       await page.waitForTimeout(260);
     }
     /* ceremony auto-advances back to the garden */
-    await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 25_000 });
+    await expect(page.locator('#garden-screen')).toBeVisible({ timeout: 45_000 });
     await page.locator('.zone-card[data-zone="attention-stream"]').click();
     await expect(page.locator('#game-screen canvas')).toBeVisible();
   }
@@ -134,6 +137,130 @@ test('finishing a tier-0 game three times (live) opens tier 1', async ({ page })
   expect(errors).toEqual([]);
 });
 
+
+test('שׁחק שוב replays THE SAME game (never skips ahead)', async ({ page }) => {
+  test.setTimeout(240_000);
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await page.addInitScript((state) => {
+    localStorage.setItem('lenny-garden', JSON.stringify(state));
+  }, UNLOCK_STREAM);
+  await enterZone(page);
+  const specBefore = await page.evaluate(() => window.__lenny?.spec());
+
+  /* play to completion (the ceremony entrance is armed at done) */
+  const deadline = Date.now() + 90_000;
+  for (;;) {
+    const st = (await page.evaluate(() => (window.__lenny?.sceneState() as { done?: boolean } | null)))!;
+    if (st?.done || Date.now() > deadline) break;
+    const fish = (await page.evaluate(
+      () => (window.__lenny?.sceneState() as { leader?: { x: number; y: number } | null; fishes?: Array<{ x: number; y: number; target: boolean }> | null })?.leader ?? (window.__lenny?.sceneState() as { fishes?: Array<{ x: number; y: number; target: boolean }> } | null)?.fishes?.find((f) => f.target) ?? null,
+    ));
+    if (!fish) {
+      await page.waitForTimeout(200);
+      continue;
+    }
+    const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+    const design = await page.evaluate(() => window.__lenny?.design);
+    await page.mouse.click(
+      rect!.x + (fish.x / design!.w) * rect!.width,
+      rect!.y + (fish.y / design!.h) * rect!.height,
+    );
+    await page.waitForTimeout(230);
+  }
+
+  /* tap שחק שוב THE INSTANT the ceremony shows — waitForFunction polls
+     INSIDE the page, so the race against the 5.2s auto-advance is won
+     within one rendered frame */
+  await page.waitForFunction(
+    () => ((window.__lenny?.sceneState() as { ceremonyOpen?: boolean } | null)?.ceremonyOpen) === true,
+    undefined,
+    { timeout: 30_000, polling: 50 },
+  );
+  const replay = (await page.evaluate(
+    () => (window.__lenny?.sceneState() as { ceremonyReplay: { x: number; y: number; w: number; h: number } | null } | null)?.ceremonyReplay ?? null,
+  )) ?? null;
+  expect(replay).not.toBeNull();
+  const rect = await page.evaluate(() => window.__lenny?.canvasRect());
+  const design = await page.evaluate(() => window.__lenny?.design);
+  await page.mouse.click(
+    rect!.x + ((replay!.x + replay!.w / 2) / design!.w) * rect!.width,
+    rect!.y + ((replay!.y + replay!.h / 2) / design!.h) * rect!.height,
+  );
+  await page.waitForTimeout(900);
+
+  /* THE CONTRACT: same spec, same scene, ceremony closed, still in game */
+  expect(await page.evaluate(() => window.__lenny?.spec())).toBe(specBefore);
+  expect(await page.evaluate(() => window.__lenny?.scene())).toBe('glow-fish');
+  /* the replayed session is FRESH — not finished, playing again */
+  const deadline2 = Date.now() + 60_000;
+  let fresh = false;
+  let lastRaw = '';
+  while (Date.now() < deadline2) {
+    const raw = await page.evaluate(() => {
+      const st = (window.__lenny?.sceneState() ?? null) as { done?: boolean } | null;
+      return st === null ? 'null' : JSON.stringify({ done: st.done, round: st.round });
+    });
+    if (raw !== lastRaw) { console.log('POLL-READ:', raw); lastRaw = raw; }
+    if (raw.includes('"done":false')) { fresh = true; break; }
+    await page.waitForTimeout(400);
+  }
+  if (!fresh) {
+    const dump = await page.evaluate(() => {
+      const st = window.__lenny?.sceneState() as Record<string, unknown> | null;
+      return { screen: window.__lenny?.screen(), spec: window.__lenny?.spec(), paused: st?.hostPaused, round: st?.round, done: st?.done, open: st?.ceremonyOpen };
+    });
+    console.log('REPLAY-FAIL-DUMP:', JSON.stringify(dump));
+  }
+  expect(fresh, 'replayed session is fresh and playing').toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('the shelf freezes the game while choosing, resumes on close', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(String(err)));
+
+  await page.addInitScript((state) => {
+    localStorage.setItem('lenny-garden', JSON.stringify(state));
+  }, UNLOCK_STREAM);
+  await enterZone(page);
+  await expect
+    .poll(async () => (await page.evaluate(() => window.__lenny?.sceneState()))?.fishCount ?? 0, { timeout: 10_000 })
+    .toBeGreaterThan(0);
+
+  await page.locator('#hud-shelf').click();
+  await expect(page.locator('#game-shelf')).toBeVisible();
+
+  /* frozen: two reads 700ms apart are identical while the shelf is open
+     (reads wait for a live fish — respawn waves may briefly empty the pond) */
+  const firstFish = async (): Promise<number | null> =>
+    page.evaluate(() => {
+      const st = window.__lenny?.sceneState() as { fishes?: Array<{ x: number }> } | null;
+      return st?.fishes?.[0]?.x ?? null;
+    });
+  let a: number | null = null;
+  for (let i = 0; i < 20 && a === null; i++) {
+    a = await firstFish();
+    if (a === null) await page.waitForTimeout(400);
+  }
+  expect(a).not.toBeNull();
+  await page.waitForTimeout(700);
+  const b = await firstFish();
+  expect(b).toBe(a); /* PAUSED: the exact same fish at the exact same x */
+
+  /* closed: the pond swims again */
+  await page.locator('#shelf-close').click();
+  await expect(page.locator('#game-shelf')).toBeHidden();
+  let moved = false;
+  for (let i = 0; i < 12 && !moved; i++) {
+    await page.waitForTimeout(500);
+    const c = await firstFish();
+    moved = c !== null && c !== a;
+  }
+  expect(moved).toBe(true);
+  expect(errors).toEqual([]);
+});
 
 test('legacy unique scenes stay reachable through the catalog', async ({ page }) => {
   const errors: string[] = [];

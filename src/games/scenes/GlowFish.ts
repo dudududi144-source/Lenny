@@ -212,8 +212,9 @@ export class GlowFishScene extends GameScene {
     this.goldenAt = this.t + GOLDEN_AT_MS;
     this.finale = this.round > SESSION_ROUNDS;
     /* Stage 6: the soundtrack dives with the child — the bass/pressure
-       of the mix rises with each round of depth (purely musical) */
-    music.setIntensity(Math.min(1, this.dda.level() * 0.7 + (this.round - 1) * 0.1));
+       of the mix rises with each round of depth (purely musical). Held
+       for the round so the generic DDA feed doesn't stomp it. */
+    music.setIntensity(Math.min(1, this.dda.level() * 0.7 + (this.round - 1) * 0.1), 45_000);
 
     const level = this.finale ? 0.15 : this.effectiveLevel();
     this.toFind = this.finale ? 4 : level < 0.5 ? 2 : 3;

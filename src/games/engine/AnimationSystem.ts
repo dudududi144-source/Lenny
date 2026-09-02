@@ -166,8 +166,10 @@ export class AnimationSystem {
         rec.killed = true;
         try {
           rec.cb();
-        } catch {
-          /* a dead callback must never kill the ticker */
+        } catch (err) {
+          /* a dead callback must never kill the ticker — but it must
+             never die SILENTLY either (hidden bugs cost days) */
+          console.error('[anim] after-callback threw:', err);
         }
       }
     }

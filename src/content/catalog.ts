@@ -15,7 +15,7 @@
 import { GAME_REGISTRY, gamesInZone } from '../games/builder/GameRegistry';
 import type { GameSpec } from '../games/builder/GameSpec';
 import type { GameCategory } from '../data/games';
-import { catalogForZone, SPEC_CATALOG } from './SpecGenerator';
+import { catalogForZone, SPEC_CATALOG, NAME_BY_ID } from './SpecGenerator';
 import { validateCatalog } from './SpecValidator';
 import { finishCountOf } from './gameFinishes';
 
@@ -55,6 +55,50 @@ export const LEGACY_SPECS: readonly GameSpec[] = [
 
 function legacyForZone(zone: string): GameSpec[] {
   return LEGACY_SPECS.filter((s) => s.zone === zone);
+}
+
+/* ---------- child-facing names for the seed + legacy specs ----------
+   The 144 derived specs name themselves from data/games.ts; the
+   hand-written seed specs (and the PlayPath mapping) deserve real
+   Hebrew names too — a shelf card that says "breath-lanterns-1" is
+   a broken feeling for a 4-year-old and her parent. */
+
+const SEED_DISPLAY: Record<string, string> = {
+  'memory-pairs-1': 'זוּגוֹת פְּרָחִים',
+  'memory-pairs-2': 'זוּגוֹת נוֹסְפִים',
+  'sequence-echo-1': 'מַקְהֵלַת הָאוֹר',
+  'find-fish-1': 'הַדָּג הַזָּהוּב',
+  'find-fish-2': 'עוֹד דָּגִים בַּנַּחַל',
+  'find-fish-3': 'הַנַּחַל הַמָּלֵא',
+  'find-fish-4': 'אַלּוּף הַדָּגִים',
+  'sort-acorns-1': 'סִדּוּר בְּלוּטִים',
+  'sort-acorns-2': 'בְּלוּטִים נוֹסְפִים',
+  'match-kites-1': 'עִפְעוֹפִים וּצְלָלִים',
+  'match-kites-2': 'עִפְעוֹפִים נוֹסְפִים',
+  'find-letter-1': 'הָאוֹת הָרִאשׁוֹנָה',
+  'find-letter-2': 'עוֹד אוֹתִיּוֹת',
+  'find-letter-3': 'הָאַרְנֶבֶת צָרִיכָה עָזְרָה',
+  'find-letter-4': 'אַלּוּף הָאוֹתִיּוֹת',
+  'emotion-turtle-1': 'מָה הַצָּב מַרְגִּישׁ?',
+  'emotion-turtle-2': 'רְגָשׁוֹת נוֹסְפִים',
+  'emotion-turtle-3': 'הַצָּב לָמַד הַרְבֵּה',
+  'emotion-turtle-4': 'אַלּוּף הָרְגָשׁוֹת',
+  'paint-flower-1': 'הַפֶּרַח שֶׁל הַדְּבוֹרָה',
+  'drum-beat-1': 'הַתֹּף הַקָּטָן',
+  'drum-beat-2': 'הַקֶּצֶב הֶאָרֹךְ',
+  'drum-beat-3': 'קֶצֶב מָהִיר',
+  'drum-beat-4': 'אַלּוּף הַתֹּף',
+  'drum-beat-5': 'לְהָקָה שְׁלֵמָה',
+  'breath-lanterns-1': 'פָּנָסֵי הַלַּיְלָה',
+  'breath-lanterns-2': 'עוֹד פָּנָסִים',
+  'open-create-1': 'הַצַּיִר הַחָפְשִׁי',
+  'light-path-play-1': 'שְׁבִיל הַפָּנָסִים',
+};
+
+/** The name a child (or parent) reads on a shelf card — Hebrew for
+ *  every game: derived, seed, and legacy alike. */
+export function displayNameFor(spec: GameSpec): string {
+  return NAME_BY_ID[spec.id] ?? SEED_DISPLAY[spec.id] ?? spec.id;
 }
 
 /** Boot-time gate: all 144 derived specs + legacy mappings must validate.
