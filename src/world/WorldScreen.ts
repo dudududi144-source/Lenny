@@ -15,6 +15,7 @@
 import { freshGarden, LocalProgressStore, isUnlocked, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT, type ZoneId } from '../data/garden';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
+import { WorldDiary } from './worldDiary';
 import { bubbleLineFor } from './LennyStar';
 import { music } from '../audio/MusicEngine';
 import { createGameShelf, type GameShelfHandle } from '../ui/components/GameShelf';
@@ -47,6 +48,8 @@ export interface WorldScreenHandle {
 }
 
 const store = new LocalProgressStore();
+/* stage 8: the parent's lens sees the world too — local, identifier-free */
+const diary = new WorldDiary();
 
 function loadGarden(): GardenData {
   try {
@@ -81,7 +84,13 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       const zone = shelfZone;
       shelfZone = null;
       phase = 'exploring';
-      if (zone && spec) callbacks.onZonePick(zone, spec.id);
+      if (zone && spec) {
+        diary.notePick();
+        /* arena time is game time, not garden time — the diary's
+           heartbeat rests until the world opens again */
+        stopHeartbeat();
+        callbacks.onZonePick(zone, spec.id);
+      }
     },
     onClose: () => {
       if (phase === 'shelf-open') phase = 'exploring';
@@ -192,6 +201,42 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
      Their new flowers open with the bloom-in payoff on return. */
   let prevCounts: Record<string, number> | null = null;
 
+  /* ---------- the world diary: honest minutes, local only ---------- */
+
+  let sessionMark = 0;
+  let heartbeat: number | null = null;
+  const HEARTBEAT_MS = 30_000;
+
+  function flushHeartbeat(): void {
+    if (sessionMark > 0) {
+      diary.noteHeartbeat(Date.now() - sessionMark);
+      sessionMark = 0;
+    }
+  }
+
+  function startHeartbeat(): void {
+    sessionMark = Date.now();
+    if (heartbeat === null) {
+      heartbeat = window.setInterval(() => {
+        if (document.hidden) {
+          /* a hidden tab is not garden time — re-mark, add nothing */
+          sessionMark = Date.now();
+          return;
+        }
+        flushHeartbeat();
+        sessionMark = Date.now();
+      }, HEARTBEAT_MS);
+    }
+  }
+
+  function stopHeartbeat(): void {
+    flushHeartbeat();
+    if (heartbeat !== null) {
+      window.clearInterval(heartbeat);
+      heartbeat = null;
+    }
+  }
+
 
 
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
@@ -231,10 +276,12 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
           /* arriving at an OPEN zone slides in the game shelf — once
              per arrival; closing it and staying put never re-opens it */
           if (zone) {
+            diary.noteArrival(zone);
             const unlocked = isUnlocked(loadGarden(), zone);
             if (unlocked && !shelf.isOpen()) {
               shelfZone = zone;
               shelf.open(zone, null);
+              diary.noteShelfOpen();
               phase = 'shelf-open';
             }
           }
@@ -284,6 +331,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       /* the soundtrack walks back into the garden */
       music.setMood('garden-exploring');
       music.resume();
+      diary.noteOpen();
+      startHeartbeat();
       return;
     }
     if (opening) return opening;
@@ -296,6 +345,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         refresh();
         music.setMood('garden-exploring');
         music.resume();
+        diary.noteOpen();
+        startHeartbeat();
         /* Lenny greets the child at the journey's first island —
            computed lazily: the first rendered frame lights nearZone */
         window.setTimeout(() => {
@@ -316,6 +367,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   }
 
   function close(): void {
+    stopHeartbeat();
     if (shelf.isOpen()) shelf.close();
     shelfZone = null;
     if (app) {
