@@ -46,7 +46,7 @@ test('mode=world boots the 3D garden with a live renderer and a clean bridge', a
   expect(state.phase).toBe('exploring');
   expect(['webgl2', 'webgpu']).toContain(state.renderer);
   expect(state.fps).toBeGreaterThan(0);
-  expect(state.zones).toBe(0); /* islands arrive in commit 2 */
+  expect(state.zones).toBe(10); /* the ten zone islands (commit 2) */
 
   /* the loading veil is gone */
   await expect(page.locator('#world-loading')).toBeHidden();

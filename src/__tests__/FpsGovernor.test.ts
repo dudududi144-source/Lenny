@@ -62,9 +62,24 @@ describe('FpsGovernor', () => {
     expect(d.distress).toBe(false);
   });
 
-  it('fires distress only after 5 sustained seconds below 15fps', () => {
+  it('never arms distress during the warmup grace, even when slow', () => {
     const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000 });
-    let now = run(gov, 12, 1); /* 1s of 12fps */
+    let now = run(gov, 12, 5.5); /* 5.5s slow — still inside the 6s grace */
+    let d = gov.evaluate(now, 1);
+    expect(d.distress).toBe(false);
+    now = run(gov, 12, 2, now); /* 7.5s slow — grace now expired... */
+    d = gov.evaluate(now, 1);
+    expect(d.distress).toBe(false); /* ...but the 5s distress clock just armed */
+    /* and the recovery side still works: healthy frames soften the scale back */
+    now = run(gov, 60, 1, now);
+    const fine = gov.evaluate(now, 1.2);
+    expect(fine.distress).toBe(false);
+    expect(fine.newScale).toBeLessThan(1.2);
+  });
+
+  it('arms distress after grace + 5 sustained seconds below 15fps', () => {
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000, distressGraceMs: 0 });
+    let now = run(gov, 12, 1);
     let d = gov.evaluate(now, 1); /* the distress clock starts here */
     expect(d.distress).toBe(false);
     now = run(gov, 12, 3, now); /* 4s total — still inside the budget */
@@ -79,8 +94,18 @@ describe('FpsGovernor', () => {
     expect(d.distress).toBe(false);
   });
 
+  it('grace never blocks the recovery-side of the decision (slow start, then fine)', () => {
+    const gov = new FpsGovernor();
+    let now = run(gov, 12, 2); /* warmup jank */
+    gov.evaluate(now, 1);
+    now = run(gov, 60, 2, now); /* warm engine */
+    const d = gov.evaluate(now, 1.3);
+    expect(d.distress).toBe(false);
+    expect(d.newScale).toBeLessThan(1.3); /* it recovers the resolution */
+  });
+
   it('recovers the distress window when fps comes back up', () => {
-    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000 });
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000, distressGraceMs: 0 });
     let now = run(gov, 12, 3);
     gov.evaluate(now, 1);
     now = run(gov, 60, 2, now); /* recovered */

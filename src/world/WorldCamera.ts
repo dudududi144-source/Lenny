@@ -27,8 +27,8 @@ export const CHILD_CAMERA = {
   /** default angular sensibility 1000 → slower = bigger value */
   angularSensibility: Math.round(1000 / 0.6),
   startAlpha: -Math.PI / 2,
-  startBeta: 0.95,
-  startRadius: 11,
+  startBeta: 1.02,
+  startRadius: 12.5,
 } as const;
 
 export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamera {

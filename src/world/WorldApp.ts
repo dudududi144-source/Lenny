@@ -34,8 +34,11 @@ import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
 import '@babylonjs/core/Layers/effectLayerSceneComponent';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture';
 import { mulberry32 } from '../audio/MusicEngine';
+import type { GardenData } from '../games/core/ProgressStore';
 import { createWorldCamera } from './WorldCamera';
 import { FpsGovernor } from './FpsGovernor';
+import { buildIslands, type IslandsHandle } from './WorldIslands';
+import { islandCenter } from './WorldLayout';
 
 /** Thrown when the device cannot render the world at all. */
 export class WorldUnsupportedError extends Error {
@@ -81,8 +84,8 @@ export const DAY_PALETTE: WorldPalette = {
   moon: false,
   stars: 0,
   sunDir: [-0.4, -0.85, 0.3],
-  sunIntensity: 1.05,
-  hemiIntensity: 0.72,
+  sunIntensity: 0.95,
+  hemiIntensity: 0.65,
   hemiSky: '#ffffff',
   hemiGround: '#4a7a3a',
   grassBase: '#79c356',
@@ -211,10 +214,12 @@ function buildGround(scene: Scene, palette: WorldPalette): void {
 export interface WorldApp {
   fps(): number;
   rendererKind(): WorldRendererKind;
-  /** bridge (commit 2+ fills these; commit 1 reports honest nulls) */
+  /** bridge (commit 3 fills presence; islands fill zones now) */
   presencePos(): { x: number; z: number } | null;
   nearZone(): string | null;
   zones(): Array<{ id: string; unlocked: boolean; bloom: number }>;
+  /** Re-read progress (unlock fog + bloom) after a game or on open. */
+  refresh(data: GardenData): void;
   setPaused(paused: boolean): void;
   dispose(): void;
 }
@@ -222,6 +227,7 @@ export interface WorldApp {
 export async function createWorldApp(
   canvas: HTMLCanvasElement,
   events: WorldAppEvents = {},
+  data: GardenData = { firstSeen: 0, lights: 0, zones: {}, finished: {} },
 ): Promise<WorldApp> {
   const { engine, kind } = await createEngine(canvas);
 
@@ -233,6 +239,9 @@ export async function createWorldApp(
 
   buildSky(scene, DAY_PALETTE);
   buildGround(scene, DAY_PALETTE);
+
+  const islands: IslandsHandle = buildIslands(scene);
+  islands.refresh(data);
 
   const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
   hemi.intensity = DAY_PALETTE.hemiIntensity;
@@ -246,7 +255,9 @@ export async function createWorldApp(
   const glow = new GlowLayer('world-glow', scene, { mainTextureSamples: 1, blurKernelSize: 24 });
   glow.intensity = 0.55;
 
-  const camera = createWorldCamera(scene, new Vector3(0, 0.6, 0));
+  /* the journey starts at the first island — that is where the eye rests */
+  const home = islandCenter('light-path');
+  const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z));
   scene.activeCamera = camera;
 
   /* ---------- fps governor (spec: soften below 25, distress below 15×5s) ---------- */
@@ -292,7 +303,8 @@ export async function createWorldApp(
     rendererKind: () => kind,
     presencePos: () => null,
     nearZone: () => null,
-    zones: () => [],
+    zones: () => islands.zones(),
+    refresh: (fresh: GardenData) => islands.refresh(fresh),
     setPaused(value: boolean): void {
       if (disposed) return;
       if (value && !paused) {
@@ -309,6 +321,7 @@ export async function createWorldApp(
       window.clearInterval(applyInterval);
       window.removeEventListener('resize', onResize);
       engine.stopRenderLoop();
+      islands.dispose();
       scene.dispose();
       engine.dispose();
     },

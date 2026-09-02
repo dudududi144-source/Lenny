@@ -155,11 +155,15 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     canvas.className = 'world-canvas';
     canvas.setAttribute('aria-label', 'הגן התלת-ממדי של לני');
     stage.replaceChildren(canvas);
-    app = await createWorldApp(canvas, {
-      onDistress: () => {
-        callbacks.onWorldFailed();
+    app = await createWorldApp(
+      canvas,
+      {
+        onDistress: () => {
+          callbacks.onWorldFailed();
+        },
       },
-    });
+      loadGarden(),
+    );
     phase = 'exploring';
   }
 
@@ -202,6 +206,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   function refresh(): void {
     const data = loadGarden();
     lightCount.textContent = String(data.lights || 0);
+    /* the world re-reads progress too: unlock fog + bloom fields */
+    app?.refresh(data);
   }
 
   /* ---------- distress → one gentle grown-up note, ever ---------- */
