@@ -68,6 +68,10 @@ test('the parent lens sees the world visit — a new card with the 10 islands', 
   await openWorld(page);
   await arriveHomeAndOpenShelf(page);
 
+  /* the open shelf overlays the footer — close it first, like a child would */
+  await page.locator('#world-shelf-close').click();
+  await expect.poll(() => page.evaluate(() => window.__lennyWorld?.phase())).toBe('exploring');
+
   /* grown-ups enter from the world footer — same hold-gate as always */
   await page.locator('#world-parent-link').click();
   await expect(page.locator('.parent-hold')).toBeVisible();

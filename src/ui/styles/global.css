@@ -1243,3 +1243,41 @@ body {
 .is-off {
   display: none !important;
 }
+
+/* stage 8 — ParentLens v3: the world through the parent's eyes */
+
+.parent-world-zones {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
+.parent-world-zone-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-cream);
+}
+
+.parent-world-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  flex: 0 0 auto;
+  box-shadow: 0 0 8px rgba(255, 215, 106, 0.25);
+}
+
+.parent-world-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.parent-world-count {
+  margin-inline-start: auto;
+  font-weight: 700;
+  color: var(--color-glow);
+}

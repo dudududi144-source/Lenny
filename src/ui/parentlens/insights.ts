@@ -19,7 +19,8 @@ export type InsightKind =
   | 'explore'
   | 'milestone'
   | 'streak'
-  | 'balance';
+  | 'balance'
+  | 'world';
 
 export interface Insight {
   kind: InsightKind;
@@ -99,6 +100,18 @@ export function buildInsights(data: LensData): Insight[] {
         text: `לאחרונה רוב הזמן נשאר ב${zoneName(topZone)}. יש עוד גינות יפות — ${other ? `אולי ${other.name}?` : 'שווה ביקור.'}`,
       });
     }
+  }
+
+  /* ---- 7. the world: a favorite island (≥2 arrivals this week) ---- */
+  const favoriteIsland = Object.entries(data.world.zones)
+    .filter(([, n]) => n >= 2)
+    .sort((a, b) => b[1] - a[1])[0];
+  if (favoriteIsland) {
+    out.push({
+      kind: 'world',
+      icon: '✦',
+      text: `בגן התלת-ממדי, ${zoneName(favoriteIsland[0])} קוסמת במיוחד — ${favoriteIsland[1]} הגעות השבוע.`,
+    });
   }
 
   return out;

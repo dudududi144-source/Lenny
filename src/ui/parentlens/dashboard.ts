@@ -55,6 +55,17 @@ function minutesPhrase(mins: number): string {
   return `בְּעֵרֶךְ כְּ-${mins} דַּקּוֹת מִשְׂחָק`;
 }
 
+function worldMinutesPhrase(mins: number): string {
+  if (mins >= 2) return `בְּעֵרֶךְ כְּ-${mins} דַּקּוֹת בַּגַּן הַתְּלַת-מֶמְדִּי הַשָּׁבוּעַ`;
+  if (mins === 1) return 'בְּעֵרֶךְ דַּקָּה אַחַת בַּגַּן הַתְּלַת-מֶמְדִּי הַשָּׁבוּעַ';
+  return 'בִּיקּוּר קָצָר בַּגַּן הַתְּלַת-מֶמְדִּי הַשָּׁבוּעַ';
+}
+
+function worldPicksPhrase(count: number): string {
+  if (count === 1) return 'מִשְׂחָק אֶחָד נִפְתַּח מֵאֵי הַגַּן.';
+  return `${count} מִשְׂחָקִים נִפְתְּחוּ מֵאֵי הַגַּן.`;
+}
+
 function gamesPhrase(count: number): string {
   if (count === 0) return 'בִּינְתַּיִם בְּלִי מִשְׂחָק שֶׁהֻשְׁלַם';
   if (count === 1) return 'מִשְׂחָק אֶחָד שֶׁהֻשְׁלַם';
@@ -121,6 +132,46 @@ function zonesCard(data: LensData): HTMLElement {
           bar(Math.min(1, done / 3), zone.uiColor),
           h('span', { class: 'parent-zone-count' }, `${done}`),
           h('span', { class: 'parent-zone-tempo' }, stat ? tempoFor(data, zone.id) : ''),
+        );
+      }),
+    ),
+  );
+}
+
+function worldCard(data: LensData): HTMLElement {
+  const w = data.world;
+  const lines: HTMLElement[] = [];
+  if (!w.hasData) {
+    lines.push(
+      h('p', { class: 'parent-line' }, 'הַגַּן הַתְּלַת-מֶמְדִּי עוֹד לֹא זָכָה לְבִיקּוּר — מֵהָרֶגַע הָרִאשׁוֹן, הַדֶּרֶךְ בּוֹ תֵּסָפֵר כָּאן.'),
+    );
+  } else {
+    lines.push(h('p', { class: 'parent-line' }, worldMinutesPhrase(w.minutes7d)));
+    if (w.opens7d >= 2) {
+      lines.push(h('p', { class: 'parent-line' }, `כְּ-${w.opens7d} בִּיקּוּרִים בַּגַּן הַשָּׁבוּעַ.`));
+    }
+    if (w.picks7d > 0) {
+      lines.push(h('p', { class: 'parent-line' }, worldPicksPhrase(w.picks7d)));
+    }
+  }
+  /* the spiral is the map — all 10 islands always show, even the quiet ones */
+  return h(
+    'section',
+    { class: 'parent-card parent-world-card', 'aria-label': 'הגן התלת-ממדי' },
+    h('h3', { class: 'parent-card-title' }, 'הַגַּן הַתְּלַת-מֶמְדִּי'),
+    ...lines,
+    h(
+      'div',
+      { class: 'parent-world-zones' },
+      ...ZONES.map((zone) => {
+        const dot = h('span', { class: 'parent-world-dot', 'aria-hidden': 'true' });
+        dot.style.background = zone.uiColor;
+        return h(
+          'div',
+          { class: 'parent-world-zone-row' },
+          dot,
+          h('span', { class: 'parent-world-name' }, zone.name),
+          h('span', { class: 'parent-world-count' }, String(w.zones[zone.id] ?? 0)),
         );
       }),
     ),
@@ -208,8 +259,8 @@ export function renderDashboard(data: LensData, callbacks: DashboardCallbacks): 
      nothing has been collected yet */
   const charts = data.hasAnyData ? buildCharts(data) : null;
   const sections = data.hasAnyData && charts
-    ? [insightsCard(data), zonesCard(data), charts.weekly, charts.strengths, skillsCard(data), charts.errors, charts.blooming, signalsCard(data), introCard()]
-    : [insightsCard(data), zonesCard(data), emptyState(), introCard()];
+    ? [insightsCard(data), zonesCard(data), worldCard(data), charts.weekly, charts.strengths, skillsCard(data), charts.errors, charts.blooming, signalsCard(data), introCard()]
+    : [insightsCard(data), zonesCard(data), worldCard(data), emptyState(), introCard()];
 
   root.append(
     h(

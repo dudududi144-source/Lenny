@@ -13,6 +13,8 @@ import { PlayerModel } from '../../games/core/PlayerModel';
 import { LearningSignals, type LearningEvent, type SessionSummary } from '../../games/core/LearningSignals';
 import { bloomLevel, finishedCount, type GardenData } from '../../games/core/ProgressStore';
 import { LITERACY_GRAPH, SkillGraph } from '../../games/core/SkillGraph';
+import { dayKeyFor, type WorldDiaryData } from '../../world/worldDiary';
+import { WorldDiary } from '../../world/worldDiary';
 import { ZONES } from '../../data/garden';
 
 const SIG_KEY = 'lenny-signals-v1';
@@ -39,7 +41,49 @@ export interface LensData {
   approxMinutes: number;
   /** zone id the child returns to most (null = no signal yet) */
   interestZone: string | null;
+  /** stage 8: the 3D garden through the parent's eyes (local diary) */
+  world: WorldLens;
   hasAnyData: boolean;
+}
+
+export interface WorldLens {
+  /** minutes inside the world over the last 7 days (day-grain data) */
+  minutes7d: number;
+  opens7d: number;
+  arrivals7d: number;
+  picks7d: number;
+  /** arrivals per zone id over the last 7 days */
+  zones: Record<string, number>;
+  hasData: boolean;
+}
+
+/** Pure transform: the diary's day buckets → the parent's 7-day view. */
+export function worldLensFromDiary(diary: WorldDiaryData, nowMs: number = Date.now()): WorldLens {
+  const cutoff = dayKeyFor(nowMs - 7 * 86_400_000);
+  let ms = 0;
+  let opens = 0;
+  let arrivals = 0;
+  let picks = 0;
+  const zones: Record<string, number> = {};
+  for (const [key, stat] of Object.entries(diary.days)) {
+    if (key < cutoff) continue;
+    ms += stat.ms;
+    opens += stat.opens;
+    arrivals += stat.arrivals;
+    picks += stat.picks;
+    for (const [zone, count] of Object.entries(stat.zones)) {
+      zones[zone] = (zones[zone] ?? 0) + count;
+    }
+  }
+  const minutes7d = Math.round(ms / 60_000);
+  return {
+    minutes7d,
+    opens7d: opens,
+    arrivals7d: arrivals,
+    picks7d: picks,
+    zones,
+    hasData: minutes7d > 0 || opens > 0 || arrivals > 0 || picks > 0,
+  };
 }
 
 function readSignalEvents(): LearningEvent[] {
@@ -107,7 +151,9 @@ export function loadLensData(garden: GardenData): LensData {
   }
 
   const zoneRounds = Object.values(player.zones).reduce((a, z) => a + z.rounds, 0);
-  const hasAnyData = totalFinished > 0 || zoneRounds > 0 || summary.attempts > 0;
+  const diary = new WorldDiary();
+  const world = worldLensFromDiary(diary.snapshot());
+  const hasAnyData = totalFinished > 0 || zoneRounds > 0 || summary.attempts > 0 || world.hasData;
 
   return {
     garden,
@@ -121,6 +167,7 @@ export function loadLensData(garden: GardenData): LensData {
     days: buildDays(events),
     approxMinutes: Math.max(1, Math.round(approxSeconds / 60)),
     interestZone: playerModel.interest(),
+    world,
     hasAnyData,
   };
 }
