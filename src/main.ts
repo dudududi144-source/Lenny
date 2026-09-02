@@ -234,7 +234,10 @@ const gameHost = createGameHost({
 
 const world = createWorldScreen({
   loadGarden,
-  onBack: () => showScreen('hero'),
+  onBack: () => {
+    showScreen('hero');
+    music.setMood('calm');
+  },
   onParents: () => {
     parentSource = 'world';
     parent.open();
@@ -245,6 +248,7 @@ const world = createWorldScreen({
     writeGardenMode('classic');
     refreshAll();
     showScreen('garden');
+    music.setMood('calm');
   },
   onWorldFailed: () => worldFallback(),
   toast,

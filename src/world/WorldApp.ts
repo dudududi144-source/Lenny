@@ -34,7 +34,10 @@ import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTextur
 import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
 import '@babylonjs/core/Layers/effectLayerSceneComponent';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture';
-import { mulberry32 } from '../audio/MusicEngine';
+import { music, mulberry32 } from '../audio/MusicEngine';
+import { phaseNow, type DayPhase } from '../content/dayCycle';
+import { paletteChanged, paletteForPhase, type WorldPalette } from './WorldSky';
+import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
 import type { GardenData } from '../games/core/ProgressStore';
 import { createWorldCamera } from './WorldCamera';
 import { FpsGovernor } from './FpsGovernor';
@@ -42,6 +45,7 @@ import { buildIslands, type IslandsHandle } from './WorldIslands';
 import { islandCenter, nearestZone, resolveWalkTarget, WORLD_ISLANDS } from './WorldLayout';
 import { pressEnd, pressStart, isDragDistance, type PointerSnapshot } from './Gestures';
 import type { ZoneId } from '../data/garden';
+import type { CreatureCounts } from './WorldCreatures';
 
 /** Thrown when the device cannot render the world at all. */
 export class WorldUnsupportedError extends Error {
@@ -63,43 +67,6 @@ export interface WorldAppEvents {
 }
 
 /* ---------- the day palette (commit 1: fixed pleasant day; commit 4 makes it hour-aware) ---------- */
-
-export interface WorldPalette {
-  skyTop: string;
-  skyMid: string;
-  skyHorizon: string;
-  /** sun disc position on the painted dome (0..1 of texture space) or null */
-  sun: { x: number; y: number; r: number; color: string } | null;
-  moon: boolean;
-  stars: number;
-  sunDir: [number, number, number];
-  sunIntensity: number;
-  hemiIntensity: number;
-  hemiSky: string;
-  hemiGround: string;
-  grassBase: string;
-  grassDark: string;
-  grassLight: string;
-  fogColor: string;
-}
-
-export const DAY_PALETTE: WorldPalette = {
-  skyTop: '#3fa7e0',
-  skyMid: '#8fd0ef',
-  skyHorizon: '#eaf7dc',
-  sun: { x: 0.22, y: 0.16, r: 34, color: '#fff3b0' },
-  moon: false,
-  stars: 0,
-  sunDir: [-0.4, -0.85, 0.3],
-  sunIntensity: 0.95,
-  hemiIntensity: 0.65,
-  hemiSky: '#ffffff',
-  hemiGround: '#4a7a3a',
-  grassBase: '#79c356',
-  grassDark: '#5ea344',
-  grassLight: '#a4d97b',
-  fogColor: '#eaf7dc',
-};
 
 async function createEngine(
   canvas: HTMLCanvasElement,
@@ -123,7 +90,7 @@ async function createEngine(
 }
 
 /** Painted sky dome — gradient + sun/moon + deterministic stars. */
-function buildSky(scene: Scene, palette: WorldPalette): void {
+function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalette): void; dispose(): void } {
   const size = 512;
   const tex = new DynamicTexture('sky-tex', { width: size, height: size }, scene, true);
   const ctx = tex.getContext() as CanvasRenderingContext2D;
@@ -180,28 +147,84 @@ function buildSky(scene: Scene, palette: WorldPalette): void {
   dome.isPickable = false;
   dome.infiniteDistance = true;
   dome.applyFog = false;
+
+  return {
+    repaint(p: WorldPalette): void {
+      paintSkyTexture(ctx, size, p);
+      tex.update();
+    },
+    dispose(): void {
+      tex.dispose();
+      mat.dispose();
+      dome.dispose();
+    },
+  };
+}
+
+function paintSkyTexture(ctx: CanvasRenderingContext2D, size: number, palette: WorldPalette): void {
+  const g = ctx.createLinearGradient(0, 0, 0, size);
+  g.addColorStop(0, palette.skyTop);
+  g.addColorStop(0.52, palette.skyMid);
+  g.addColorStop(0.72, palette.skyHorizon);
+  g.addColorStop(1, palette.skyHorizon);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+
+  if (palette.sun) {
+    ctx.fillStyle = palette.sun.color;
+    ctx.beginPath();
+    ctx.arc(palette.sun.x * size, palette.sun.y * size, palette.sun.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (palette.moon) {
+    ctx.fillStyle = '#f3ecd0';
+    ctx.beginPath();
+    ctx.arc(0.78 * size, 0.14 * size, 26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = palette.skyTop;
+    ctx.beginPath();
+    ctx.arc(0.755 * size, 0.125 * size, 22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (palette.stars > 0) {
+    const rng = mulberry32(20260915);
+    ctx.fillStyle = '#fff7d6';
+    for (let i = 0; i < palette.stars; i++) {
+      const x = rng() * size;
+      const y = rng() * size * 0.5;
+      const r = 0.6 + rng() * 1.3;
+      ctx.globalAlpha = 0.35 + rng() * 0.6;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
 }
 
 /** Procedural grass — two-tone noise, no texture files. */
-function buildGround(scene: Scene, palette: WorldPalette): void {
+function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPalette): void; dispose(): void } {
   const size = 256;
   const tex = new DynamicTexture('grass-tex', { width: size, height: size }, scene, true);
   const ctx = tex.getContext() as CanvasRenderingContext2D;
-  ctx.fillStyle = palette.grassBase;
-  ctx.fillRect(0, 0, size, size);
 
-  const rng = mulberry32(20260916);
-  for (let i = 0; i < 1100; i++) {
-    const x = rng() * size;
-    const y = rng() * size;
-    const w = 1 + rng() * 3;
-    const h = 2 + rng() * 5;
-    ctx.fillStyle = rng() < 0.5 ? palette.grassDark : palette.grassLight;
-    ctx.globalAlpha = 0.16 + rng() * 0.22;
-    ctx.fillRect(x, y, w, h);
-  }
-  ctx.globalAlpha = 1;
-  tex.update();
+  const paint = (p: WorldPalette): void => {
+    ctx.fillStyle = p.grassBase;
+    ctx.fillRect(0, 0, size, size);
+    const rng = mulberry32(20260916);
+    for (let i = 0; i < 1100; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const w = 1 + rng() * 3;
+      const h = 2 + rng() * 5;
+      ctx.fillStyle = rng() < 0.5 ? p.grassDark : p.grassLight;
+      ctx.globalAlpha = 0.16 + rng() * 0.22;
+      ctx.fillRect(x, y, w, h);
+    }
+    ctx.globalAlpha = 1;
+    tex.update();
+  };
+  paint(palette);
 
   tex.wrapU = Texture.WRAP_ADDRESSMODE;
   tex.wrapV = Texture.WRAP_ADDRESSMODE;
@@ -216,6 +239,17 @@ function buildGround(scene: Scene, palette: WorldPalette): void {
   ground.material = mat;
   ground.isPickable = true;
   ground.receiveShadows = true;
+
+  return {
+    retint(p: WorldPalette): void {
+      paint(p);
+    },
+    dispose(): void {
+      tex.dispose();
+      mat.dispose();
+      ground.dispose();
+    },
+  };
 }
 
 export interface WorldApp {
@@ -225,8 +259,12 @@ export interface WorldApp {
   presencePos(): { x: number; z: number } | null;
   nearZone(): string | null;
   zones(): Array<{ id: string; unlocked: boolean; bloom: number }>;
+  /** The hour's phase the sky is painted with (visual only). */
+  skyPhase(): DayPhase;
+  /** Ambient life report (bridge). */
+  life(): CreatureCounts;
   /** Re-read progress (unlock fog + bloom) after a game or on open. */
-  refresh(data: GardenData): void;
+  refresh(data: GardenData, grewZones?: ReadonlySet<string>): void;
   setPaused(paused: boolean): void;
   dispose(): void;
 }
@@ -239,25 +277,39 @@ export async function createWorldApp(
   const { engine, kind } = await createEngine(canvas);
 
   const scene = new Scene(engine);
-  scene.clearColor = new Color4(0.92, 0.97, 0.86, 1);
   scene.fogMode = Scene.FOGMODE_EXP2;
-  scene.fogColor = Color3.FromHexString(DAY_PALETTE.fogColor);
   scene.fogDensity = 0.0075;
 
-  buildSky(scene, DAY_PALETTE);
-  buildGround(scene, DAY_PALETTE);
+  /* the day the child walks into (visual only — hour never touches play) */
+  let phase: DayPhase = phaseNow();
+  let palette: WorldPalette = paletteForPhase(phase);
+  const sky = buildSky(scene, palette);
+  const ground = buildGround(scene, palette);
 
   const islands: IslandsHandle = buildIslands(scene);
   islands.refresh(data);
 
-  const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
-  hemi.intensity = DAY_PALETTE.hemiIntensity;
-  hemi.diffuse = Color3.FromHexString(DAY_PALETTE.hemiSky);
-  hemi.groundColor = Color3.FromHexString(DAY_PALETTE.hemiGround);
+  const creatures: CreaturesHandle = buildCreatures(scene);
+  creatures.setPhase(phase);
 
-  const sun = new DirectionalLight('sun', new Vector3(...DAY_PALETTE.sunDir), scene);
-  sun.position = new Vector3(...DAY_PALETTE.sunDir).scale(-40);
-  sun.intensity = DAY_PALETTE.sunIntensity;
+  const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
+  const sun = new DirectionalLight('sun', new Vector3(...palette.sunDir), scene);
+
+  /* apply the hour's light — called at boot and whenever the day turns */
+  const applyPalette = (p: WorldPalette): void => {
+    palette = p;
+    sky.repaint(p);
+    ground.retint(p);
+    hemi.intensity = p.hemiIntensity;
+    hemi.diffuse = Color3.FromHexString(p.hemiSky);
+    hemi.groundColor = Color3.FromHexString(p.hemiGround);
+    sun.direction = new Vector3(...p.sunDir);
+    sun.position = new Vector3(...p.sunDir).scale(-40);
+    sun.intensity = p.sunIntensity;
+    scene.fogColor = Color3.FromHexString(p.fogColor);
+    scene.clearColor = Color4.FromHexString(`${p.skyHorizon}FF`);
+  };
+  applyPalette(palette);
 
   const glow = new GlowLayer('world-glow', scene, { mainTextureSamples: 1, blurKernelSize: 24 });
   glow.intensity = 0.55;
@@ -313,6 +365,7 @@ export async function createWorldApp(
   const NEAR_DIST = 1.35;
   const ARRIVE_EPS = 0.09;
   const WALK_RATE = 2.1; /* exponential ease — calm, never teleporty */
+  let lastMusicIntensity = -1;
 
   function presenceY(): number {
     for (const p of WORLD_ISLANDS) {
@@ -379,9 +432,30 @@ export async function createWorldApp(
       islands.setNear(zoneId);
     }
 
+    /* musical space: the arpeggio swells as a zone comes near */
+    const wantedIntensity = nz ? 0.3 + (1 - Math.min(1, nz.dist / NEAR_DIST)) * 0.45 : 0.28;
+    if (Math.abs(wantedIntensity - lastMusicIntensity) > 0.02) {
+      lastMusicIntensity = wantedIntensity;
+      music.setIntensity(wantedIntensity);
+    }
+
+    creatures.update(t, dt);
+
     scene.render();
     governor.push(now, engine.getDeltaTime());
   });
+
+  /* the day turns slowly — check once in a while, repaint when it does */
+  const dayInterval = window.setInterval(() => {
+    if (paused || disposed) return;
+    const now = phaseNow();
+    if (now !== phase) {
+      const next = paletteForPhase(now);
+      if (paletteChanged(palette, next)) applyPalette(next);
+      phase = now;
+      creatures.setPhase(phase);
+    }
+  }, 30_000);
 
   const applyInterval = window.setInterval(() => {
     if (paused || disposed) return;
@@ -470,7 +544,9 @@ export async function createWorldApp(
     presencePos: () => ({ x: presencePos.x, z: presencePos.z }),
     nearZone: () => near,
     zones: () => islands.zones(),
-    refresh: (fresh: GardenData) => islands.refresh(fresh),
+    skyPhase: () => phase,
+    life: () => creatures.counts(),
+    refresh: (fresh: GardenData, grewZones?: ReadonlySet<string>) => islands.refresh(fresh, grewZones),
     setPaused(value: boolean): void {
       if (disposed) return;
       if (value && !paused) {
@@ -485,12 +561,16 @@ export async function createWorldApp(
       if (disposed) return;
       disposed = true;
       window.clearInterval(applyInterval);
+      window.clearInterval(dayInterval);
       window.removeEventListener('resize', onResize);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
       engine.stopRenderLoop();
+      creatures.dispose();
       islands.dispose();
+      ground.dispose();
+      sky.dispose();
       scene.dispose();
       engine.dispose();
     },

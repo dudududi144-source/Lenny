@@ -120,8 +120,17 @@ describe('MusicEngine — pure musical core', () => {
 });
 
 describe('MusicEngine — the mood table', () => {
-  it('has exactly the five moods with sane musical parameters', () => {
-    expect(Object.keys(MOODS).sort()).toEqual(['calm', 'celebrating', 'focus', 'happy', 'night']);
+  it('has exactly the six moods with sane musical parameters', () => {
+    /* Stage 7 added 'garden-exploring' (the 3D garden) — the original
+       five are untouched; the table is pinned as a whole. */
+    expect(Object.keys(MOODS).sort()).toEqual([
+      'calm',
+      'celebrating',
+      'focus',
+      'garden-exploring',
+      'happy',
+      'night',
+    ]);
     for (const [name, p] of Object.entries(MOODS)) {
       expect(p.progression, name).toHaveLength(4);
       expect(p.stepMs, name).toBeGreaterThanOrEqual(300);
@@ -131,6 +140,7 @@ describe('MusicEngine — the mood table', () => {
       if (name === 'focus') expect(p.percussion, name).toBe(true); /* DrumBeat rides kick/snare */
       if (name === 'calm') expect(p.arpPluck, name).toBe(true); /* water plucks (GlowFish) */
       if (name === 'happy' || name === 'celebrating') expect(p.bells, name).toBe(true);
+      if (name === 'garden-exploring') expect(p.arpPluck, name).toBe(true); /* water plucks (the walk) */
     }
   });
 

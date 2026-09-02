@@ -14,6 +14,7 @@
 
 import { freshGarden, LocalProgressStore, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT } from '../data/garden';
+import { music } from '../audio/MusicEngine';
 import { h } from '../ui/components/common/el';
 import { uiButton } from '../ui/components/common/Button';
 import type { WorldApp } from './WorldApp';
@@ -60,6 +61,8 @@ declare global {
       fps(): number;
       phase(): WorldPhase;
       renderer(): string | null;
+      sky(): string | null;
+      life(): { butterflies: number; fireflies: number; fish: number } | null;
     };
   }
 }
@@ -136,6 +139,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   let app: WorldApp | null = null;
   let opening: Promise<void> | null = null;
   let phase: WorldPhase = 'closed';
+  /* the growth diary: which zones grew since the world was last seen?
+     Their new flowers open with the bloom-in payoff on return. */
+  let prevCounts: Record<string, number> | null = null;
 
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
 
@@ -147,6 +153,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     fps: () => app?.fps() ?? 0,
     phase: () => phase,
     renderer: () => app?.rendererKind() ?? null,
+    sky: () => app?.skyPhase() ?? null,
+    life: () => app?.life() ?? null,
   };
 
   async function boot(): Promise<void> {
@@ -171,9 +179,39 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     phase = 'exploring';
   }
 
+  /** Zones that grew since the last time the world was seen. */
+  function growthDiff(data: GardenData): Set<string> | undefined {
+    if (!prevCounts) {
+      prevCounts = {};
+      for (const [zone, prog] of Object.entries(data.zones)) prevCounts[zone] = prog.finished;
+      for (const [zone, n] of Object.entries(data.finished ?? {})) {
+        prevCounts[zone] = Math.max(prevCounts[zone] ?? 0, n);
+      }
+      return undefined; /* first sight — no payoff yet */
+    }
+    const grew = new Set<string>();
+    for (const [zone, prog] of Object.entries(data.zones)) {
+      if (prog.finished > (prevCounts[zone] ?? 0)) grew.add(zone);
+    }
+    for (const [zone, n] of Object.entries(data.finished ?? {})) {
+      if (n > (prevCounts[zone] ?? 0)) grew.add(zone);
+    }
+    prevCounts = {};
+    for (const [zone, prog] of Object.entries(data.zones)) prevCounts[zone] = prog.finished;
+    for (const [zone, n] of Object.entries(data.finished ?? {})) {
+      prevCounts[zone] = Math.max(prevCounts[zone] ?? 0, n);
+    }
+    return grew;
+  }
+
   async function open(): Promise<void> {
     if (app) {
       app.setPaused(false);
+      const data = loadGarden();
+      app.refresh(data, growthDiff(data));
+      /* the soundtrack walks back into the garden */
+      music.setMood('garden-exploring');
+      music.resume();
       return;
     }
     if (opening) return opening;
@@ -184,6 +222,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         loading.classList.add('hidden');
         root.dataset.worldPhase = phase;
         refresh();
+        music.setMood('garden-exploring');
+        music.resume();
       })
       .catch(() => {
         /* engine refused — the shell shows the classic garden instead */
@@ -211,7 +251,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     const data = loadGarden();
     lightCount.textContent = String(data.lights || 0);
     /* the world re-reads progress too: unlock fog + bloom fields */
-    app?.refresh(data);
+    app?.refresh(data, growthDiff(data));
   }
 
   /* ---------- distress → one gentle grown-up note, ever ---------- */

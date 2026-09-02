@@ -11,6 +11,8 @@
  *   celebrating — ceremonies (major, C5, brighter + melody)
  *   focus       — harder games (minor pentatonic, A, steady)
  *   night       — end of session / breath (pentatonic minor, F, pad-only)
+ *   garden-exploring — the 3D garden (Stage 7): warm pad, water-pluck
+ *   arpeggio that swells as the child nears a zone (intensity feed)
  *
  * Autoplay policy: the engine NEVER touches the WebAudio API before
  * AudioEngine.unlock() hands it a context — and unlock only happens
@@ -80,7 +82,7 @@ export function chordDegrees(root: number): [number, number, number] {
 
 /* ---------- the mood table ---------- */
 
-export type Mood = 'calm' | 'happy' | 'celebrating' | 'focus' | 'night';
+export type Mood = 'calm' | 'happy' | 'celebrating' | 'focus' | 'night' | 'garden-exploring';
 
 export interface MoodParams {
   scale: ScaleName;
@@ -169,6 +171,23 @@ export const MOODS: Record<Mood, MoodParams> = {
     bells: false,
     percussion: false,
     padOnly: true,
+  },
+  /* Stage 7 (additive): the walkable 3D garden. Same key as calm but a
+     touch more air in the pad and water plucks in the arpeggio — the
+     arpeggio swells with zone proximity via the intensity feed. */
+  'garden-exploring': {
+    scale: 'pentatonic-major',
+    rootHz: 261.63,
+    progression: PROGRESSIONS['I-V-vi-IV'],
+    stepMs: 780,
+    pad: 0.8,
+    arpeggio: 0.62,
+    melody: 0.12,
+    arpWave: 'sine',
+    arpPluck: true,
+    bells: false,
+    percussion: false,
+    padOnly: false,
   },
 };
 

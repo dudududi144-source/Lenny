@@ -54,6 +54,8 @@ interface IslandParts {
   shimmerMat: StandardMaterial | null;
   unlocked: boolean;
   finished: number;
+  flowers: Mesh[];
+  growing: Array<{ mesh: Mesh; start: number }>;
 }
 
 /* ---------- color helpers ---------- */
@@ -296,6 +298,49 @@ function buildMarker(
   return { mats, bobbers, shimmerMat: null };
 }
 
+/* ---------- bloom flowers (one per finished game, capped) ---------- */
+
+const FLOWER_SIZE = 0.42;
+
+/** A tiny painted flower: petals in the zone color, warm heart. */
+function flowerTexture(scene: Scene, zone: ZoneId, uiColor: string): DynamicTexture {
+  const size = 128;
+  const tex = new DynamicTexture(`flower-${zone}`, { width: size, height: size }, scene, true);
+  const ctx = tex.getContext() as CanvasRenderingContext2D;
+  ctx.clearRect(0, 0, size, size);
+  const cx = size / 2;
+  const cy = size / 2;
+  /* petals */
+  ctx.fillStyle = uiColor;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.ellipse(cx + Math.cos(a) * size * 0.2, cy + Math.sin(a) * size * 0.2, size * 0.16, size * 0.1, a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  /* heart */
+  ctx.fillStyle = '#fff3b0';
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  tex.update();
+  tex.hasAlpha = true;
+  return tex;
+}
+
+function flowerMat(scene: Scene, zone: ZoneId, uiColor: string): StandardMaterial {
+  const tex = flowerTexture(scene, zone, uiColor);
+  const m = new StandardMaterial(`flower-mat-${zone}`, scene);
+  m.emissiveTexture = tex;
+  m.opacityTexture = tex;
+  m.opacityTexture.getAlphaFromRGB = false;
+  m.diffuseColor = Color3.Black();
+  m.specularColor = Color3.Black();
+  m.disableLighting = true;
+  m.backFaceCulling = false;
+  return m;
+}
+
 /* ---------- the path ribbon ---------- */
 
 function buildPathRibbon(scene: Scene): Mesh {
@@ -333,7 +378,7 @@ export interface ZoneWorldState {
 }
 
 export interface IslandsHandle {
-  refresh(data: GardenData): void;
+  refresh(data: GardenData, grewZones?: ReadonlySet<string>): void;
   zones(): ZoneWorldState[];
   setNear(zone: ZoneId | null): void;
   islandTopY(): number;
@@ -355,6 +400,7 @@ export function buildIslands(scene: Scene): IslandsHandle {
   lockMat.disableLighting = true;
   lockMat.backFaceCulling = false;
 
+  const flowerMats: StandardMaterial[] = [];
   const parts: IslandParts[] = ZONES.map((zoneDef, i) => {
     const place = WORLD_ISLANDS[i];
     const root = new TransformNode(`island-${zoneDef.id}`, scene);
@@ -391,6 +437,8 @@ export function buildIslands(scene: Scene): IslandsHandle {
     rim.isPickable = false;
 
     const marker = buildMarker(scene, zoneDef.id, root);
+    const flowerMaterial = flowerMat(scene, zoneDef.id, zoneDef.uiColor);
+    flowerMats.push(flowerMaterial);
 
     const labelMat = new StandardMaterial(`label-mat-${zoneDef.id}`, scene);
     const labelTex = labelTexture(scene, zoneDef.name);
@@ -416,6 +464,21 @@ export function buildIslands(scene: Scene): IslandsHandle {
     lock.isPickable = true;
     lock.setEnabled(false);
 
+    const flowers: Mesh[] = [];
+    for (let i = 0; i < MAX_BLOOM; i++) {
+      const f = MeshBuilder.CreatePlane(`flower-${zoneDef.id}-${i}`, { size: FLOWER_SIZE }, scene);
+      f.material = flowerMaterial;
+      f.rotation.x = -Math.PI / 2;
+      const a = i * 2.39996;
+      const rr = 0.45 + (i % 4) * 0.34;
+      f.position.set(Math.cos(a) * rr, 0.64, Math.sin(a) * rr);
+      f.parent = root;
+      f.isPickable = false;
+      f.setEnabled(false);
+      f.scaling.setAll(0.001);
+      flowers.push(f);
+    }
+
     return {
       zone: zoneDef.id,
       platformMat,
@@ -426,6 +489,8 @@ export function buildIslands(scene: Scene): IslandsHandle {
       shimmerMat: null,
       unlocked: true,
       finished: 0,
+      flowers,
+      growing: [],
     };
   });
 
@@ -469,6 +534,19 @@ export function buildIslands(scene: Scene): IslandsHandle {
       tw.mat.alpha = tw.from + (tw.to - tw.from) * e;
       if (k >= 1) tweens.splice(i, 1);
     }
+    /* bloom-in: the new flowers open with a springy 1.2s grow */
+    for (const p of parts) {
+      for (let i = p.growing.length - 1; i >= 0; i--) {
+        const g = p.growing[i];
+        const k = Math.min(1, (now - g.start) / 1200);
+        const back = 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2); /* ease-out-back */
+        g.mesh.scaling.setAll(Math.max(0.001, back));
+        if (k >= 1) {
+          g.mesh.scaling.setAll(1);
+          p.growing.splice(i, 1);
+        }
+      }
+    }
   });
 
   function applyLock(p: IslandParts, locked: boolean, animate: boolean): void {
@@ -491,13 +569,30 @@ export function buildIslands(scene: Scene): IslandsHandle {
   }
 
   return {
-    refresh(data: GardenData): void {
+    refresh(data: GardenData, grewZones?: ReadonlySet<string>): void {
+      const now = performance.now();
       for (const p of parts) {
         const unlocked = isUnlocked(data, p.zone);
+        const prevFinished = p.finished;
         p.finished = finishedCount(data, p.zone);
         if (unlocked !== p.unlocked) {
           applyLock(p, !unlocked, true); /* the fog lifts softly */
           p.unlocked = unlocked;
+        }
+        /* bloom field: one open flower per finished game (capped);
+           newly-grown ones open with the payoff animation */
+        const count = p.unlocked ? Math.min(p.finished, MAX_BLOOM) : 0;
+        for (let i = 0; i < p.flowers.length; i++) {
+          const want = i < count;
+          if (want && !p.flowers[i].isEnabled()) {
+            p.flowers[i].setEnabled(true);
+            const grew = grewZones?.has(p.zone) === true && p.finished > prevFinished;
+            if (grew) p.growing.push({ mesh: p.flowers[i], start: now + i * 130 });
+            else p.flowers[i].scaling.setAll(1);
+          } else if (!want && p.flowers[i].isEnabled()) {
+            p.flowers[i].setEnabled(false);
+            p.flowers[i].scaling.setAll(0.001);
+          }
         }
       }
     },
@@ -526,6 +621,7 @@ export function buildIslands(scene: Scene): IslandsHandle {
         for (const m of p.markerMats) m.dispose();
       }
       lockTex.dispose();
+      for (const m of flowerMats) m.dispose();
     },
   };
 }
