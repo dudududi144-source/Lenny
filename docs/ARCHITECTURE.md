@@ -52,3 +52,35 @@ Selecting an unlocked game calls this.scene.start(game.scene).
 ## Tests
 
 Playwright e2e smoke tests verify the portal canvas loads and survives the opening flow.
+
+## The 3D World (stage 7)
+
+Babylon.js world app in a LAZY chunk (classic sessions never download
+a byte of it): a golden-angle spiral of 10 zone islands, tap-to-walk
+presence, orbit/pinch camera, hour-aware skies, bloom fields, Lenny
+the companion, an fps governor, and a silent fallback chain
+(WebGPU → WebGL2 → classic garden).
+
+WorldScreen is the DOM shell around the engine: the canvas host, the
+game shelf loop (arrive → shelf → pick → arena → bloom-in payoff),
+and the read-only `window.__lennyWorld` bridge for tooling.
+
+## The World Diary (stage 8)
+
+WorldScreen records a local, identifier-free diary of the world:
+`lenny-world-diary-v1` — day buckets keyed by the child's local
+midnight, whitelisted counters only (ms / opens / arrivals /
+shelfOpens / picks / per-zone arrivals), pruned to a 30-day window.
+A 30s heartbeat adds real elapsed time and re-marks instead of
+adding while the tab is hidden; it rests when the arena opens
+(game time is game time).
+
+ParentLens v3 reads the diary read-only and shows the world card
+(minutes, visits, picks) plus the spiral map with per-island arrival
+counts, and one gentle favorite-island insight.
+
+Data flow:
+
+```
+WorldScreen (shell events) → WorldDiary (localStorage) → lensData → dashboard
+```

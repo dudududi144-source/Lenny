@@ -32,7 +32,16 @@ Levels: seed, sprout, tree, blossom (roughly ages 3-7).
 
 ## Honesty about progress
 
-Only game #0 (Lenny Star Jump) is playable today. The other 143 are shown as dormant stars - clearly locked, never falsely advertised as available.
+All 144 specs are playable today: every spec resolves to one of 11 real
+game kinds (14 hand-built scenes), seeded per zone with tier unlocks
+(×3 per tier). The 3D world (stage 7) is the garden's default for real
+visitors; the classic 2D map remains a complete fallback — one chip
+away, and the automatic fallback whenever the world cannot run.
+
+The parent's lens (ParentLens) reads the same device-local data: game
+finishes, learning signals, and — since stage 8 — an honest local diary
+of the world (minutes, visits, island arrivals, shelf picks). No
+identifiers, a 30-day rolling window, and it never leaves the device.
 
 ## Safety & Privacy
 
