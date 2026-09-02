@@ -67,7 +67,6 @@ test('dashboard renders real data: weekly bars, insights, blooming rings', async
   await page.addInitScript((seed) => {
     localStorage.setItem('lenny-garden', JSON.stringify(seed.garden));
     localStorage.setItem('lenny-signals-v1', JSON.stringify(seed.signals));
-    localStorage.setItem('lenny-streak', JSON.stringify({ last: new Date().toISOString().slice(0, 10), count: 3 }));
   }, {
     garden: {
       firstSeen: now - 6 * 86_400_000,
@@ -102,10 +101,9 @@ test('dashboard renders real data: weekly bars, insights, blooming rings', async
   await expect(page.locator('.parent-chart .pl-bar').first()).toBeVisible();
   expect(await page.locator('rect.pl-bar').count()).toBeGreaterThanOrEqual(2);
 
-  /* insights speak (streak + explore at minimum) */
+  /* insights speak (real signals only — no streak mechanics, ETHICS §2#6) */
   await expect(page.locator('.parent-insight').first()).toBeVisible();
   const insights = await page.locator('.parent-insight-text').allTextContents();
-  expect(insights.join(' ')).toContain('רצף 3 ימים');
 
   /* mastery milestone from the signals stream */
   expect(insights.join(' ')).toContain('הַצְּלִיל א');

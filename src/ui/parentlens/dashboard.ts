@@ -98,7 +98,6 @@ function heroCard(data: LensData): HTMLElement {
       h('p', { class: 'parent-hero-line' },
         `${minutesPhrase(data.approxMinutes)}${name ? ` — ${name} שָׂחֲקָה` : ''} · ${gamesPhrase(data.totalFinished)}.`),
       interest ? h('p', { class: 'parent-hero-line' }, `מָקוֹם חָבִיב בְּמִיּוֹחָד: ${interest}.`) : null,
-      data.streakDays >= 2 ? h('p', { class: 'parent-hero-line parent-streak' }, `רֶצֶף ${data.streakDays} יָמִים — הַגַּן מַמְשִׁיךְ לְפָרוֹחַ!`) : null,
     ),
   );
 }

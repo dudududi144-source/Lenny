@@ -18,7 +18,6 @@ export type InsightKind =
   | 'gaps'
   | 'explore'
   | 'milestone'
-  | 'streak'
   | 'balance'
   | 'world';
 
@@ -79,11 +78,6 @@ export function buildInsights(data: LensData): Insight[] {
   const acquired = ZONES.length ? recentMilestones(data) : [];
   for (const label of acquired.slice(0, 2)) {
     out.push({ kind: 'milestone', icon: '⭐', text: `נרכש לאחרונה: "${label}" — ציון דרך של ממש.` });
-  }
-
-  /* ---- 5. streak chip ---- */
-  if (data.streakDays >= 2) {
-    out.push({ kind: 'streak', icon: '🔥', text: `רצף ${data.streakDays} ימים! הגן ממשיך לפרוח יום אחרי יום.` });
   }
 
   /* ---- 6. balance: >60% of recent play in one zone ---- */

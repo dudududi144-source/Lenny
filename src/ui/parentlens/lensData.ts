@@ -18,7 +18,6 @@ import { WorldDiary } from '../../world/worldDiary';
 import { ZONES } from '../../data/garden';
 
 const SIG_KEY = 'lenny-signals-v1';
-const STREAK_KEY = 'lenny-streak';
 
 export interface DayActivity {
   /** 0=6 days ago … 6=today */
@@ -35,7 +34,6 @@ export interface LensData {
   graph: SkillGraph;
   totalFinished: number;
   bloom: number;
-  streakDays: number;
   days: DayActivity[];
   /** rough total play time in minutes (rolling EMA estimate) */
   approxMinutes: number;
@@ -97,17 +95,6 @@ function readSignalEvents(): LearningEvent[] {
   }
 }
 
-function readStreak(): number {
-  try {
-    const raw = localStorage.getItem(STREAK_KEY);
-    if (!raw) return 0;
-    const s = JSON.parse(raw) as { count?: number };
-    return typeof s.count === 'number' ? s.count : 0;
-  } catch {
-    return 0;
-  }
-}
-
 const DAY_LABELS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'שב׳'];
 
 function dayLabel(date: Date): string {
@@ -163,7 +150,6 @@ export function loadLensData(garden: GardenData): LensData {
     graph,
     totalFinished,
     bloom: bloomLevel(garden),
-    streakDays: readStreak(),
     days: buildDays(events),
     approxMinutes: Math.max(1, Math.round(approxSeconds / 60)),
     interestZone: playerModel.interest(),
