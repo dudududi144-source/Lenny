@@ -20,6 +20,7 @@ export type GardenMode = 'world' | 'classic';
 
 export const GARDEN_MODE_KEY = 'lenny-garden-mode';
 export const WORLD_FALLBACK_TOAST_KEY = 'lenny-world-fallback-toast';
+export const WORLD_ONBOARDED_KEY = 'lenny-world-onboarded';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -67,5 +68,22 @@ export function markWorldFallbackToasted(storage: StorageLike = localStorage): v
     storage.setItem(WORLD_FALLBACK_TOAST_KEY, '1');
   } catch {
     /* private mode — the note may repeat, harmless */
+  }
+}
+
+/** Has the child already seen the first-visit flyover? */
+export function isWorldOnboarded(storage: StorageLike = localStorage): boolean {
+  try {
+    return storage.getItem(WORLD_ONBOARDED_KEY) !== null;
+  } catch {
+    return true; /* private mode: never repeat the tour */
+  }
+}
+
+export function markWorldOnboarded(storage: StorageLike = localStorage): void {
+  try {
+    storage.setItem(WORLD_ONBOARDED_KEY, '1');
+  } catch {
+    /* private mode — the tour may repeat, harmless */
   }
 }

@@ -24,6 +24,8 @@ export interface GovernorOptions {
   distressGraceMs?: number;
   /** hard cap for the hardware-scaling multiplier */
   maxScale?: number;
+  /** how hard one scaling step pushes (1.15 = +15% softer pixels) */
+  scaleStep?: number;
   /** the engine's base hardware scaling level (1 / min(dpr, 2)) */
   baseScale?: number;
   /** minimum interval between two scaling decisions (ms) */
@@ -43,7 +45,8 @@ const DEFAULTS = {
   distressMs: 5000,
   /** shader-compilation warmup: distress never arms during this */
   distressGraceMs: 6000,
-  maxScale: 3,
+  maxScale: 3.6,
+  scaleStep: 1.15,
   baseScale: 1,
   decisionMs: 400,
   windowMs: 1500,
@@ -55,6 +58,7 @@ export class FpsGovernor {
   private readonly distressMs: number;
   private readonly distressGraceMs: number;
   private readonly maxScale: number;
+  private readonly scaleStep: number;
   private readonly baseScale: number;
   private readonly decisionMs: number;
   private readonly windowMs: number;
@@ -72,6 +76,7 @@ export class FpsGovernor {
     this.distressMs = o.distressMs;
     this.distressGraceMs = o.distressGraceMs;
     this.maxScale = o.maxScale;
+    this.scaleStep = o.scaleStep;
     this.baseScale = o.baseScale;
     this.decisionMs = o.decisionMs;
     this.windowMs = o.windowMs;
@@ -116,7 +121,7 @@ export class FpsGovernor {
 
     if (fps > 0) {
       if (fps < this.softFps) {
-        newScale = Math.min(this.maxScale, currentScale * 1.12);
+        newScale = Math.min(this.maxScale, currentScale * this.scaleStep);
       } else if (fps > 55 && currentScale > this.baseScale) {
         newScale = Math.max(this.baseScale, currentScale * 0.94);
       }

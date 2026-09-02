@@ -10,6 +10,7 @@ import { expect, test } from '@playwright/test';
 async function openWorld(page: import('@playwright/test').Page, hour?: string): Promise<void> {
   await page.addInitScript((h) => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
     if (h !== undefined) localStorage.setItem('lenny-hour-override', h);
   }, hour);
   await page.goto('/');
@@ -36,6 +37,7 @@ test('the painted sky follows the real hour override', async ({ page }) => {
 test('finished games bloom as flowers on their islands', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
     localStorage.setItem('lenny-hour-override', '13');
     localStorage.setItem(
       'lenny-garden',

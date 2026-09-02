@@ -12,6 +12,7 @@ import { expect, test, type Page } from '@playwright/test';
 async function openWorld(page: Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
   });
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();

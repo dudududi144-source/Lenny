@@ -63,3 +63,61 @@ export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamer
 
   return camera;
 }
+
+/* ---------- the first-visit flyover (Stage 7, commit 6) ---------- */
+
+export const FLYOVER_MS = 6000;
+/** After a skip tap, this long does the settle-to-play ease take. */
+export const FLYOVER_SETTLE_MS = 1000;
+
+export interface CameraPose {
+  alpha: number;
+  beta: number;
+  radius: number;
+  tx: number;
+  tz: number;
+}
+
+export function smoothstep(k: number): number {
+  const x = Math.max(0, Math.min(1, k));
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * The 6-second first-visit tour: one gentle sweep over the garden,
+ * ending exactly at the play pose (over the first island). Pure —
+ * the unit tests pin the journey; the child may skip any moment.
+ */
+export function flyoverPose(k: number, homeX: number, homeZ: number): CameraPose {
+  const t = smoothstep(k);
+  return {
+    alpha: -Math.PI / 2 - (1 - t) * 2.1,
+    beta: 0.62 + (CHILD_CAMERA.startBeta - 0.62) * t,
+    radius: 17.5 + (CHILD_CAMERA.startRadius - 17.5) * t,
+    tx: homeX * t,
+    tz: homeZ * t,
+  };
+}
+
+/** The pose a camera is currently at (for the skip ease). */
+export function capturePose(camera: ArcRotateCamera): CameraPose {
+  return {
+    alpha: camera.alpha,
+    beta: camera.beta,
+    radius: camera.radius,
+    tx: camera.target.x,
+    tz: camera.target.z,
+  };
+}
+
+/** Linear blend between two poses (k clamped). */
+export function blendPose(a: CameraPose, b: CameraPose, k: number): CameraPose {
+  const t = smoothstep(k);
+  return {
+    alpha: a.alpha + (b.alpha - a.alpha) * t,
+    beta: a.beta + (b.beta - a.beta) * t,
+    radius: a.radius + (b.radius - a.radius) * t,
+    tx: a.tx + (b.tx - a.tx) * t,
+    tz: a.tz + (b.tz - a.tz) * t,
+  };
+}

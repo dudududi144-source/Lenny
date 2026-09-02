@@ -30,6 +30,7 @@ test('mode=world boots the 3D garden with a live renderer and a clean bridge', a
 
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
   });
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
@@ -56,6 +57,7 @@ test('mode=world boots the 3D garden with a live renderer and a clean bridge', a
 test('the world canvas follows viewport resizes', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
   });
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
@@ -81,6 +83,7 @@ test('open → hero → open again re-boots the world cleanly', async ({ page })
 
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
   });
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();

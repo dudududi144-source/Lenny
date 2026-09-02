@@ -33,6 +33,8 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
 import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
 import '@babylonjs/core/Layers/effectLayerSceneComponent';
+import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
+import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture';
 import { music, mulberry32 } from '../audio/MusicEngine';
 import { phaseNow, type DayPhase } from '../content/dayCycle';
@@ -40,7 +42,16 @@ import { paletteChanged, paletteForPhase, type WorldPalette } from './WorldSky';
 import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
 import { buildLennyStar, type LennyStarHandle } from './LennyStar';
 import type { GardenData } from '../games/core/ProgressStore';
-import { createWorldCamera } from './WorldCamera';
+import {
+  blendPose,
+  capturePose,
+  createWorldCamera,
+  CHILD_CAMERA as CHILD_CAMERA_START,
+  FLYOVER_MS,
+  FLYOVER_SETTLE_MS,
+  flyoverPose,
+  type CameraPose,
+} from './WorldCamera';
 import { FpsGovernor } from './FpsGovernor';
 import { buildIslands, type IslandsHandle } from './WorldIslands';
 import { islandCenter, nearestZone, resolveWalkTarget, WORLD_ISLANDS } from './WorldLayout';
@@ -65,7 +76,11 @@ export interface WorldAppEvents {
   onArrive?(zone: ZoneId | null): void;
   /** A tap tried to enter a fog island — the shell whispers gently. */
   onLockedTap?(zone: ZoneId): void;
+  /** Onboarding flyover begins/ends (the shell records the flag). */
+  onPhase?(phase: WorldPhaseLite): void;
 }
+
+export type WorldPhaseLite = 'onboarding' | 'exploring';
 
 /* ---------- the day palette (commit 1: fixed pleasant day; commit 4 makes it hour-aware) ---------- */
 
@@ -266,16 +281,24 @@ export interface WorldApp {
   life(): CreatureCounts;
   /** Lenny's bubble anchor on the canvas (0..1 fractions). */
   lennyScreen(): { x: number; y: number; on: boolean };
+  /** 'onboarding' until the flyover finishes (or is skipped). */
+  worldPhase(): WorldPhaseLite;
   /** Re-read progress (unlock fog + bloom) after a game or on open. */
   refresh(data: GardenData, grewZones?: ReadonlySet<string>): void;
   setPaused(paused: boolean): void;
   dispose(): void;
 }
 
+export interface WorldAppOptions {
+  /** First visit: the 6s skippable flyover (ETHICS: the child is always in control). */
+  onboard?: boolean;
+}
+
 export async function createWorldApp(
   canvas: HTMLCanvasElement,
   events: WorldAppEvents = {},
   data: GardenData = { firstSeen: 0, lights: 0, zones: {}, finished: {} },
+  options: WorldAppOptions = {},
 ): Promise<WorldApp> {
   const { engine, kind } = await createEngine(canvas);
 
@@ -319,10 +342,77 @@ export async function createWorldApp(
   const glow = new GlowLayer('world-glow', scene, { mainTextureSamples: 1, blurKernelSize: 24 });
   glow.intensity = 0.55;
 
+  /* shadows: ONLY Lenny + the island under her feet, low blur, and
+     only when the device is genuinely fast (governor-gated — a slow
+     device gets its framerate, not its decoration) */
+  let shadows: ShadowGenerator | null = null;
+  let shadowedIsland: string | null = null;
+  const shadowProbe = window.setInterval(() => {
+    if (disposed || paused) return;
+    const fps = governor.fps(performance.now());
+    if (shadows === null && fps > 40) {
+      try {
+        shadows = new ShadowGenerator(512, sun);
+        shadows.useBlurExponentialShadowMap = true;
+        shadows.blurKernel = 8;
+        shadows.addShadowCaster(lenny.bodyMesh());
+        if (near) {
+          const plat = islands.platformMesh(near);
+          if (plat) {
+            shadows.addShadowCaster(plat);
+            shadowedIsland = near;
+          }
+        }
+      } catch {
+        shadows = null; /* shadows are decoration, never load-bearing */
+      }
+    } else if (shadows !== null && fps < 30) {
+      shadows.dispose();
+      shadows = null;
+      shadowedIsland = null;
+    } else if (shadows !== null && near && near !== shadowedIsland) {
+      const prev = shadowedIsland ? islands.platformMesh(shadowedIsland as ZoneId) : null;
+      const nextIsland = islands.platformMesh(near);
+      if (nextIsland) {
+        if (prev) shadows.removeShadowCaster(prev);
+        shadows.addShadowCaster(nextIsland);
+        shadowedIsland = near;
+      }
+    }
+  }, 2000);
+
+  /* ---------- first-visit flyover (commit 6) ---------- */
+  let onboarding = options.onboard === true;
+  let skipRequested = false;
+  let skipAt = 0;
+  let skipFrom: CameraPose | null = null;
+
   /* the journey starts at the first island — that is where the eye rests */
   const home = islandCenter('light-path');
+  const playPose: CameraPose = {
+    alpha: CHILD_CAMERA_START.startAlpha,
+    beta: CHILD_CAMERA_START.startBeta,
+    radius: CHILD_CAMERA_START.startRadius,
+    tx: home.x,
+    tz: home.z,
+  };
   const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z));
   scene.activeCamera = camera;
+
+  /* flyover start: high, far, and sweeping (the camera input sleeps) */
+  if (onboarding) {
+    const start = flyoverPose(0, home.x, home.z);
+    camera.alpha = start.alpha;
+    camera.beta = start.beta;
+    camera.radius = start.radius;
+    camera.setTarget(new Vector3(start.tx, 0.6, start.tz));
+    camera.detachControl();
+    try {
+      events.onPhase?.('onboarding');
+    } catch {
+      /* phase listeners never crash the garden */
+    }
+  }
 
   /* ---------- the presence point (commit 3: the child IS here) ---------- */
 
@@ -371,6 +461,7 @@ export async function createWorldApp(
   const ARRIVE_EPS = 0.09;
   const WALK_RATE = 2.1; /* exponential ease — calm, never teleporty */
   let lastMusicIntensity = -1;
+  const bootAt = performance.now();
   const prevPresence = { x: presencePos.x, z: presencePos.z };
   const vel = { x: 0, z: 0 };
 
@@ -425,11 +516,33 @@ export async function createWorldApp(
     presenceRing.scaling.x = ringPulse;
     presenceRing.scaling.z = ringPulse;
 
-    /* camera target follows the presence softly */
-    const camT = camera.target;
-    camT.x += (presencePos.x - camT.x) * Math.min(1, dt * 1.9);
-    camT.z += (presencePos.z - camT.z) * Math.min(1, dt * 1.9);
-    camT.y += (0.66 - camT.y) * Math.min(1, dt * 1.4);
+    /* camera: flyover owns it; afterwards the target follows presence */
+    if (onboarding) {
+      const elapsed = now - (skipRequested ? skipAt - FLYOVER_MS : 0) - bootAt;
+      const k = Math.min(1, Math.max(0, elapsed / FLYOVER_MS));
+      const pose = skipRequested && skipFrom
+        ? blendPose(skipFrom, playPose, Math.min(1, (now - skipAt) / FLYOVER_SETTLE_MS))
+        : flyoverPose(k, home.x, home.z);
+      camera.alpha = pose.alpha;
+      camera.beta = pose.beta;
+      camera.radius = pose.radius;
+      camera.setTarget(new Vector3(pose.tx, 0.6, pose.tz));
+      const done = skipRequested ? now - skipAt >= FLYOVER_SETTLE_MS : k >= 1;
+      if (done) {
+        onboarding = false;
+        camera.attachControl();
+        try {
+          events.onPhase?.('exploring');
+        } catch {
+          /* phase listeners never crash the garden */
+        }
+      }
+    } else {
+      const camT = camera.target;
+      camT.x += (presencePos.x - camT.x) * Math.min(1, dt * 1.9);
+      camT.z += (presencePos.z - camT.z) * Math.min(1, dt * 1.9);
+      camT.y += (0.66 - camT.y) * Math.min(1, dt * 1.4);
+    }
 
     /* near-zone: the zone the child is visiting right now */
     const nz = nearestZone(presencePos.x, presencePos.z, NEAR_DIST);
@@ -499,6 +612,12 @@ export async function createWorldApp(
   let dragAborted = false;
 
   const onPointerDown = (ev: PointerEvent): void => {
+    if (onboarding && !skipRequested) {
+      /* ETHICS: the child is always in control — one tap skips the tour */
+      skipRequested = true;
+      skipAt = performance.now();
+      skipFrom = capturePose(camera);
+    }
     if (ev.pointerType === 'mouse' && ev.button !== 0) return;
     press = pressStart(ev.offsetX, ev.offsetY, performance.now());
     dragAborted = false;
@@ -518,6 +637,7 @@ export async function createWorldApp(
     if (dragAborted) return; /* this press became an orbit — the camera ate it */
     if (pressEnd(start, ev.offsetX, ev.offsetY, performance.now()) !== 'tap') return;
     if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    if (onboarding) return; /* walking unlocks after the tour */
 
     /* ray-based pick: a REAL Ray use keeps the ray module in the bundle
        (its side effect patches the scene's ray machinery), CSS coords in,
@@ -560,6 +680,7 @@ export async function createWorldApp(
     zones: () => islands.zones(),
     skyPhase: () => phase,
     life: () => creatures.counts(),
+    worldPhase: () => (onboarding ? 'onboarding' : 'exploring'),
     lennyScreen: () => {
       const vf = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
       const p = Vector3.Project(lenny.worldPos(), Matrix.Identity(), scene.getTransformMatrix(), vf);
@@ -586,6 +707,8 @@ export async function createWorldApp(
       disposed = true;
       window.clearInterval(applyInterval);
       window.clearInterval(dayInterval);
+      window.clearInterval(shadowProbe);
+      shadows?.dispose();
       window.removeEventListener('resize', onResize);
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);

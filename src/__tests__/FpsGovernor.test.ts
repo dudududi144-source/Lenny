@@ -51,7 +51,7 @@ describe('FpsGovernor', () => {
       now = run(gov, 10, 0.6, now); /* fresh frames before every decision */
       scale = gov.evaluate(now, scale).newScale;
     }
-    expect(scale).toBe(1.5);
+    expect(scale).toBe(1.5); /* maxScale cap still exact */
   });
 
   it('keeps the scale at base on a healthy device', () => {

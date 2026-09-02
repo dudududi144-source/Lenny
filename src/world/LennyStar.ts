@@ -78,6 +78,8 @@ export interface LennyStarHandle {
   update(t: number, dt: number, pos: { x: number; z: number }, vel: { x: number; z: number }, nearZone: ZoneId | null): void;
   /** Lenny's world position (for bubbles + shadows). */
   worldPos(): Vector3;
+  /** The star body mesh (shadow caster). */
+  bodyMesh(): Mesh;
   dispose(): void;
 }
 
@@ -124,6 +126,7 @@ export function buildLennyStar(scene: Scene): LennyStarHandle {
       body.rotation.z = leanZ;
     },
     worldPos: () => root.position.clone(),
+    bodyMesh: () => body,
     dispose(): void {
       root.dispose(false, true);
       eyeMat.dispose();

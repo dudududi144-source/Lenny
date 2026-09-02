@@ -10,6 +10,7 @@ import { expect, test } from '@playwright/test';
 async function openWorld(page: import('@playwright/test').Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
     localStorage.setItem('lenny-hour-override', '13');
   });
   await page.goto('/');

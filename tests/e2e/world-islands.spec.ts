@@ -11,6 +11,7 @@ const WORLD_MODE = { 'lenny-garden-mode': 'world' };
 async function openWorld(page: import('@playwright/test').Page): Promise<void> {
   await page.addInitScript((mode) => {
     for (const [k, v] of Object.entries(mode)) localStorage.setItem(k, v as string);
+    localStorage.setItem('lenny-world-onboarded', '1');
   }, WORLD_MODE);
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
@@ -45,6 +46,7 @@ test('the world reports all 10 zones in path order with honest unlock flags', as
 test('unlock flags follow the saved ProgressStore chain', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
+    localStorage.setItem('lenny-world-onboarded', '1');
     localStorage.setItem(
       'lenny-garden',
       JSON.stringify({

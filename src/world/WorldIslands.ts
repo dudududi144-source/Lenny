@@ -379,6 +379,8 @@ export interface ZoneWorldState {
 
 export interface IslandsHandle {
   refresh(data: GardenData, grewZones?: ReadonlySet<string>): void;
+  /** The platform mesh of a zone (for shadows). */
+  platformMesh(zone: ZoneId): Mesh | null;
   zones(): ZoneWorldState[];
   setNear(zone: ZoneId | null): void;
   islandTopY(): number;
@@ -401,6 +403,7 @@ export function buildIslands(scene: Scene): IslandsHandle {
   lockMat.backFaceCulling = false;
 
   const flowerMats: StandardMaterial[] = [];
+  const platformMeshes = new Map<ZoneId, Mesh>();
   const parts: IslandParts[] = ZONES.map((zoneDef, i) => {
     const place = WORLD_ISLANDS[i];
     const root = new TransformNode(`island-${zoneDef.id}`, scene);
@@ -421,6 +424,8 @@ export function buildIslands(scene: Scene): IslandsHandle {
     platform.material = platformMat;
     platform.parent = root;
     platform.isPickable = true;
+    platform.receiveShadows = true;
+    platformMeshes.set(zoneDef.id, platform);
 
     const rim = MeshBuilder.CreateTorus(
       `rim-${zoneDef.id}`,
@@ -602,6 +607,9 @@ export function buildIslands(scene: Scene): IslandsHandle {
         unlocked: p.unlocked,
         bloom: Math.min(p.finished, MAX_BLOOM),
       }));
+    },
+    platformMesh(zone: ZoneId): Mesh | null {
+      return platformMeshes.get(zone) ?? null;
     },
     setNear(zone: ZoneId | null): void {
       if (zone === near) return;

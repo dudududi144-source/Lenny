@@ -14,6 +14,7 @@
 
 import { freshGarden, LocalProgressStore, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT, type ZoneId } from '../data/garden';
+import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
 import { bubbleLineFor } from './LennyStar';
 import { music } from '../audio/MusicEngine';
 import { h } from '../ui/components/common/el';
@@ -192,6 +193,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     canvas.className = 'world-canvas';
     canvas.setAttribute('aria-label', 'הגן התלת-ממדי של לני');
     stage.replaceChildren(canvas);
+    const firstVisit = !isWorldOnboarded();
     app = await createWorldApp(
       canvas,
       {
@@ -205,10 +207,16 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
           const line = bubbleLineFor(zone);
           if (line) showBubble(line);
         },
+        onPhase: (p) => {
+          phase = p;
+          root.dataset.worldPhase = p;
+          if (p === 'exploring' && firstVisit) markWorldOnboarded();
+        },
       },
       loadGarden(),
+      { onboard: firstVisit },
     );
-    phase = 'exploring';
+    phase = firstVisit ? 'onboarding' : 'exploring';
   }
 
   /** Zones that grew since the last time the world was seen. */
