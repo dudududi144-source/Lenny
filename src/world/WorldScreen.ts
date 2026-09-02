@@ -13,7 +13,8 @@
  * ============================================================ */
 
 import { freshGarden, LocalProgressStore, type GardenData } from '../games/core/ProgressStore';
-import { GARDEN_TEXT } from '../data/garden';
+import { GARDEN_TEXT, type ZoneId } from '../data/garden';
+import { bubbleLineFor } from './LennyStar';
 import { music } from '../audio/MusicEngine';
 import { h } from '../ui/components/common/el';
 import { uiButton } from '../ui/components/common/Button';
@@ -84,6 +85,32 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     lightCount,
   );
 
+  /* Lenny's arrival bubble — she speaks the zone's own mission line,
+     never new content (data/garden.ts is the only voice). */
+  const bubble = h(
+    'div',
+    { class: 'lenny-bubble hidden', id: 'lenny-bubble', role: 'status', 'aria-live': 'polite' },
+    h('span', { class: 'lenny-bubble-text' }),
+  );
+  let bubbleTimer: number | null = null;
+  let bubblePinner: number | null = null;
+
+  function showBubble(line: string): void {
+    if (!line) return;
+    bubble.querySelector('.lenny-bubble-text')!.textContent = line;
+    bubble.classList.remove('hidden');
+    if (bubbleTimer !== null) window.clearTimeout(bubbleTimer);
+    bubbleTimer = window.setTimeout(() => bubble.classList.add('hidden'), 3600);
+    if (bubblePinner === null) {
+      bubblePinner = window.setInterval(() => {
+        if (!app || bubble.classList.contains('hidden')) return;
+        const p = app.lennyScreen();
+        bubble.style.left = `${Math.round(p.x * 100)}%`;
+        bubble.style.top = `${Math.round(Math.max(0.04, p.y - 0.075) * 100)}%`;
+      }, 120);
+    }
+  }
+
   const back = uiButton({
     label: '→ חזרה',
     variant: 'ghost',
@@ -96,6 +123,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     'section',
     { class: 'screen screen--world hidden', id: 'world-screen', 'aria-label': 'הגן התלת-ממדי' },
     stage,
+    bubble,
     loading,
     h(
       'header',
@@ -173,6 +201,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         onLockedTap: () => {
           callbacks.toast(GARDEN_TEXT.lockedSoon);
         },
+        onArrive: (zone) => {
+          const line = bubbleLineFor(zone);
+          if (line) showBubble(line);
+        },
       },
       loadGarden(),
     );
@@ -224,6 +256,12 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         refresh();
         music.setMood('garden-exploring');
         music.resume();
+        /* Lenny greets the child at the journey's first island —
+           computed lazily: the first rendered frame lights nearZone */
+        window.setTimeout(() => {
+          const line = bubbleLineFor((app?.nearZone() ?? null) as ZoneId | null);
+          if (line) showBubble(line);
+        }, 900);
       })
       .catch(() => {
         /* engine refused — the shell shows the classic garden instead */
@@ -244,6 +282,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     }
     phase = 'closed';
     stage.replaceChildren();
+    bubble.classList.add('hidden');
     root.dataset.worldPhase = 'closed';
   }
 

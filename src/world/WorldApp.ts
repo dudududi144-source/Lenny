@@ -38,6 +38,7 @@ import { music, mulberry32 } from '../audio/MusicEngine';
 import { phaseNow, type DayPhase } from '../content/dayCycle';
 import { paletteChanged, paletteForPhase, type WorldPalette } from './WorldSky';
 import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
+import { buildLennyStar, type LennyStarHandle } from './LennyStar';
 import type { GardenData } from '../games/core/ProgressStore';
 import { createWorldCamera } from './WorldCamera';
 import { FpsGovernor } from './FpsGovernor';
@@ -263,6 +264,8 @@ export interface WorldApp {
   skyPhase(): DayPhase;
   /** Ambient life report (bridge). */
   life(): CreatureCounts;
+  /** Lenny's bubble anchor on the canvas (0..1 fractions). */
+  lennyScreen(): { x: number; y: number; on: boolean };
   /** Re-read progress (unlock fog + bloom) after a game or on open. */
   refresh(data: GardenData, grewZones?: ReadonlySet<string>): void;
   setPaused(paused: boolean): void;
@@ -291,6 +294,8 @@ export async function createWorldApp(
 
   const creatures: CreaturesHandle = buildCreatures(scene);
   creatures.setPhase(phase);
+
+  const lenny: LennyStarHandle = buildLennyStar(scene);
 
   const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
   const sun = new DirectionalLight('sun', new Vector3(...palette.sunDir), scene);
@@ -366,6 +371,8 @@ export async function createWorldApp(
   const ARRIVE_EPS = 0.09;
   const WALK_RATE = 2.1; /* exponential ease — calm, never teleporty */
   let lastMusicIntensity = -1;
+  const prevPresence = { x: presencePos.x, z: presencePos.z };
+  const vel = { x: 0, z: 0 };
 
   function presenceY(): number {
     for (const p of WORLD_ISLANDS) {
@@ -440,6 +447,13 @@ export async function createWorldApp(
     }
 
     creatures.update(t, dt);
+
+    /* Lenny rides the presence: velocity for the lean */
+    vel.x = dt > 0 ? (presencePos.x - prevPresence.x) / dt : 0;
+    vel.z = dt > 0 ? (presencePos.z - prevPresence.z) / dt : 0;
+    prevPresence.x = presencePos.x;
+    prevPresence.z = presencePos.z;
+    lenny.update(t, dt, presencePos, vel, near);
 
     scene.render();
     governor.push(now, engine.getDeltaTime());
@@ -546,6 +560,16 @@ export async function createWorldApp(
     zones: () => islands.zones(),
     skyPhase: () => phase,
     life: () => creatures.counts(),
+    lennyScreen: () => {
+      const vf = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
+      const p = Vector3.Project(lenny.worldPos(), Matrix.Identity(), scene.getTransformMatrix(), vf);
+      const on = p.z >= 0 && p.z <= 1 && p.x >= -80 && p.y >= -80 && p.x <= engine.getRenderWidth() + 80;
+      return {
+        x: Math.max(0, Math.min(1, p.x / engine.getRenderWidth())),
+        y: Math.max(0, Math.min(1, p.y / engine.getRenderHeight())),
+        on,
+      };
+    },
     refresh: (fresh: GardenData, grewZones?: ReadonlySet<string>) => islands.refresh(fresh, grewZones),
     setPaused(value: boolean): void {
       if (disposed) return;
@@ -567,6 +591,7 @@ export async function createWorldApp(
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
       engine.stopRenderLoop();
+      lenny.dispose();
       creatures.dispose();
       islands.dispose();
       ground.dispose();
