@@ -68,6 +68,7 @@ export class FpsGovernor {
   private distressSince: number | null = null;
   private distressed = false;
   private firstFrameAt: number | null = null;
+  private prevDecisionFps = 0;
 
   constructor(opts: GovernorOptions = {}) {
     const o = { ...DEFAULTS, ...opts };
@@ -128,16 +129,26 @@ export class FpsGovernor {
     }
 
     if (fps > 0 && fps < this.minFps && this.firstFrameAt !== null && now - this.firstFrameAt >= this.distressGraceMs) {
-      if (this.distressSince === null) this.distressSince = now;
-      if (!this.distressed && now - this.distressSince >= this.distressMs) {
-        this.distressed = true;
-        distress = true;
+      /* recovery-aware distress (audit 9-b follow-up): a weak device that
+         is CLIMBING out of the hole (wide canvas booted 4→10→13fps and was
+         still killed mid-recovery) gets its budget paused while the trend
+         is up — only a stalled or falling fps below the floor is distress. */
+      const improving = this.prevDecisionFps > 0 && fps >= this.prevDecisionFps * 1.25;
+      if (improving) {
+        this.distressSince = null;
+      } else {
+        if (this.distressSince === null) this.distressSince = now;
+        if (!this.distressed && now - this.distressSince >= this.distressMs) {
+          this.distressed = true;
+          distress = true;
+        }
       }
     } else {
       this.distressSince = null;
       this.distressed = false;
     }
 
+    if (fps > 0) this.prevDecisionFps = fps;
     return { newScale, distress };
   }
 
