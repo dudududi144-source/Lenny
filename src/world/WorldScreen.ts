@@ -875,7 +875,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
 
   window.__lennyWorld = {
-    version: 'stage-12',
+    version: 'stage-13',
     presencePos: () => app?.presencePos() ?? null,
     nearZone: () => app?.nearZone() ?? null,
     zones: () => app?.zones() ?? [],

@@ -58,6 +58,7 @@ import {
 import { buildFriends, type FriendsHandle } from './WorldFriends';
 import { buildRoad, type RoadHandle } from './WorldRoad';
 import { buildCottages, type CottageHandle } from './WorldCottages';
+import { balloonPose, createWorldBalloon, RIDE_MS, type WorldBalloonHandle } from './WorldBalloon';
 import { nearestFriend, type FriendDef } from './WorldLayout';
 import type { GardenData } from '../games/core/ProgressStore';
 import {
@@ -569,6 +570,31 @@ export async function createWorldApp(
   const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z));
   scene.activeCamera = camera;
 
+  /* ---------- stage 13 — the balloon vista (נוף) ----------
+     A deck at the edge of the home meadow, a small balloon on it.
+     A child who walks onto the deck rises over the whole continent,
+     circles past the far regions, and lands where she took off.
+     The ride is a VIEW: no visits, no arrivals, no ledger writes —
+     and every place stays walkable as before. */
+  const balloonPadSpot = (() => {
+    const len = Math.hypot(home.x, home.z);
+    if (len < 0.5) return { x: -9, z: 0 };
+    /* a side-step, not a radial step: the deck sits BESIDE the home
+       island, off the first camera's sight line — the child spawns
+       looking at the garden, never at a wall of balloon canopy */
+    const px = -home.z / len;
+    const pz = home.x / len;
+    return { x: home.x + px * 9, z: home.z + pz * 9 };
+  })();
+  const balloon: WorldBalloonHandle = createWorldBalloon(scene, balloonPadSpot.x, balloonPadSpot.z);
+  let rideStart: number | null = null;
+  /* the flight never chains into itself: landing disarms the deck
+     until the fox steps off it and chooses the sky again */
+  let rideArmed = true;
+  /* the world holds its breath this long after wheels-down: no visit,
+     no shelf, no ghost hello from a place the flight only flew over */
+  let rideSettleUntil = 0;
+
   const bootAt = performance.now();
   const onboard = createWorldOnboard(options.onboard === true, playPose, bootAt, {
     onDone: () => {
@@ -685,7 +711,7 @@ export async function createWorldApp(
        Joystick or keyboard = the fox's legs (camera-relative, the
        platformer contract). A tap still sends a walk errand — but
        a held direction always wins the very next frame. */
-    const mv = onboard.active() ? null : worldInput.moveVector();
+    const mv = onboard.active() || rideStart !== null ? null : worldInput.moveVector();
     const isLocked = (zone: ZoneId): boolean => islands.zones().some((z) => z.id === zone && !z.unlocked);
     let moved = false;
 
@@ -757,7 +783,7 @@ export async function createWorldApp(
     landedThisFrame = false;
     if (worldInput.consumeJump() || jumpQueued) {
       jumpQueued = false;
-      if (grounded && !onboard.active()) {
+      if (grounded && !onboard.active() && rideStart === null) {
         grounded = false;
         jumpVy = JUMP_V;
       }
@@ -773,6 +799,55 @@ export async function createWorldApp(
       }
     }
 
+    /* ---------- stage 13: the balloon ride ----------
+       While airborne the fox rides the basket: her position IS the
+       flight path, the world's walk/shelf/visit machinery sleeps,
+       and the camera climbs with her. Landing returns everything. */
+    let rideK: number | null = null;
+    if (rideStart !== null) {
+      const k = (now - rideStart) / RIDE_MS;
+      if (k >= 1) {
+        rideStart = null; /* wheels down — the pad receives her back */
+        /* the ledger forgets the sky: nothing the flight passed over
+           counts as visited; the ground greets her fresh and honest */
+        near = null;
+        islands.setNear(null);
+        nearSince = null;
+        lastArrivedZone = null;
+        rideSettleUntil = now + 1800;
+      } else {
+        rideK = k;
+      }
+    }
+    let rideAlt = 0;
+    if (rideK !== null) {
+      const bp = balloon.pad();
+      const p = balloonPose(rideK, bp.x, bp.z);
+      presencePos.x = p.x;
+      presencePos.z = p.z;
+      facing = p.facing;
+      rideAlt = p.alt;
+      moved = false;
+      walkTarget = null;
+      destMat.alpha = 0;
+    } else {
+      /* re-armed by stepping off */
+      if (!rideArmed && balloon.padDistSq(presencePos.x, presencePos.z) > 9) {
+        rideArmed = true;
+      }
+      /* stepping onto the deck asks for the sky (re-armed by stepping off).
+         During the first-visit tour the child's feet still vote: walking
+         onto the deck ENDS the tour — the balloon is the destination now. */
+      if (rideArmed && balloon.padDistSq(presencePos.x, presencePos.z) < 2.89) {
+        if (onboard.active()) onboard.requestSkip(now, camera);
+        rideStart = now;
+        rideArmed = false;
+        walkTarget = null;
+        destMat.alpha = 0;
+      }
+    }
+    balloon.update(now, dt, rideK);
+
     const speed = moved ? MAX_WALK_SPEED : 0;
     const gy = groundY();
     fox.update(now / 1000, dt, {
@@ -780,7 +855,7 @@ export async function createWorldApp(
       speed,
       facing,
       groundY: gy,
-      jumpY,
+      jumpY: jumpY + rideAlt,
       landed: landedThisFrame,
     });
     presenceRing.position.set(presencePos.x, gy + 0.03, presencePos.z);
@@ -798,7 +873,11 @@ export async function createWorldApp(
       const lookZ = presencePos.z + vel.z * 0.22;
       camT.x += (lookX - camT.x) * Math.min(1, dt * 2.2);
       camT.z += (lookZ - camT.z) * Math.min(1, dt * 2.2);
-      camT.y += (gy + 0.5 - camT.y) * Math.min(1, dt * 1.6);
+      camT.y += (gy + 0.5 + rideAlt - camT.y) * Math.min(1, dt * 1.6);
+      /* airborne: the eye steps back — the continent deserves the view */
+      if (rideK !== null) {
+        camera.radius += (30 - camera.radius) * Math.min(1, dt * 0.9);
+      }
     }
 
     /* near-zone: the zone the child is visiting right now */
@@ -819,8 +898,9 @@ export async function createWorldApp(
 
     /* continuous arrival (stage 11): walking into a zone with the
        joystick counts exactly like a tap arrival — after a short
-       settle so pass-throughs don't slide the shelf open */
-    if (near && !walkTarget && !onboard.active()) {
+       settle so pass-throughs don't slide the shelf open. Flying
+       over a zone is NOT a visit (stage 13: the ledger stays honest). */
+    if (near && !walkTarget && !onboard.active() && rideStart === null && now > rideSettleUntil) {
       if (nearSince === null) nearSince = now;
       if (now - nearSince > 450 && near !== lastArrivedZone) {
         lastArrivedZone = near;
@@ -983,7 +1063,7 @@ export async function createWorldApp(
     (zone) => islands.zones().some((z) => z.id === zone && !z.unlocked),
     {
       onWalkTarget: (resolved) => {
-        if (onboard.active()) return;
+        if (onboard.active() || rideStart !== null) return;
         walkTarget = { x: resolved.x, z: resolved.z };
         /* the destination ring rides the land (platforms lift it higher) */
         const onIsland = isInsideIsland(resolved.x, resolved.z);
@@ -997,6 +1077,14 @@ export async function createWorldApp(
         } catch {
           /* a prop tap never crashes the garden */
         }
+      },
+      onBalloonTap: () => {
+        /* one tap on any part of the balloon = one errand: the deck.
+           From there the pad itself lifts the child into the ride. */
+        if (onboard.active() || rideStart !== null) return;
+        walkTarget = { x: balloonPadSpot.x, z: balloonPadSpot.z };
+        destRing.position.set(balloonPadSpot.x, terrainHeight(balloonPadSpot.x, balloonPadSpot.z) + 0.14, balloonPadSpot.z);
+        destMat.alpha = 0.75;
       },
       onLockedTap: (zone) => {
         try {
@@ -1105,6 +1193,7 @@ export async function createWorldApp(
       glow?.dispose();
       window.removeEventListener('resize', onResize);
       worldInput.detach();
+      balloon.dispose();
       engine.stopRenderLoop();
       lenny.dispose();
       fox.dispose();
