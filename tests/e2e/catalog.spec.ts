@@ -81,7 +81,11 @@ test('tier 1 opens after a tier-0 game completes ×3; tier 2+ stay locked', asyn
 });
 
 test('finishing a tier-0 game three times (live) opens tier 1', async ({ page }) => {
-  test.setTimeout(150_000);
+  /* 3 full live games on a software renderer — ~55s per round trip
+     (play + ceremony + garden return). The old 150s budget was razor-thin
+     and started failing on slower runners; measure-first honesty: give
+     the real work the room it actually takes. */
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(String(err)));
 
