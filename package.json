@@ -10,7 +10,11 @@
     "preview": "vite preview --port 4173 --strictPort",
     "test:e2e": "playwright test",
     "lint": "eslint .",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:e2e:world": "playwright test tests/e2e/world-base.spec.ts tests/e2e/world-default.spec.ts tests/e2e/world-islands.spec.ts tests/e2e/world-lenny.spec.ts tests/e2e/world-life.spec.ts tests/e2e/world-move.spec.ts tests/e2e/world-onboard.spec.ts tests/e2e/world-diary.spec.ts tests/e2e/world-perf.spec.ts",
+    "test:e2e:core": "playwright test tests/e2e/smoke.spec.ts tests/e2e/garden.spec.ts tests/e2e/garden-growth.spec.ts tests/e2e/daylight.spec.ts tests/e2e/music.spec.ts tests/e2e/parent.spec.ts tests/e2e/parentlens.spec.ts tests/e2e/catalog.spec.ts tests/e2e/game-host.spec.ts tests/e2e/playpath.spec.ts",
+    "test:e2e:games": "playwright test tests/e2e/acornsort.spec.ts tests/e2e/beepaint.spec.ts tests/e2e/breathpool.spec.ts tests/e2e/drumbeat.spec.ts tests/e2e/emotionface.spec.ts tests/e2e/findletter.spec.ts tests/e2e/glowfish.spec.ts tests/e2e/kitematch.spec.ts tests/e2e/memorypairs.spec.ts tests/e2e/opencanvas.spec.ts tests/e2e/sequenceecho.spec.ts",
+    "test:all": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "@babylonjs/core": "^9.23.0",

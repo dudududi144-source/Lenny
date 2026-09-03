@@ -7,5 +7,5 @@ export default defineConfig({
     during Stage 2b development). */
  workers:1,
  use:{viewport:{width:375,height:667},hasTouch:true,isMobile:true},
- webServer:{command:'npx vite preview --port 4173 --strictPort',port:4173,reuseExistingServer:true},
+ webServer:{command:'npx vite preview --port 4173 --strictPort',port:4173,reuseExistingServer:!process.env.CI},
 });
