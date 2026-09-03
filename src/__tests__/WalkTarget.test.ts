@@ -3,6 +3,7 @@ import {
   WORLD_ISLANDS,
   WORLD_WALK_RADIUS,
   islandCenter,
+  isInsideIsland,
   resolveWalkTarget,
 } from '../world/WorldLayout';
 import { DEFAULT_UNLOCKED } from '../games/core/ProgressStore';
@@ -47,5 +48,25 @@ describe('resolveWalkTarget — fog islands repel gently', () => {
   it('never resolves beyond the walkable world', () => {
     const r = resolveWalkTarget(60, 60, locked);
     expect(Math.hypot(r.x, r.z)).toBeCloseTo(WORLD_WALK_RADIUS, 6);
+  });
+});
+
+describe('isInsideIsland — platform membership', () => {
+  it('the center of every island is inside it', () => {
+    for (const island of WORLD_ISLANDS) {
+      expect(isInsideIsland(island.x, island.z)).toBe(true);
+    }
+  });
+
+  it('open grass is never inside an island', () => {
+    expect(isInsideIsland(0, 0)).toBe(false); /* the world center */
+    expect(isInsideIsland(14.8, 0)).toBe(false); /* the outer ring */
+    expect(isInsideIsland(-14.8, 0)).toBe(false);
+  });
+
+  it('the rim itself is the boundary (outside wins — no sticky edges)', () => {
+    const island = WORLD_ISLANDS[0];
+    const d = island.radius + 0.05;
+    expect(isInsideIsland(island.x + d, island.z)).toBe(false);
   });
 });

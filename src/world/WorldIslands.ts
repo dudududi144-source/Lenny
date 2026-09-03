@@ -37,6 +37,14 @@ import { WORLD_ISLANDS, PATH_WIDTH, pathPoints } from './WorldLayout';
 const MAX_BLOOM = 8;
 const LOCKED_ALPHA = 0.5;
 
+/* the breath-pool shimmer endpoints — module consts so the per-frame
+   lerp writes straight into the material (zero allocations, forever) */
+const POOL_EMI_A = Color3.FromHexString('#1d3a2a');
+const POOL_EMI_B = Color3.FromHexString('#2f5a44');
+/* label emissive states — hoisted so setNear never allocates */
+const NEAR_LABEL_EMISSIVE = new Color3(0.3, 0.3, 0.12);
+const LABEL_EMISSIVE_OFF = new Color3(0, 0, 0);
+
 interface Bobber {
   mesh: Mesh;
   base: number;
@@ -51,7 +59,6 @@ interface IslandParts {
   labelMat: StandardMaterial;
   lock: Mesh;
   bobbers: Bobber[];
-  shimmerMat: StandardMaterial | null;
   unlocked: boolean;
   finished: number;
   flowers: Mesh[];
@@ -83,6 +90,9 @@ function labelTexture(scene: Scene, text: string): DynamicTexture {
   const draw = (): void => {
     const ctx = tex.getContext() as CanvasRenderingContext2D;
     ctx.clearRect(0, 0, w, hgt);
+    /* the font goes on BEFORE the plate measures the text (critic W14:
+       measuring with the canvas default font mis-sized the plate) */
+    ctx.font = '700 84px Heebo, "Segoe UI", Arial, sans-serif';
     /* rounded dark plate — the label separates from any sky/grass */
     const pw = Math.min(w - 24, w / 2 + ctx.measureText(text).width / 2 + 48);
     ctx.fillStyle = 'rgba(16, 32, 20, 0.62)';
@@ -95,7 +105,6 @@ function labelTexture(scene: Scene, text: string): DynamicTexture {
     ctx.arcTo(px, py, px + pw, py, r);
     ctx.closePath();
     ctx.fill();
-    ctx.font = '700 84px Heebo, "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.direction = 'rtl';
@@ -165,7 +174,7 @@ function buildMarker(
   scene: Scene,
   zone: ZoneId,
   root: TransformNode,
-): { mats: StandardMaterial[]; bobbers: Bobber[]; shimmerMat: StandardMaterial | null } {
+): { mats: StandardMaterial[]; bobbers: Bobber[] } {
   const mats: StandardMaterial[] = [];
   const bobbers: Bobber[] = [];
   const add = (m: StandardMaterial): StandardMaterial => {
@@ -310,7 +319,7 @@ function buildMarker(
     bobbers.push({ mesh: water, base: 0.12, amp: 0.015, speed: 1.1 });
   }
 
-  return { mats, bobbers, shimmerMat: null };
+  return { mats, bobbers };
 }
 
 /* ---------- bloom flowers (one per finished game, capped) ---------- */
@@ -506,13 +515,15 @@ export function buildIslands(scene: Scene): IslandsHandle {
       labelMat,
       lock,
       bobbers: marker.bobbers,
-      shimmerMat: null,
       unlocked: true,
       finished: 0,
       flowers,
       growing: [],
     };
   });
+
+  /* the shimmer pool is found once at build time — never per frame */
+  const poolPart = parts.find((p) => p.zone === 'breath-pool') ?? null;
 
   /* ---------- per-frame life + fog tweens ---------- */
 
@@ -536,15 +547,14 @@ export function buildIslands(scene: Scene): IslandsHandle {
         b.mesh.position.y = b.base + Math.sin(t * b.speed * 2) * b.amp;
       }
     }
-    /* the breath-pool water shimmers (one material, tiny cost) */
-    const pool = parts.find((p) => p.zone === 'breath-pool');
-    if (pool) {
+    /* the breath-pool water shimmers (one material, tiny cost, zero
+       allocations — the lerp writes straight into the material) */
+    if (poolPart) {
       const k = (Math.sin(t * 1.3) + 1) / 2;
-      pool.platformMat.emissiveColor = Color3.Lerp(
-        Color3.FromHexString('#1d3a2a'),
-        Color3.FromHexString('#2f5a44'),
-        k,
-      );
+      const emi = poolPart.platformMat.emissiveColor;
+      emi.r = POOL_EMI_A.r + (POOL_EMI_B.r - POOL_EMI_A.r) * k;
+      emi.g = POOL_EMI_A.g + (POOL_EMI_B.g - POOL_EMI_A.g) * k;
+      emi.b = POOL_EMI_A.b + (POOL_EMI_B.b - POOL_EMI_A.b) * k;
     }
     const now = performance.now();
     for (let i = tweens.length - 1; i >= 0; i--) {
@@ -630,7 +640,7 @@ export function buildIslands(scene: Scene): IslandsHandle {
       if (zone === near) return;
       near = zone;
       for (const p of parts) {
-        p.labelMat.emissiveColor = p.zone === zone ? new Color3(0.3, 0.3, 0.12) : Color3.Black();
+        p.labelMat.emissiveColor = p.zone === zone ? NEAR_LABEL_EMISSIVE : LABEL_EMISSIVE_OFF;
       }
     },
     islandTopY: () => 0.6,

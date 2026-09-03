@@ -201,4 +201,23 @@ export const GARDEN_TEXT = {
   wellDone: 'וָאו, כָּל הַכָּבוֹד!',
   tryAgain: 'לֹא נוֹרָא, בּוֹא נְנַסֶּה עוֹד פַּעַם.',
   giftIdea: 'אֶפְשָׁר לִשְׁלֹחַ מַתָּנָה לְחָבֵר!',
+  lanternLit: 'עוֹד פָּנָס דּוֹלֵק לְאֹרֶךְ הַשְּׁבִיל.',
+};
+
+/* ---------- discovery-quest lines (critic round B, W2/W7) ----------
+   Gender-neutral (the audits flagged masc/fem mixing): Lenny invites
+   the child as a partner ("בוא נ..."), never commands a gendered verb. */
+export const QUEST_TEXT = {
+  /** wayfinding offer: composed with the landmark's own name */
+  wayfinding: (place: string): string => `בּוֹא נֵלֵךְ אֶל ${place}!`,
+  countingOffer: 'פְּרָחִים פְּרָחוּ כָּאן! קַשְׁתּוּ כָּל אֶחָד.',
+  countingAsk: 'כַּמָּה פְּרָחִים הָיוּ כָּאן?',
+  countingAgain: 'לֹא נוֹרָא — בּוֹא נִסְפּוֹר שׁוּב!',
+  patternOffer: 'הָאֲבָנִים יוֹצְרוֹת סֵדֶר. אֵיזֶה צֶבַע מַמְשִׁיךְ?',
+  patternAgain: 'טוֹב! נִנְסֶה שׁוּב.',
+  done: 'וָאו! עוֹד גִּלּוּי הַושְׁלַם!',
+  later: 'בְּסֵדֶר, נַמְשִׁיךְ אַחֲרֵי כָּךְ.',
+  notYet: 'זֶה מָקוֹם יָפֶה! עוֹד קְצָת וְנַגִּיעַ.',
+  foundAll: 'הַגַּן כֻּלּוֹ מֻכָּר לְךָ עַכְשָׁיו!',
+  questChip: 'מְשִׂימַת גִּלּוּי',
 };

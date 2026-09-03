@@ -4,6 +4,23 @@
 > UX 9-b, engineering 9-c, pedagogy 9-d). Fixed-in-this-wave items are
 > NOT listed here — only the honest remainder, with its evidence.
 
+## Delivered since (critic rounds A + B, 2026-09) — for the record
+
+- WorldApp god-module split (WorldInput + WorldOnboard), hot loops
+  stop allocating (round A).
+- The path lanterns exist (12, lit 1:1 by earned lights) — the journey
+  is visible; gesture contract fixed (slow presses are taps); walking
+  speed-clamped (no first-frame lurch); zone passes count as visits;
+  arrival debounce; pause forgets stale errands (round B).
+- **The map grew**: 8 discovery landmarks beyond the spiral (big tree,
+  pond, mushroom circle, windmill, rainbow, firefly glade, beehive,
+  turtle rock) with beacons, Hebrew name plates, and narration.
+- **Discovery quests** (wayfinding / counting / patterns) turn roaming
+  into measurable practice; own honest storage (`lenny-world-quests-v1`,
+  `lenny-world-found-v1`), no lights inflation; visible in ParentLens.
+- World celebrates gate openings; GARDEN.md honest (seasons/social
+  marked as not-built; dead portal paths fixed).
+
 ## P1 — make the learning real
 
 1. **Tiers must change the mechanic, not the count** (audit 9-d #2).
