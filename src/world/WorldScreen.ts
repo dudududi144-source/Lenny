@@ -15,8 +15,10 @@
 import { freshGarden, LocalProgressStore, isUnlocked, consumeNewZones, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT, QUEST_TEXT, getZone, type ZoneId } from '../data/garden';
 import { FRIENDS, LANDMARKS, WORLD_ISLANDS, zoneHint, type LandmarkDef } from './WorldLayout';
+import { REGIONS, type RegionDef } from './WorldRegions';
+import { WorldDaily } from './worldDaily';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
-import { loadFound, markFound } from './worldFound';
+import { loadFound, markFound, countRegionsFound } from './worldFound';
 import { loadSparkles, markSparkle } from './worldCollect';
 import {
   WorldQuests,
@@ -65,10 +67,17 @@ const store = new LocalProgressStore();
 const diary = new WorldDiary();
 /* critic round B: discovery state + quest progress, local only */
 const quests = new WorldQuests();
+/* stage 12: the journey of the day — three places, every day anew */
+const daily = new WorldDaily();
 let foundIds: string[] = loadFound();
 
 /* stage 11: the meadow's rare finds whisper one honest line each —
    they are rest stops, never tasks (ETHICS: offered, never forced) */
+const DAILY_TEXT = {
+  chip: 'הַדֶּרֶךְ שֶׁל הַיּוֹם',
+  done: 'הַמַּסַע הַיּוֹמִי הֻשְׁלַם! וָאו!',
+};
+
 const MEADOW_FIND_LINES: Record<string, string> = {
   bench: 'סַפְסָל בַּמַּרְחָב! אֶפְשָׁר לָנוּחַ כָּאן וְלִרְאּוֹת אֶת הַגַּן מִלְמַעְלָה.',
   pondlet: 'בְּרֵכָה קְטַנָּה נֶחְבְּאָה כָּאן! רְגַע, מִי זָז בַּמַּיִם?',
@@ -99,6 +108,10 @@ declare global {
       lanterns(): number;
       /** The places beyond the path (discovery state). */
       landmarks(): Array<{ id: string; found: boolean; x: number; z: number }>;
+      /** The six regions of the continent (stage 12). */
+      regions(): Array<{ id: string; name: string; x: number; z: number; found: boolean }>;
+      /** The journey of the day (stage 12). */
+      daily(): { targets: string[]; done: string[] };
       foundCount(): number;
       /** Sparkles gathered from the endless meadow (ledger length). */
       sparkles(): number;
@@ -167,13 +180,35 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     lightCount,
   );
 
-  /* the discovered-places chip — environment knowledge, honest count */
-  const foundCount = h('span', { class: 'found-count' }, String(foundIds.length));
+  /* the discovered-places chip — environment knowledge, honest count
+     (stage 12: landmarks and regions count separately) */
+  const landmarkCount = (): number => foundIds.filter((id) => !id.startsWith('region:')).length;
+  const foundCount = h('span', { class: 'found-count' }, String(landmarkCount()));
   const foundChip = h(
     'span',
     { class: 'light-chip found-chip', id: 'world-found-chip', 'aria-label': 'מקומות שהתגלו בגן' },
     h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✪'),
     foundCount,
+  );
+
+  /* stage 12: the regions chip — how far the journeys have reached */
+  const regionCount = h('span', { class: 'region-count' }, String(countRegionsFound(foundIds)));
+  const regionChip = h(
+    'span',
+    { class: 'light-chip region-chip', id: 'world-region-chip', 'aria-label': 'אזורים שהתגלו בעולם' },
+    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '❖'),
+    regionCount,
+  );
+
+  /* stage 12: the daily journey chip — three places, every day anew */
+  let dailyTargetsNow: string[] = [];
+  let dailyDoneNow: string[] = [];
+  const dailyCount = h('span', { class: 'daily-count' }, '0/3');
+  const dailyChip = h(
+    'span',
+    { class: 'light-chip daily-chip', id: 'world-daily-chip', 'aria-label': DAILY_TEXT.chip },
+    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '☀'),
+    dailyCount,
   );
 
   /* stage 11: the meadow's golden sparkles — the walker's honest ledger */
@@ -258,6 +293,18 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     plates.push(plate);
     plateById.set(l.id, plate);
   }
+  /* stage 12: the regions' own name plates — a whole continent of
+     environmental print, each region greets the reader by name */
+  const regionPlates = new Map<string, HTMLElement>();
+  for (const r of REGIONS) {
+    const plate = h(
+      'span',
+      { class: 'landmark-plate region-plate hidden', id: `region-plate-${r.id}`, 'aria-hidden': 'true' },
+      r.name,
+    );
+    plates.push(plate);
+    regionPlates.set(r.id, plate);
+  }
 
   const root = h(
     'section',
@@ -277,9 +324,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         'div',
         {},
         h('h2', { class: 'world-title' }, 'הַגַּן שֶׁל לֶנִי'),
-        h('p', { class: 'world-sub' }, 'בּוֹא נְהַלֵּךְ בַּגַּן'),
+        h('p', { class: 'world-sub' }, 'בּוֹא נְטַיֵּל בָּעוֹלָם הַגָּדוֹל'),
       ),
-      h('div', { class: 'world-head-side' }, lightChip, sparkleChip, foundChip, createSoundToggle('world-sound-toggle'), back),
+      h('div', { class: 'world-head-side' }, lightChip, sparkleChip, foundChip, regionChip, dailyChip, createSoundToggle('world-sound-toggle'), back),
     ),
     h(
       'footer',
@@ -612,19 +659,39 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     speak(QUEST_TEXT.patternAgain);
   }
 
+  /* stage 12: the daily journey — targets refresh on open/boot */
+  function refreshDaily(): void {
+    const t = daily.today();
+    dailyTargetsNow = t.targets;
+    dailyDoneNow = t.done;
+    dailyCount.textContent = `${dailyDoneNow.length}/${t.targets.length}`;
+    app?.setDailyTargets(t.targets.filter((id) => !dailyDoneNow.includes(id)));
+  }
+
   /** A landmark came close: discover it, or finish a wayfinding quest. */
   function handleLandmarkNear(landmark: LandmarkDef): void {
     if (!foundIds.includes(landmark.id)) {
       foundIds = markFound(landmark.id);
-      foundCount.textContent = String(foundIds.length);
+      foundCount.textContent = String(landmarkCount());
       app?.setFoundLandmarks(foundIds);
       showBubble(landmark.line);
       speak(landmark.line);
-      if (foundIds.length === LANDMARKS.length) {
+      if (landmarkCount() === LANDMARKS.length) {
         window.setTimeout(() => {
           showBubble(QUEST_TEXT.foundAll);
           speak(QUEST_TEXT.foundAll);
         }, 2800);
+      }
+    }
+    /* the journey of the day: a daily place visited is a daily step done */
+    if (dailyTargetsNow.includes(landmark.id) && !dailyDoneNow.includes(landmark.id)) {
+      dailyDoneNow = daily.markDone(landmark.id);
+      dailyCount.textContent = `${dailyDoneNow.length}/${dailyTargetsNow.length}`;
+      audio.play('chime');
+      if (dailyTargetsNow.length > 0 && dailyDoneNow.length === dailyTargetsNow.length) {
+        showBubble(DAILY_TEXT.done);
+        speak(DAILY_TEXT.done);
+        sparkleBurst();
       }
     }
     if (currentQuest && currentQuest.family === 'wayfinding' && wayfindingTargetId) {
@@ -683,7 +750,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   /** Found-landmark name plates follow their places (150ms cadence).
       A garden with nothing found yet costs nothing at all. */
   function updatePlates(): void {
-    if (!app || foundIds.length === 0) return;
+    if (!app) return;
     const spots = app.landmarkScreens();
     for (const s of spots) {
       const plate = plateById.get(s.id);
@@ -694,6 +761,23 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       }
       plate.style.left = `${Math.round(s.x * 100)}%`;
       plate.style.top = `${Math.round(s.y * 100)}%`;
+      plate.classList.remove('hidden');
+    }
+    /* the region plates teach their names from the moment they are on
+       screen and near — geography is literacy too */
+    const pos = app.presencePos();
+    if (!pos) return;
+    for (const r of REGIONS) {
+      const plate = regionPlates.get(r.id);
+      if (!plate) continue;
+      const dist = Math.hypot(r.x - pos.x, r.z - pos.z);
+      const p = dist < 110 ? app.screenOf(r.x, r.z) : { x: 0, y: 0, on: false };
+      if (!p.on) {
+        plate.classList.add('hidden');
+        continue;
+      }
+      plate.style.left = `${Math.round(p.x * 100)}%`;
+      plate.style.top = `${Math.round(p.y * 100)}%`;
       plate.classList.remove('hidden');
     }
   }
@@ -713,7 +797,17 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     }
     const island = WORLD_ISLANDS.find((i) => i.zone === hint.zone);
     const from = app.lennyScreen();
-    const to = island ? app.screenOf(island.x, island.z) : null;
+    let to = island ? app.screenOf(island.x, island.z) : null;
+    /* stage 12: the journey can be LONGER than the screen — when the
+       island is beyond the frustum, the arrow points along the hint's
+       bearing (a screen-space probe 25 units ahead) */
+    if (to && !to.on) {
+      const ahead = app.screenOf(
+        pos.x + Math.sin(hint.bearing) * 25,
+        pos.z + Math.cos(hint.bearing) * 25,
+      );
+      if (ahead.on) to = ahead;
+    }
     if (!to || !to.on || !from.on) {
       compass.classList.add('hidden');
       return;
@@ -781,7 +875,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
 
   window.__lennyWorld = {
-    version: 'stage-11',
+    version: 'stage-12',
     presencePos: () => app?.presencePos() ?? null,
     nearZone: () => app?.nearZone() ?? null,
     zones: () => app?.zones() ?? [],
@@ -793,6 +887,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     lanterns: () => app?.lanterns() ?? 0,
     landmarks: () =>
       LANDMARKS.map((l) => ({ id: l.id, found: foundIds.includes(l.id), x: l.x, z: l.z })),
+    regions: () =>
+      REGIONS.map((r) => ({ id: r.id, name: r.name, x: r.x, z: r.z, found: foundIds.includes(`region:${r.id}`) })),
+    daily: () => ({ targets: dailyTargetsNow, done: dailyDoneNow }),
     foundCount: () => foundIds.length,
     sparkles: () => loadSparkles().length,
     friends: () => FRIENDS.map((f) => ({ id: f.id, x: f.x, z: f.z })),
@@ -870,6 +967,23 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             /* a hello never crashes the garden */
           }
         },
+        onRegionNear: (region: RegionDef) => {
+          try {
+            const rid = `region:${region.id}`;
+            const isNew = !foundIds.includes(rid);
+            if (isNew) {
+              foundIds = markFound(rid);
+              regionCount.textContent = String(countRegionsFound(foundIds));
+              showBubble(region.line);
+              speak(region.line);
+            } else {
+              showBubble(region.line);
+            }
+            audio.play('pop');
+          } catch {
+            /* a region hello never crashes the garden */
+          }
+        },
         onMeadowFind: (kind) => {
           try {
             const line = MEADOW_FIND_LINES[kind];
@@ -926,6 +1040,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     );
     phase = firstVisit ? 'onboarding' : 'exploring';
     startPlates();
+    refreshDaily();
     /* the quest offer waits until the child is exploring (or resumes) */
     if (phase === 'exploring') {
       const active = quests.current();
@@ -965,7 +1080,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       const data = loadGarden();
       app.refresh(data, growthDiff(data));
       app.setFoundLandmarks(foundIds);
-      foundCount.textContent = String(foundIds.length);
+      foundCount.textContent = String(landmarkCount());
+      regionCount.textContent = String(countRegionsFound(foundIds));
+      refreshDaily();
       /* V7: celebrate REAL gate openings — the unlock queue is drained
          by whichever garden the child is actually in (world or classic),
          so the wording is always true */

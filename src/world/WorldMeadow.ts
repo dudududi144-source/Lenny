@@ -23,21 +23,24 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 import { mulberry32 } from '../audio/MusicEngine';
-import { WORLD_WALK_RADIUS, WANDER_RADIUS } from './WorldLayout';
+import { WANDER_RADIUS, pathPoints } from './WorldLayout';
+import { regionAt, terrainHeight, REGION_ROADS } from './WorldRegions';
+import type { RegionId } from './WorldRegions';
 
 const hex = (s: string): Color3 => Color3.FromHexString(s);
 
 /* ---------- the pure, testable half ---------- */
 
-export const MEADOW_CHUNK = 16;
-/** chunks load around the walker / dissolve behind her — tight radii
-    so streaming stays a whisper: the meadow builds itself as the child
-    genuinely heads out, never all at once while she plays the garden */
-export const MEADOW_LOAD_RADIUS = 46;
-export const MEADOW_DROP_RADIUS = 62;
-/** the meadow begins beyond the curated ring (a margin keeps the
-    garden's own decoration from doubling with chunk flowers) */
-export const MEADOW_START = WORLD_WALK_RADIUS + 7;
+export const MEADOW_CHUNK = 24;
+/** chunks load around the walker / dissolve behind her — continent-scale
+    radii with a tight build budget: the wilds build themselves as the
+    child genuinely heads out, never all at once while she plays */
+export const MEADOW_LOAD_RADIUS = 70;
+export const MEADOW_DROP_RADIUS = 100;
+/** the meadow begins beyond the hub's own furniture (stage 12: the
+    regions and the roads between them are meadow land too — but the
+    first ring of chunks stays sparse so SwiftShader keeps its floor) */
+export const MEADOW_START = 66;
 
 export function chunkKey(cx: number, cz: number): string {
   return `${cx}:${cz}`;
@@ -84,7 +87,9 @@ export interface MeadowSparkle {
  */
 export function chunkSparkles(cx: number, cz: number): MeadowSparkle[] {
   const rng = mulberry32(chunkHash(cx, cz) ^ 0x9e3779b9);
-  const count = Math.floor(rng() * 4); /* 0..3 */
+  /* at most ONE per 24-unit chunk: the continent holds thousands of
+     chunks — the ledger stays honest and SwiftShader keeps its draws */
+  const count = rng() < 0.55 ? 1 : 0;
   const out: MeadowSparkle[] = [];
   for (let i = 0; i < count; i++) {
     const x = (cx + 0.12 + rng() * 0.76) * MEADOW_CHUNK;
@@ -97,6 +102,49 @@ export function chunkSparkles(cx: number, cz: number): MeadowSparkle[] {
 /** True when a point belongs to the meadow (not the curated garden). */
 export function isMeadowPoint(x: number, z: number): boolean {
   return Math.hypot(x, z) > MEADOW_START;
+}
+
+/* ---------- stage 12: the regions dress the wilds ---------- */
+
+export interface MeadowPalette {
+  /** how many flowers a chunk grows (lo, span) */
+  flowers: [number, number];
+  /** what grows tall here */
+  tree: 'round' | 'pine' | 'pine-snow' | 'cactus' | 'none';
+  trees: [number, number];
+  rocks: [number, number];
+  /** snow lumps / mushrooms / reeds — the region's signature extra */
+  extra: 'none' | 'snow-lump' | 'mushroom' | 'reed';
+}
+
+/** The deterministic dressing of a region's wild chunks (pure). */
+export function regionPalette(region: RegionId | null): MeadowPalette {
+  if (region === 'forest') return { flowers: [3, 4], tree: 'pine', trees: [2, 3], rocks: [0, 2], extra: 'mushroom' };
+  if (region === 'snow') return { flowers: [0, 2], tree: 'pine-snow', trees: [1, 2], rocks: [0, 1], extra: 'snow-lump' };
+  if (region === 'dunes') return { flowers: [0, 1], tree: 'cactus', trees: [0, 2], rocks: [1, 2], extra: 'none' };
+  if (region === 'rocky') return { flowers: [1, 3], tree: 'pine', trees: [0, 1], rocks: [2, 3], extra: 'none' };
+  if (region === 'river') return { flowers: [5, 5], tree: 'round', trees: [0, 1], rocks: [0, 1], extra: 'reed' };
+  if (region === 'flower') return { flowers: [12, 8], tree: 'round', trees: [0, 1], rocks: [0, 1], extra: 'none' };
+  /* the open meadow between everything */
+  return { flowers: [7, 6], tree: 'round', trees: [0, 2], rocks: [0, 2], extra: 'none' };
+}
+
+/** All road sample points (hub path + the six region roads) — built once. */
+let roadSamples: Array<{ x: number; z: number }> | null = null;
+function allRoadSamples(): Array<{ x: number; z: number }> {
+  if (roadSamples === null) {
+    roadSamples = [...pathPoints()];
+    for (const r of REGION_ROADS) roadSamples.push(...r.points);
+  }
+  return roadSamples;
+}
+
+/** True when the point sits too close to a road (props never sprout on it). */
+export function nearAnyRoad(x: number, z: number, min: number): boolean {
+  for (const p of allRoadSamples()) {
+    if (Math.hypot(p.x - x, p.z - z) < min) return true;
+  }
+  return false;
 }
 
 /* ---------- the Babylon half ---------- */
@@ -156,6 +204,9 @@ export function buildMeadow(scene: Scene, taken: ReadonlySet<string> = new Set()
   const rockMat = new StandardMaterial('md-rock', scene);
   rockMat.diffuseColor = hex('#9a978f');
   rockMat.specularColor = new Color3(0.04, 0.04, 0.04);
+  const whiteMat = new StandardMaterial('md-white', scene);
+  whiteMat.diffuseColor = hex('#f2f6f8');
+  whiteMat.specularColor = new Color3(0.05, 0.06, 0.07);
   const sparkleMat = new StandardMaterial('md-sparkle', scene);
   sparkleMat.diffuseColor = hex('#caa53d');
   sparkleMat.emissiveColor = hex('#ffd76a').scale(0.75);
@@ -167,7 +218,7 @@ export function buildMeadow(scene: Scene, taken: ReadonlySet<string> = new Set()
   waterMat.diffuseColor = hex('#8fd4e8');
   waterMat.emissiveColor = hex('#3a8fa8').scale(0.3);
   waterMat.specularColor = new Color3(0.2, 0.28, 0.3);
-  const allMats = [stemMat, petalA, petalB, petalC, trunkMat, leafMat, rockMat, sparkleMat, woodMat, waterMat];
+  const allMats = [stemMat, petalA, petalB, petalC, trunkMat, leafMat, rockMat, whiteMat, sparkleMat, woodMat, waterMat];
 
   const disposeChunk = (c: Chunk): void => {
     c.mesh?.dispose();
@@ -182,16 +233,23 @@ export function buildMeadow(scene: Scene, taken: ReadonlySet<string> = new Set()
     const rng = mulberry32(chunkHash(cx, cz));
     const parts: Mesh[] = [];
 
+    /* stage 12: the chunk wears its region's colors and rides the land */
+    const cctr = chunkCenter(cx, cz);
+    const pal = regionPalette(regionAt(cctr.x, cctr.z)?.id ?? null);
+    const gy = (x: number, z: number): number => terrainHeight(x, z);
+
     /* the walker never sees a chunk's raw edge: decorate the whole cell */
-    const flowers = 8 + Math.floor(rng() * 7); /* 8..14 */
+    const flowers = pal.flowers[0] + Math.floor(rng() * pal.flowers[1]);
     for (let i = 0; i < flowers; i++) {
       const x = (cx + rng()) * MEADOW_CHUNK;
       const z = (cz + rng()) * MEADOW_CHUNK;
+      if (nearAnyRoad(x, z, 5)) continue;
+      const y = gy(x, z);
       const stem = MeshBuilder.CreateCylinder(`md-f${i}`, { diameter: 0.05, height: 0.26, tessellation: 5 }, scene);
-      stem.position.set(x, 0.13, z);
+      stem.position.set(x, y + 0.13, z);
       stem.material = stemMat;
       const head = MeshBuilder.CreateSphere(`md-fh${i}`, { diameter: 0.14 + rng() * 0.08, segments: 5 }, scene);
-      head.position.set(x, 0.3, z);
+      head.position.set(x, y + 0.3, z);
       const kind = rng();
       head.material = kind < 0.4 ? petalA : kind < 0.75 ? petalB : petalC;
       parts.push(stem, head);
@@ -200,33 +258,89 @@ export function buildMeadow(scene: Scene, taken: ReadonlySet<string> = new Set()
     for (let i = 0; i < tufts; i++) {
       const x = (cx + rng()) * MEADOW_CHUNK;
       const z = (cz + rng()) * MEADOW_CHUNK;
+      if (nearAnyRoad(x, z, 5)) continue;
+      const y = gy(x, z);
       const tuft = MeshBuilder.CreateCylinder(`md-t${i}`, { diameterTop: 0.02, diameterBottom: 0.09, height: 0.16, tessellation: 5 }, scene);
-      tuft.position.set(x, 0.08, z);
+      tuft.position.set(x, y + 0.08, z);
       tuft.rotation.z = (rng() - 0.5) * 0.5;
       tuft.material = leafMat;
       parts.push(tuft);
     }
-    const trees = Math.floor(rng() * 3); /* 0..2 */
+    const trees = pal.trees[0] + Math.floor(rng() * pal.trees[1]);
     for (let i = 0; i < trees; i++) {
       const x = (cx + 0.15 + rng() * 0.7) * MEADOW_CHUNK;
       const z = (cz + 0.15 + rng() * 0.7) * MEADOW_CHUNK;
-      const h = 1.2 + rng() * 1.1;
-      const trunk = MeshBuilder.CreateCylinder(`md-tr${i}`, { diameterTop: 0.1, diameterBottom: 0.18, height: h, tessellation: 6 }, scene);
-      trunk.position.set(x, h / 2, z);
-      trunk.material = trunkMat;
-      const crown = MeshBuilder.CreateSphere(`md-cr${i}`, { diameter: 0.9 + rng() * 0.7, segments: 6 }, scene);
-      crown.position.set(x, h + 0.25, z);
-      crown.material = leafMat;
-      parts.push(trunk, crown);
+      if (nearAnyRoad(x, z, 6)) continue;
+      const y = gy(x, z);
+      if (pal.tree === 'pine' || pal.tree === 'pine-snow') {
+        const h = 1.6 + rng() * 1.6;
+        const trunk = MeshBuilder.CreateCylinder(`md-tr${i}`, { diameterTop: 0.08, diameterBottom: 0.16, height: h, tessellation: 6 }, scene);
+        trunk.position.set(x, y + h / 2 - 0.1, z);
+        trunk.material = trunkMat;
+        const crown = MeshBuilder.CreateCylinder(`md-cr${i}`, { diameterTop: 0, diameterBottom: 1.1, height: 1.9, tessellation: 7 }, scene);
+        crown.position.set(x, y + h + 0.4, z);
+        crown.material = pal.tree === 'pine' ? leafMat : whiteMat;
+        parts.push(trunk, crown);
+      } else if (pal.tree === 'cactus') {
+        const h = 0.9 + rng() * 0.9;
+        const body = MeshBuilder.CreateCylinder(`md-ca${i}`, { diameterTop: 0.2, diameterBottom: 0.24, height: h, tessellation: 7 }, scene);
+        body.position.set(x, y + h / 2 - 0.06, z);
+        body.material = leafMat;
+        parts.push(body);
+      } else {
+        const h = 1.2 + rng() * 1.1;
+        const trunk = MeshBuilder.CreateCylinder(`md-tr${i}`, { diameterTop: 0.1, diameterBottom: 0.18, height: h, tessellation: 6 }, scene);
+        trunk.position.set(x, y + h / 2 - 0.1, z);
+        trunk.material = trunkMat;
+        const crown = MeshBuilder.CreateSphere(`md-cr${i}`, { diameter: 0.9 + rng() * 0.7, segments: 6 }, scene);
+        crown.position.set(x, y + h + 0.15, z);
+        crown.material = leafMat;
+        parts.push(trunk, crown);
+      }
     }
-    const rocks = Math.floor(rng() * 3);
+    const rocks = pal.rocks[0] + Math.floor(rng() * pal.rocks[1]);
     for (let i = 0; i < rocks; i++) {
       const x = (cx + rng()) * MEADOW_CHUNK;
       const z = (cz + rng()) * MEADOW_CHUNK;
+      if (nearAnyRoad(x, z, 5)) continue;
+      const y = gy(x, z);
       const rock = MeshBuilder.CreateIcoSphere(`md-r${i}`, { radius: 0.14 + rng() * 0.22, subdivisions: 1 }, scene);
-      rock.position.set(x, 0.08, z);
+      rock.position.set(x, y + 0.08, z);
       rock.material = rockMat;
       parts.push(rock);
+    }
+    /* the region's signature extra */
+    if (pal.extra === 'snow-lump') {
+      for (let i = 0; i < 2; i++) {
+        const x = (cx + 0.2 + rng() * 0.6) * MEADOW_CHUNK;
+        const z = (cz + 0.2 + rng() * 0.6) * MEADOW_CHUNK;
+        if (nearAnyRoad(x, z, 5)) continue;
+        const lump = MeshBuilder.CreateSphere(`md-sl${i}`, { diameter: 0.7 + rng() * 0.7, segments: 6 }, scene);
+        lump.position.set(x, gy(x, z) + 0.12, z);
+        lump.material = whiteMat;
+        parts.push(lump);
+      }
+    } else if (pal.extra === 'mushroom') {
+      for (let i = 0; i < 3; i++) {
+        const x = (cx + rng()) * MEADOW_CHUNK;
+        const z = (cz + rng()) * MEADOW_CHUNK;
+        if (nearAnyRoad(x, z, 5)) continue;
+        const y = gy(x, z);
+        const cap = MeshBuilder.CreateSphere(`md-mu${i}`, { diameter: 0.3 + rng() * 0.2, segments: 6, slice: 0.5 }, scene);
+        cap.position.set(x, y + 0.16, z);
+        cap.material = petalA;
+        parts.push(cap);
+      }
+    } else if (pal.extra === 'reed') {
+      for (let i = 0; i < 5; i++) {
+        const x = (cx + rng()) * MEADOW_CHUNK;
+        const z = (cz + rng()) * MEADOW_CHUNK;
+        if (nearAnyRoad(x, z, 5)) continue;
+        const reed = MeshBuilder.CreateCylinder(`md-re${i}`, { diameterTop: 0.02, diameterBottom: 0.05, height: 0.6 + rng() * 0.5, tessellation: 5 }, scene);
+        reed.position.set(x, gy(x, z) + 0.32, z);
+        reed.material = leafMat;
+        parts.push(reed);
+      }
     }
 
     /* the rare restful find — one per lucky chunk */
@@ -236,12 +350,13 @@ export function buildMeadow(scene: Scene, taken: ReadonlySet<string> = new Set()
     if (find !== 'none') {
       const fx = (cx + 0.5) * MEADOW_CHUNK;
       const fz = (cz + 0.5) * MEADOW_CHUNK;
+      const fy = gy(fx, fz);
       if (find === 'bench') {
         const seat = MeshBuilder.CreateBox('md-bench', { width: 0.9, height: 0.07, depth: 0.3 }, scene);
-        seat.position.set(fx, 0.26, fz);
+        seat.position.set(fx, fy + 0.26, fz);
         seat.material = woodMat;
         const legL = MeshBuilder.CreateBox('md-bench-l', { width: 0.07, height: 0.24, depth: 0.26 }, scene);
-        legL.position.set(fx - 0.36, 0.12, fz);
+        legL.position.set(fx - 0.36, fy + 0.12, fz);
         legL.material = woodMat;
         const legR = legL.clone('md-bench-r');
         legR.position.x = fx + 0.36;
@@ -249,16 +364,16 @@ export function buildMeadow(scene: Scene, taken: ReadonlySet<string> = new Set()
       } else if (find === 'pondlet') {
         const water = MeshBuilder.CreateDisc('md-pond', { radius: 1.0, tessellation: 14 }, scene);
         water.rotation.x = Math.PI / 2;
-        water.position.set(fx, 0.03, fz);
+        water.position.set(fx, fy + 0.03, fz);
         water.material = waterMat;
         parts.push(water);
       } else {
         const stone = MeshBuilder.CreateCylinder('md-stone', { diameterTop: 0.1, diameterBottom: 0.3, height: 0.9, tessellation: 6 }, scene);
-        stone.position.set(fx, 0.45, fz);
+        stone.position.set(fx, fy + 0.45, fz);
         stone.rotation.z = 0.06;
         stone.material = rockMat;
         parts.push(stone);
-        findBaseY = 0.9;
+        findBaseY = fy + 0.9;
       }
     }
 
@@ -283,14 +398,15 @@ export function buildMeadow(scene: Scene, taken: ReadonlySet<string> = new Set()
     /* the chunk's sparkles — live, bobbable, collectible */
     const sparkles: MeadowSparkleLive[] = [];
     for (const s of chunkSparkles(cx, cz)) {
+      const sy = gy(s.x, s.z) + 0.5;
       const meshS = MeshBuilder.CreatePolyhedron(`md-sp-${s.id}`, { type: 1, size: 0.14 }, scene);
-      meshS.position.set(s.x, 0.5, s.z);
+      meshS.position.set(s.x, sy, s.z);
       meshS.material = sparkleMat;
       meshS.isPickable = false;
       meshS.parent = root;
       const isTaken = takenIds.has(s.id);
       meshS.setEnabled(!isTaken);
-      sparkles.push({ ...s, mesh: meshS, baseY: 0.5, taken: isTaken });
+      sparkles.push({ ...s, mesh: meshS, baseY: sy, taken: isTaken });
     }
 
     chunks.set(key, { key, root, mesh, sparkles, find, findMesh, findBaseY });

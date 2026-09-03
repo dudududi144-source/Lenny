@@ -17,7 +17,7 @@ import { LITERACY_GRAPH, SkillGraph } from '../../games/core/SkillGraph';
 import { dayKeyFor, type WorldDiaryData } from '../../world/worldDiary';
 import { WorldDiary } from '../../world/worldDiary';
 import { WorldQuests, type WorldQuestData } from '../../world/worldQuests';
-import { loadFound } from '../../world/worldFound';
+import { countRegionsFound, loadFound } from '../../world/worldFound';
 import { LANDMARKS } from '../../world/WorldLayout';
 import { ZONES } from '../../data/garden';
 
@@ -64,6 +64,8 @@ export interface WorldLens {
   questCompletions: Record<string, number>;
   /** landmark places the child has discovered, out of the total */
   landmarksFound: number;
+  /** how many of the six far regions the child has walked into (stage 12) */
+  regionsFound: number;
   landmarksTotal: number;
   hasData: boolean;
 }
@@ -117,6 +119,7 @@ export function worldLensFromDiary(
     questCompletions[family] = stat.completions;
   }
   const foundCount = extras?.foundCount ?? 0;
+  const regionsFound = countRegionsFound(loadFound());
   return {
     minutes7d,
     opens7d: opens,
@@ -126,6 +129,7 @@ export function worldLensFromDiary(
     quests7d,
     questCompletions,
     landmarksFound: foundCount,
+    regionsFound,
     landmarksTotal: LANDMARKS.length,
     hasData:
       minutes7d > 0 ||

@@ -44,23 +44,28 @@ exact ledger — no inflated claims, no hidden shrinkage.
   scenes + a coming-soon guard) mounted by `src/ui/components/GameHost.ts`;
   spec-driven content (`src/games/builder/`, `src/content/`); cognitive
   core (`src/games/core/` — DDA, progress, signals, skill graph).
-- **3D world** (`src/world/`): Babylon.js garden on a LAZY chunk — and
-  since stage 11, a real journey: you ARE a little fox who walks, turns
-  and jumps (third-person camera, keyboard/joystick/tap-to-walk, jump on
-  space or the thumb button). The curated garden ring is ~×10 larger —
-  ten zone islands along a golden-angle spiral, joined by a plank
-  boardwalk that follows the road, with five Hebrew signposts ("עוד ~N
-  צעדים"), glowing waystones, and a game cottage standing on every
-  island. SIXTEEN named landmarks (windmill, rainbow gate, giant
-  sunflower, crystal cave, campfire, swing…) and four named friends
-  greet you along the way. Beyond the ring rolls the ENDLESS MEADOW —
-  deterministic seeded chunks (flowers, trees, benches, ponds, standing
-  stones) streamed in and out to a wander radius of 168 units, dotted
-  with golden sparkles the walk gathers into an honest local ledger. A
-  wayfinding compass points to the next open zone; hour skies, bloom
-  fields, Lenny the star companion, fps governor, and the silent
-  fallback chain (WebGPU → WebGL2 → classic garden) all stay. Details in
-  docs/ARCHITECTURE.md.
+- **3D world** (`src/world/`): Babylon.js world on a LAZY chunk — and
+  since stage 12, a CONTINENT: you are a little fox who walks, turns and
+  jumps (third-person camera, keyboard/joystick/tap-to-walk, jump on
+  space or the thumb button) across a great wide world ~×34 the size of
+  the stage-11 garden. SIX far regions — יער הקסמים (enchanted forest),
+  ארץ השלג (snow land), עמק הנהר (river valley with a real carved river),
+  גבעות הפרחים (flower hills), דיונות החול (sand dunes) and הרי הסלע
+  (rocky hills) — each behind its own gate on its own road, each with
+  its own scenery palette, landmarks and friends. The ten zone islands
+  (the game stages) are SCATTERED across the regions: reaching the next
+  stage of the unlock chain is a real journey along plank roads with
+  Hebrew signposts and waystones. The land itself rolls: gentle hills
+  rise beyond the flat garden and the walker's ground follows them. 24
+  named landmarks (the 16 beloved + 8 region heroes tall enough to find
+  from afar), 7 named friends, and a mountain-and-clouds vista on the
+  horizon. Beyond the continent rolls the endless meadow (deterministic
+  seeded chunks, region-dressed, terrain-aware) with golden sparkles in
+  an honest local ledger. THE JOURNEY OF THE DAY: every local day, three
+  named places light their beacons — a fresh little expedition daily,
+  forever. Wayfinding compass, hour skies, bloom fields, Lenny the star
+  companion, fps governor, and the silent fallback chain (WebGPU →
+  WebGL2 → classic garden) all stay. Details in docs/ARCHITECTURE.md.
 - **Sound** (`src/audio/`): fully synthesized music engine — silent by
   default (ETHICS §9); sound on is an explicit, remembered choice.
 - **ParentLens** (`src/ui/parentlens/`): a read-only dashboard over the

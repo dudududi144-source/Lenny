@@ -78,10 +78,10 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
   throw new Error(`never arrived near (${wx}, ${wz})`);
 }
 
-test('sixteen landmarks exist and a fresh garden has found none', async ({ page }) => {
+test('twenty-four landmarks exist and a fresh garden has found none', async ({ page }) => {
   await openWorld(page);
   const landmarks = await page.evaluate(() => window.__lennyWorld?.landmarks());
-  expect(landmarks!.length).toBe(16);
+  expect(landmarks!.length).toBe(24);
   expect(landmarks!.every((l) => !l.found)).toBe(true);
   expect(await page.evaluate(() => window.__lennyWorld?.foundCount())).toBe(0);
 });

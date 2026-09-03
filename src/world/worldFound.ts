@@ -16,12 +16,18 @@
  * ============================================================ */
 
 import { LANDMARKS } from './WorldLayout';
+import { REGIONS } from './WorldRegions';
 
 export const WORLD_FOUND_KEY = 'lenny-world-found-v1';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
-const VALID = new Set<string>(LANDMARKS.map((l) => l.id));
+/* stage 12: regions live in the same ledger with a `region:` prefix —
+   environment knowledge is one honest memory, places AND regions */
+const VALID = new Set<string>([
+  ...LANDMARKS.map((l) => l.id),
+  ...REGIONS.map((r) => `region:${r.id}` as string),
+]);
 
 /** The discovered landmark ids, in canonical layout order. */
 export function loadFound(storage: StorageLike = localStorage): string[] {
@@ -34,7 +40,9 @@ export function loadFound(storage: StorageLike = localStorage): string[] {
     for (const id of parsed) {
       if (typeof id === 'string' && VALID.has(id)) ids.add(id);
     }
-    return LANDMARKS.filter((l) => ids.has(l.id)).map((l) => l.id);
+    const landmarkIds = LANDMARKS.filter((l) => ids.has(l.id)).map((l) => l.id);
+    const regionIds = REGIONS.filter((r) => ids.has(`region:${r.id}`)).map((r) => `region:${r.id}`);
+    return [...landmarkIds, ...regionIds];
   } catch {
     return []; /* private mode / corrupt — the world starts undiscovered */
   }
@@ -50,4 +58,9 @@ export function markFound(id: string, storage: StorageLike = localStorage): stri
     /* private mode — this visit still celebrates, nothing persists */
   }
   return loadFound(storage);
+}
+
+/** How many REGIONS the child has walked into (the parent's lens row). */
+export function countRegionsFound(found: ReadonlyArray<string>): number {
+  return found.filter((id) => id.startsWith('region:')).length;
 }

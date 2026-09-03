@@ -24,11 +24,12 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import type { Scene } from '@babylonjs/core/scene';
 import { getZone, type ZoneId } from '../data/garden';
 import { WORLD_ISLANDS, WORLD_SIGNPOSTS, pathPoints, islandCenter } from './WorldLayout';
+import { REGIONS, REGION_ROADS, regionById, regionSteps, terrainHeight } from './WorldRegions';
 
 const hex = (s: string): Color3 => Color3.FromHexString(s);
 
 export interface RoadHandle {
-  update(t: number, dt: number): void;
+  update(t: number, dt: number, px?: number, pz?: number): void;
   dispose(): void;
 }
 
@@ -183,12 +184,136 @@ export function buildRoad(scene: Scene): RoadHandle {
     allMats.push(mat);
   }
 
+  /* ---------- stage 12: the roads to the regions ----------
+     Six splines leave the hub ring, one per region — planks that
+     follow the rolling terrain, waystones that breathe, and two
+     signposts each (mid-road + at the gate) with the region's name
+     and the honest number of child-steps. Reaching the next stage
+     of the unlock chain is a JOURNEY now, and the road makes it
+     legible: environmental print, the wayfinding skill. */
+  const REGION_PLANK_STEP = 2.2;
+  const regionRoadMeshes: Array<{ region: string; mesh: Mesh }> = [];
+  for (const road of REGION_ROADS) {
+    const region = regionById(road.region);
+    const roadParts: Mesh[] = [];
+    let carried = REGION_PLANK_STEP;
+    for (let i = 1; i < road.points.length - 1; i++) {
+      const p = road.points[i];
+      const prev = road.points[i - 1];
+      carried += Math.hypot(p.x - prev.x, p.z - prev.z);
+      if (carried < REGION_PLANK_STEP) continue;
+      carried = 0;
+      const next = road.points[i + 1];
+      const dx = next.x - prev.x;
+      const dz = next.z - prev.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const plank = MeshBuilder.CreateBox(`rd-rr-${road.region}-${i}`, { width: 1.05, height: 0.07, depth: 1.3 }, scene);
+      plank.position.set(p.x, terrainHeight(p.x, p.z) + 0.055, p.z);
+      plank.rotation.y = Math.atan2(dx, dz);
+      plank.material = woodMat;
+      roadParts.push(plank);
+      if (i % 10 === 0) {
+        const post = MeshBuilder.CreateCylinder(`rd-rrail-${road.region}-${i}`, { diameter: 0.08, height: 0.42, tessellation: 6 }, scene);
+        post.position.set(p.x + (-dz / len) * 0.62, terrainHeight(p.x, p.z) + 0.28, p.z + (dx / len) * 0.62);
+        post.material = woodDark;
+        roadParts.push(post);
+      }
+    }
+    const merged = roadParts.length > 1 ? Mesh.MergeMeshes(roadParts, true, false, undefined, false, true) : roadParts[0] ?? null;
+    if (merged) {
+      merged.name = `road-region-${road.region}`;
+      merged.parent = root;
+      merged.isPickable = false;
+      merged.position.setAll(0);
+      allMeshes.push(merged);
+      regionRoadMeshes.push({ region: road.region, mesh: merged });
+    }
+
+    /* region waystones ride IN the road mesh (static — the breathing
+       wave stays a hub luxury; SwiftShader counts every draw call) */
+    for (let i = 6; i < road.points.length - 4; i += 10) {
+      const p = road.points[i];
+      const stone = MeshBuilder.CreateSphere(`rd-rway-${road.region}-${i}`, { diameter: 0.3, segments: 6 }, scene);
+      stone.scaling.set(1, 0.7, 1);
+      stone.position.set(p.x, terrainHeight(p.x, p.z) + 0.1, p.z);
+      stone.material = glowMat;
+      stone.isPickable = false;
+      roadParts.push(stone);
+    }
+
+    /* two signposts per region road */
+    const steps = regionSteps(road.region);
+    const marks: Array<{ frac: number }> = [{ frac: 0.55 }, { frac: 0.985 }];
+    for (let m = 0; m < marks.length; m++) {
+      const idx = Math.min(road.points.length - 2, Math.max(1, Math.round(marks[m].frac * (road.points.length - 1))));
+      const at = road.points[idx];
+      const back = road.points[Math.max(0, idx - 2)];
+      const towardHub = Math.atan2(back.z - at.z, back.x - at.x);
+      const px = at.x + Math.cos(towardHub + Math.PI / 2) * 1.9;
+      const pz = at.z + Math.sin(towardHub + Math.PI / 2) * 1.9;
+      const sy = terrainHeight(px, pz);
+
+      const pole = MeshBuilder.CreateCylinder(`rd-rsign-pole-${road.region}-${m}`, { diameter: 0.1, height: 1.3, tessellation: 6 }, scene);
+      pole.position.set(px, sy + 0.65, pz);
+      pole.material = woodDark;
+      pole.isPickable = false;
+      pole.parent = root;
+      allMeshes.push(pole);
+
+      const w = 512;
+      const h = 160;
+      const tex = new DynamicTexture(`rd-rsign-tex-${road.region}-${m}`, { width: w, height: h }, scene, true);
+      const ctx = tex.getContext() as CanvasRenderingContext2D;
+      const draw = (): void => {
+        ctx.fillStyle = '#a9764a';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#7c5433';
+        ctx.lineWidth = 10;
+        ctx.strokeRect(5, 5, w - 10, h - 10);
+        ctx.fillStyle = '#fff8e8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.direction = 'rtl';
+        ctx.font = '700 60px Heebo, "Segoe UI", Arial, sans-serif';
+        ctx.fillText(region.name, w / 2, 54);
+        ctx.font = '600 40px Heebo, "Segoe UI", Arial, sans-serif';
+        ctx.fillText(m === 0 ? `עוֹד ~${steps} צְעָדִים` : 'הַשַּׁעַר לְמַטָּה', w / 2, 116);
+        tex.update();
+      };
+      draw();
+      if (typeof document !== 'undefined' && document.fonts?.ready) {
+        void document.fonts.ready.then(draw);
+      }
+      const plate = MeshBuilder.CreatePlane(`rd-rsign-plate-${road.region}-${m}`, { width: 1.3, height: 0.4 }, scene);
+      plate.position.set(px, sy + 1.18, pz);
+      plate.rotation.y = towardHub;
+      const mat = new StandardMaterial(`rd-rsign-mat-${road.region}-${m}`, scene);
+      mat.diffuseTexture = tex;
+      mat.specularColor = new Color3(0.04, 0.03, 0.02);
+      mat.backFaceCulling = false;
+      plate.material = mat;
+      plate.isPickable = false;
+      plate.parent = root;
+      allMeshes.push(plate);
+      allMats.push(mat);
+    }
+  }
+
   return {
-    update(t, dt) {
+    update(t, dt, px, pz) {
       void dt;
       /* the waystones breathe in a slow wave down the road */
       for (let i = 0; i < waystones.length; i++) {
         waystones[i].position.y = wayBase[i] + Math.sin(t * 1.6 + i * 0.55) * 0.035;
+      }
+      /* stage 12: far region roads sleep until the walker heads out */
+      if (px !== undefined && pz !== undefined) {
+        for (const rr of regionRoadMeshes) {
+          const r = REGIONS.find((x: { id: string }) => x.id === rr.region);
+          if (!r) continue;
+          const show = Math.hypot(px - r.x, pz - r.z) < 190; /* typed via REGIONS */
+          if (rr.mesh.isEnabled() !== show) rr.mesh.setEnabled(show);
+        }
       }
     },
     dispose() {

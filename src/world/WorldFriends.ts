@@ -65,11 +65,14 @@ export function buildFriends(scene: Scene): FriendsHandle {
   const greenMat = new StandardMaterial('fr-green', scene);
   greenMat.diffuseColor = hex('#5fae5f');
   greenMat.specularColor = new Color3(0.02, 0.04, 0.02);
+  const whiteMat = new StandardMaterial('fr-white', scene);
+  whiteMat.diffuseColor = hex('#f4f6f2');
+  whiteMat.specularColor = new Color3(0.04, 0.04, 0.04);
   const wingMat = new StandardMaterial('fr-wing', scene);
   wingMat.diffuseColor = hex('#e8f2fa');
   wingMat.alpha = 0.72;
   wingMat.specularColor = new Color3(0.1, 0.1, 0.12);
-  const allMats = [goldMat, darkMat, shellMat, softMat, greenMat, wingMat];
+  const allMats = [goldMat, darkMat, shellMat, softMat, greenMat, whiteMat, wingMat];
 
   const anims = new Map<string, FriendAnim>();
   const live: Mesh[] = [];
@@ -114,6 +117,50 @@ export function buildFriends(scene: Scene): FriendsHandle {
       b.scaling.set(1.05, 0.72, 1.15);
       put(node, MeshBuilder.CreateSphere(`fr-frog-el`, { diameter: 0.1, segments: 6 }, scene), greenMat, -0.08, 0.16, 0.08);
       put(node, MeshBuilder.CreateSphere(`fr-frog-er`, { diameter: 0.1, segments: 6 }, scene), greenMat, 0.08, 0.16, 0.08);
+      anim.body = b;
+    } else if (f.id === 'hedgehog') {
+      /* stage 12: the forest friend — a pincushion with a soft nose */
+      anim.baseY = 0.12;
+      const b = put(node, MeshBuilder.CreateIcoSphere(`fr-hg-b`, { radius: 0.2, subdivisions: 1 }, scene), shellMat, 0, 0, -0.02);
+      b.scaling.set(1.1, 0.85, 1.25);
+      put(node, MeshBuilder.CreateSphere(`fr-hg-h`, { diameter: 0.17, segments: 7 }, scene), softMat, 0, 0.03, 0.19);
+      put(node, MeshBuilder.CreateSphere(`fr-hg-n`, { diameter: 0.06, segments: 5 }, scene), darkMat, 0, 0.03, 0.28);
+      for (let i = 0; i < 5; i++) {
+        const spike = put(
+          node,
+          MeshBuilder.CreateCylinder(`fr-hg-s${i}`, { diameterTop: 0, diameterBottom: 0.045, height: 0.16, tessellation: 5 }, scene),
+          darkMat,
+          Math.cos(i * 1.3) * 0.1,
+          0.16,
+          -0.05 + Math.sin(i * 1.3) * 0.1,
+        );
+        spike.rotation.x = -0.4;
+      }
+      anim.body = b;
+    } else if (f.id === 'penguin') {
+      /* stage 12: the snow friend — a round bird in a tuxedo */
+      anim.baseY = 0.16;
+      const b = put(node, MeshBuilder.CreateSphere(`fr-pn-b`, { diameter: 0.36, segments: 9 }, scene), darkMat, 0, 0, 0);
+      b.scaling.set(0.9, 1.15, 0.9);
+      const belly = put(node, MeshBuilder.CreateSphere(`fr-pn-w`, { diameter: 0.3, segments: 8 }, scene), whiteMat, 0, -0.02, 0.08);
+      belly.scaling.set(0.85, 1.0, 0.7);
+      put(node, MeshBuilder.CreateSphere(`fr-pn-h`, { diameter: 0.22, segments: 8 }, scene), darkMat, 0, 0.24, 0.02);
+      const beak = put(node, MeshBuilder.CreateCylinder(`fr-pn-bk`, { diameterTop: 0.01, diameterBottom: 0.07, height: 0.14, tessellation: 6 }, scene), goldMat, 0, 0.23, 0.16);
+      beak.rotation.x = Math.PI / 2.2;
+      const fl = put(node, MeshBuilder.CreateSphere(`fr-pn-fl`, { diameter: 0.1, segments: 6 }, scene), darkMat, -0.18, 0.02, 0);
+      fl.scaling.set(0.5, 1.1, 0.8);
+      const fr = put(node, MeshBuilder.CreateSphere(`fr-pn-fr`, { diameter: 0.1, segments: 6 }, scene), darkMat, 0.18, 0.02, 0);
+      fr.scaling.set(0.5, 1.1, 0.8);
+      anim.wings = [fl, fr];
+      anim.body = b;
+    } else if (f.id === 'lizard') {
+      /* stage 12: the dunes friend — sunbathing, tail in the sand */
+      anim.baseY = 0.05;
+      const b = put(node, MeshBuilder.CreateSphere(`fr-lz-b`, { diameter: 0.26, segments: 8 }, scene), greenMat, 0, 0, 0);
+      b.scaling.set(1.0, 0.5, 1.6);
+      put(node, MeshBuilder.CreateSphere(`fr-lz-h`, { diameter: 0.14, segments: 7 }, scene), greenMat, 0, 0.05, 0.22);
+      const tail = put(node, MeshBuilder.CreateCylinder(`fr-lz-t`, { diameterTop: 0.02, diameterBottom: 0.08, height: 0.4, tessellation: 6 }, scene), greenMat, 0, 0.02, -0.3);
+      tail.rotation.x = Math.PI / 2.2;
       anim.body = b;
     } else {
       /* bunny */
@@ -167,6 +214,19 @@ export function buildFriends(scene: Scene): FriendsHandle {
         bun.ears[0].rotation.x = Math.sin(t * 1.1) * 0.14;
         bun.ears[1].rotation.x = Math.sin(t * 1.1 + 0.4) * 0.14;
       }
+      /* stage 12: the hedgehog snuffles, the penguin flaps, the lizard basks */
+      const hg = anims.get('hedgehog');
+      if (hg) hg.root.rotation.y = Math.sin(t * 0.8) * 0.3;
+      const pn = anims.get('penguin');
+      if (pn) {
+        if (pn.wings) {
+          pn.wings[0].rotation.z = Math.sin(t * 6) * 0.5;
+          pn.wings[1].rotation.z = -Math.sin(t * 6) * 0.5;
+        }
+        pn.root.rotation.y = Math.sin(t * 0.55) * 0.6;
+      }
+      const lz = anims.get('lizard');
+      if (lz && lz.body) lz.body.scaling.y = 0.5 * (1 + Math.sin(t * 1.9) * 0.06);
     },
     spots(project) {
       const out: FriendScreenSpot[] = [];

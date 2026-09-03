@@ -4,6 +4,44 @@
 > UX 9-b, engineering 9-c, pedagogy 9-d). Fixed-in-this-wave items are
 > NOT listed here — only the honest remainder, with its evidence.
 
+## Delivered since (stage 12 — the great wide world, 2026-09)
+
+The owner's verdict on stage 11: "still the same condensed world — the
+path folds into itself, you don't need to walk to see all the stages;
+I want scenery and a GIANT world; not a game of minutes — a game of
+years." The round's ledger:
+
+- **The unlock chain is now GEOGRAPHY** (`WorldLayout.ts` +
+  `WorldRegions.ts`): three zone islands stay in the hub garden and
+  seven travel to six far regions (150–270 units out) — the next stage
+  of the journey waits behind its own road and gate. Curated world
+  r=51 → r=300 (~×34 area), wander radius 330, walk speed 7.2.
+- **Six real regions** (WorldRegions): forest / snow / river / flower /
+  dunes / rocky, each with a painted terrain patch, a gate arch on its
+  road, themed scenery (pines, snow-pines + snowman, reeds, flower
+  bushes, cacti, boulders + cairns), a hero landmark and a friend.
+- **The land rolls** (terrainHeight, unit-pinned): flat hub garden,
+  smoothstep hills beyond r=148 (±4u, continuity-pinned — the fox never
+  meets a cliff), and a river carved through the river valley with its
+  own water ribbon. The walker's ground height follows the terrain.
+- **The vista**: a nine-peak mountain ring on the horizon and drifting
+  clouds — the world reads BIG from anywhere. Fog receded 0.0105 →
+  0.0034 so regions ghost in from afar (wayfinding by silhouette).
+- **24 landmarks / 7 friends** (WorldLandmarks/WorldFriends): 8 region
+  heroes (giant tree, wood hut, ice tower, watermill with a turning
+  wheel, mega flower, obelisk, oasis, stone arch) + hedgehog, penguin
+  and lizard join the cast. All meshes cull by distance (SwiftShader
+  keeps its 20fps floor — the perf spec pins it).
+- **The journey of the day** (`worldDaily.ts`): three named places per
+  local day, deterministic, one near + two true journeys, honest local
+  ledger, ignorable for free — the "years, not minutes" answer.
+- **Regions are discoverable**: crossing into a region celebrates with
+  its line, counts in the HUD chip, shows its name plate (environmental
+  print), and reports to ParentLens (regionsFound n/6).
+- **The honest horizon in ParentLens**: the world card now states the
+  vision — a world that grows with the child for years — next to the
+  honest minutes data.
+
 ## Delivered since (critic round C — claims vs reality + accessibility, 2026-09)
 
 The owner's verdict framed this round: "the description says 144 games,
