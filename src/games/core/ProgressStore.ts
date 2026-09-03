@@ -127,7 +127,7 @@ export function recordFinish(data: GardenData, zone: string): GardenData {
  * newly-reachable zone, and saves. Returns newly-unlocked zone ids
  * so callers can celebrate.
  * ============================================================ */
-export function recordZoneFinish(zone: string, seconds: number = 20): string[] {
+export function recordZoneFinish(zone: string, seconds: number = 20, won: boolean = true): string[] {
   const store = new LocalProgressStore();
   const before = store.load();
 
@@ -151,11 +151,14 @@ export function recordZoneFinish(zone: string, seconds: number = 20): string[] {
 
   /* feed the cognitive profile so the ParentLens sees EVERY zone,
      not just the ones that wire PlayerModel manually */
-  try { new PlayerModel().recordRound(zone, true, seconds); } catch { /* noop */ }
+  /* audit 9-d: the recorded win is the REAL session outcome (ceremony
+     stars >= 2), never a hardcoded true — otherwise PlayerModel.success
+     only ever climbs and the parent's "gaps" insight is unreachable. */
+  try { new PlayerModel().recordRound(zone, won, seconds); } catch { /* noop */ }
 
   /* log a learning signal so the ParentLens sees growth from EVERY game,
      not only the scenes that wire LearningSignals manually */
-  try { new LearningSignals().attempt(zone, true); } catch { /* noop */ }
+  try { new LearningSignals().attempt(zone, won); } catch { /* noop */ }
 
   /* remember freshly-unlocked zones so the garden can celebrate them */
   if (newlyUnlocked.length > 0) {

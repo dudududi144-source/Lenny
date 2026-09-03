@@ -18,8 +18,8 @@ export type InsightKind =
   | 'gaps'
   | 'explore'
   | 'milestone'
-  | 'streak'
-  | 'balance';
+  | 'balance'
+  | 'world';
 
 export interface Insight {
   kind: InsightKind;
@@ -80,11 +80,6 @@ export function buildInsights(data: LensData): Insight[] {
     out.push({ kind: 'milestone', icon: '⭐', text: `נרכש לאחרונה: "${label}" — ציון דרך של ממש.` });
   }
 
-  /* ---- 5. streak chip ---- */
-  if (data.streakDays >= 2) {
-    out.push({ kind: 'streak', icon: '🔥', text: `רצף ${data.streakDays} ימים! הגן ממשיך לפרוח יום אחרי יום.` });
-  }
-
   /* ---- 6. balance: >60% of recent play in one zone ---- */
   const order = data.player.playOrder;
   if (order.length >= 5) {
@@ -101,8 +96,28 @@ export function buildInsights(data: LensData): Insight[] {
     }
   }
 
+  /* ---- 7. the world: a favorite island (≥2 arrivals this week) ---- */
+  const favoriteIsland = Object.entries(data.world.zones)
+    .filter(([, n]) => n >= 2)
+    .sort((a, b) => b[1] - a[1])[0];
+  if (favoriteIsland) {
+    out.push({
+      kind: 'world',
+      icon: '✦',
+      text: `בגן התלת-ממדי, ${zoneName(favoriteIsland[0])} קוסמת במיוחד — ${favoriteIsland[1]} הגעות השבוע.`,
+    });
+  }
+
   return out;
 }
+
+/* audit 9-d #9: a skill id the graph doesn't carry still gets Hebrew */
+const SKILL_FALLBACK_LABEL: Record<string, string> = {
+  'memory.pairs': 'זִכְּרוֹן זוּגוֹת',
+  'letter.alef': 'הָאוֹת א',
+  'letter.bet': 'הָאוֹת ב',
+  'emotion.recognition': 'זִיהוּי רְגָשׁוֹת',
+};
 
 /* skills that crossed the mastery threshold inside the last 7 days
    (from the append-only signals stream — real timestamps only) */
@@ -114,7 +129,7 @@ function recentMilestones(data: LensData): string[] {
     if (e.kind !== 'mastery' || e.t < weekAgo) continue;
     if (seen.has(e.skill)) continue;
     seen.add(e.skill);
-    const label = data.graph.getNode(e.skill)?.label ?? e.skill;
+    const label = data.graph.getNode(e.skill)?.label ?? SKILL_FALLBACK_LABEL[e.skill] ?? e.skill;
     labels.push(label);
   }
   return labels;

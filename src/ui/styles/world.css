@@ -81,7 +81,7 @@
 }
 
 .world-head > * {
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .world-title {
@@ -254,4 +254,24 @@
   .lenny-bubble {
     animation: none;
   }
+}
+
+/* audit 9-b follow-up: the world canvas keeps a render budget on wide
+   screens — the garden layout widens, the GPU budget does not explode.
+   Real hardware GPUs hold 60fps at any width; this protects weak ones
+   from the distress fallback. */
+@media (min-width: 900px) {
+  .world-stage {
+    max-width: 720px;
+    margin-inline: auto;
+  }
+}
+
+/* audit fix: ONLY real controls take pointers in the world header.
+   Display-only elements (title, light chip, sound label row) were
+   swallowing canvas taps: the sound toggle widened the side group past
+   the center line and a top-area walk tap landed on the light chip and
+   died there. Header stays see-through; buttons stay clickable. */
+.world-head button {
+  pointer-events: auto;
 }

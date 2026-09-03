@@ -114,11 +114,12 @@ test('Arena HUD: pause freezes the scene, mute persists, session state flows', a
   await page.locator('#pause-resume').click();
   await expect(page.locator('#hud-pause-overlay')).toBeHidden();
 
-  /* mute toggles + persists */
-  await page.locator('#hud-mute').click();
-  expect(await page.evaluate(() => localStorage.getItem('lenny-muted'))).toBe('1');
+  /* mute toggles + persists (ETHICS §9: the app starts SILENT — first
+     explicit tap turns sound ON, the next turns it back off) */
   await page.locator('#hud-mute').click();
   expect(await page.evaluate(() => localStorage.getItem('lenny-muted'))).toBe('0');
+  await page.locator('#hud-mute').click();
+  expect(await page.evaluate(() => localStorage.getItem('lenny-muted'))).toBe('1');
 
   /* session debug flows through the bridge (arena-prefixed keys) */
   const session = await page.evaluate(() => window.__lenny?.sceneState());

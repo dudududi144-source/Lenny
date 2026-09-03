@@ -12,11 +12,13 @@
 import { PlayerModel } from '../../games/core/PlayerModel';
 import { LearningSignals, type LearningEvent, type SessionSummary } from '../../games/core/LearningSignals';
 import { bloomLevel, finishedCount, type GardenData } from '../../games/core/ProgressStore';
+import { AdaptiveDifficulty } from '../../games/core/AdaptiveDifficulty';
 import { LITERACY_GRAPH, SkillGraph } from '../../games/core/SkillGraph';
+import { dayKeyFor, type WorldDiaryData } from '../../world/worldDiary';
+import { WorldDiary } from '../../world/worldDiary';
 import { ZONES } from '../../data/garden';
 
 const SIG_KEY = 'lenny-signals-v1';
-const STREAK_KEY = 'lenny-streak';
 
 export interface DayActivity {
   /** 0=6 days ago … 6=today */
@@ -33,13 +35,73 @@ export interface LensData {
   graph: SkillGraph;
   totalFinished: number;
   bloom: number;
-  streakDays: number;
   days: DayActivity[];
   /** rough total play time in minutes (rolling EMA estimate) */
   approxMinutes: number;
   /** zone id the child returns to most (null = no signal yet) */
   interestZone: string | null;
+  /** stage 8: the 3D garden through the parent's eyes (local diary) */
+  world: WorldLens;
+  /** audit 9-d #7: the DDA finally visible to the parent — per-zone rung 1..4 */
+  ddaTiers: Record<string, number>;
   hasAnyData: boolean;
+}
+
+export interface WorldLens {
+  /** minutes inside the world over the last 7 days (day-grain data) */
+  minutes7d: number;
+  opens7d: number;
+  arrivals7d: number;
+  picks7d: number;
+  /** arrivals per zone id over the last 7 days */
+  zones: Record<string, number>;
+  hasData: boolean;
+}
+
+/** Pure transform: the diary's day buckets → the parent's 7-day view. */
+/** The adaptive engine's own tier per zone (1-based; 1 = דַּרְגָּה א), read-only. */
+function buildDdaTiers(): Record<string, number> {
+  const tiers: Record<string, number> = {};
+  try {
+    const raw = localStorage.getItem('lenny-dda-v1');
+    if (!raw) return tiers;
+    const all = JSON.parse(raw) as Record<string, { rounds?: number }>;
+    for (const zone of ZONES) {
+      /* only zones with real play history — untouched zones stay quiet */
+      if ((all[zone.id]?.rounds ?? 0) > 0) tiers[zone.id] = new AdaptiveDifficulty(zone.id).tier() + 1;
+    }
+  } catch {
+    /* no data — no rungs */
+  }
+  return tiers;
+}
+
+export function worldLensFromDiary(diary: WorldDiaryData, nowMs: number = Date.now()): WorldLens {
+  const cutoff = dayKeyFor(nowMs - 7 * 86_400_000);
+  let ms = 0;
+  let opens = 0;
+  let arrivals = 0;
+  let picks = 0;
+  const zones: Record<string, number> = {};
+  for (const [key, stat] of Object.entries(diary.days)) {
+    if (key < cutoff) continue;
+    ms += stat.ms;
+    opens += stat.opens;
+    arrivals += stat.arrivals;
+    picks += stat.picks;
+    for (const [zone, count] of Object.entries(stat.zones)) {
+      zones[zone] = (zones[zone] ?? 0) + count;
+    }
+  }
+  const minutes7d = Math.round(ms / 60_000);
+  return {
+    minutes7d,
+    opens7d: opens,
+    arrivals7d: arrivals,
+    picks7d: picks,
+    zones,
+    hasData: minutes7d > 0 || opens > 0 || arrivals > 0 || picks > 0,
+  };
 }
 
 function readSignalEvents(): LearningEvent[] {
@@ -50,17 +112,6 @@ function readSignalEvents(): LearningEvent[] {
     return Array.isArray(s.events) ? s.events : [];
   } catch {
     return [];
-  }
-}
-
-function readStreak(): number {
-  try {
-    const raw = localStorage.getItem(STREAK_KEY);
-    if (!raw) return 0;
-    const s = JSON.parse(raw) as { count?: number };
-    return typeof s.count === 'number' ? s.count : 0;
-  } catch {
-    return 0;
   }
 }
 
@@ -107,7 +158,9 @@ export function loadLensData(garden: GardenData): LensData {
   }
 
   const zoneRounds = Object.values(player.zones).reduce((a, z) => a + z.rounds, 0);
-  const hasAnyData = totalFinished > 0 || zoneRounds > 0 || summary.attempts > 0;
+  const diary = new WorldDiary();
+  const world = worldLensFromDiary(diary.snapshot());
+  const hasAnyData = totalFinished > 0 || zoneRounds > 0 || summary.attempts > 0 || world.hasData;
 
   return {
     garden,
@@ -117,10 +170,11 @@ export function loadLensData(garden: GardenData): LensData {
     graph,
     totalFinished,
     bloom: bloomLevel(garden),
-    streakDays: readStreak(),
     days: buildDays(events),
     approxMinutes: Math.max(1, Math.round(approxSeconds / 60)),
     interestZone: playerModel.interest(),
+    world,
+    ddaTiers: buildDdaTiers(),
     hasAnyData,
   };
 }

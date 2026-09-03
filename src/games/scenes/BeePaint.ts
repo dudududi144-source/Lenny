@@ -27,7 +27,6 @@ interface ColorSpot<T> {
 const PETALS = 5;
 const PETAL_R = 55;
 const PETAL_HIT = 40;
-const WIN_GAP_MS = 2200;
 const MIXED_ORDER: MixedColor[] = ['orange', 'green', 'purple'];
 
 /* verbatim Hebrew color names from the old scene */

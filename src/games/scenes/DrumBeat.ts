@@ -9,7 +9,6 @@ import { audio } from '../engine/AudioEngine';
 const LEAD_IN = 2.0;          /* seconds of count-in before the first beat */
 const FALL_TIME = 2.2;        /* seconds a note takes to fall */
 const START_DELAY_MS = 1200;  /* 'בּוֹא נַתְחִיל' moment before taps go live */
-const FINISH_GAP_MS = 2400;
 
 /* Per-lane note tints — the old scene's violet note plus two harmonics
    (the old scene had a single falling column, so lanes cycle by beat
