@@ -59,9 +59,9 @@ import {
   islandCenter,
   isInsideIsland,
   isInsideLandmark,
-  landmarkRimPoint,
   nearestLandmark,
   nearestZone,
+  slideAroundLandmark,
   walkStepToward,
   type LandmarkDef,
   WORLD_ISLANDS,
@@ -676,15 +676,14 @@ export async function createWorldApp(
       }
     }
 
-    /* landmark keep-out: the child slides along the rim, never through
-       a pond or a windmill (the walk is a straight line; this bends it) */
+    /* landmark keep-out: the child slides ALONG the rim and the errand
+       survives (critic V1) — only a walk INTO the place ends there */
     const inside = isInsideLandmark(presencePos.x, presencePos.z);
     if (inside) {
-      const rim = landmarkRimPoint(inside, presencePos.x, presencePos.z);
-      presencePos.x = rim.x;
-      presencePos.z = rim.z;
-      /* the rim is where the child stands — the errand is done */
-      if (walkTarget) {
+      const slide = slideAroundLandmark(inside, presencePos.x, presencePos.z, walkTarget);
+      presencePos.x = slide.x;
+      presencePos.z = slide.z;
+      if (slide.arrived && walkTarget) {
         walkTarget = null;
         destMat.alpha = 0;
       }
@@ -775,7 +774,8 @@ export async function createWorldApp(
     const hgt = engine.getRenderHeight();
     const vf = camera.viewport.toGlobal(w, hgt);
     const q = Vector3.Project(p, Matrix.Identity(), scene.getTransformMatrix(), vf);
-    const on = q.z >= 0 && q.z <= 1 && q.x >= -80 && q.y >= -80 && q.x <= w + 80;
+    const on =
+      q.z >= 0 && q.z <= 1 && q.x >= -80 && q.y >= -80 && q.x <= w + 80 && q.y <= hgt + 80;
     return {
       x: Math.max(0, Math.min(1, q.x / w)),
       y: Math.max(0, Math.min(1, q.y / hgt)),

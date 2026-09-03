@@ -88,8 +88,6 @@ export function attachWorldInput(
     const ray = new Ray(Vector3.Zero(), Vector3.Zero());
     scene.createPickingRayToRef(ev.offsetX, ev.offsetY, Matrix.Identity(), ray, camera);
     const pick = scene.pickWithRay(ray, (m) => m.isPickable && pickKind(m.name) !== null);
-    /* TEMP DEBUG */
-    (window as unknown as { __lastPick?: string }).__lastPick = pick?.pickedMesh?.name ?? `none h=${String(pick?.hit)} d=${pick?.distance?.toFixed(2)}`;
     if (!pick || !pick.hit || !pick.pickedPoint) return;
 
     if (pickKind(pick.pickedMesh!.name) === 'prop') {

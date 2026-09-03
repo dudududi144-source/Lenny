@@ -252,6 +252,51 @@ export function isInsideLandmark(x: number, z: number): LandmarkDef | null {
 }
 
 /**
+ * Slide the presence out of a landmark's keep-out (critic V1).
+ *
+ * The old inline push CANCELLED the active walk — and a straight chord
+ * between two real zones passes within 0.9u of the beehive, so errands
+ * died silently mid-garden. Now the walk SURVIVES: the child is pushed
+ * to the rim with a small tangential bias toward the target's side, so
+ * the slide naturally rounds the place and continues. A walk whose
+ * DESTINATION is inside the keep-out is the place visit — it ends here.
+ * Pure, so the stall case (target dead-behind the place) is unit-pinned.
+ */
+export function slideAroundLandmark(
+  l: LandmarkDef,
+  px: number,
+  pz: number,
+  target: { x: number; z: number } | null,
+): { x: number; z: number; arrived: boolean } {
+  const dx = px - l.x;
+  const dz = pz - l.z;
+  const d = Math.hypot(dx, dz);
+  const baseAng = d < 1e-6 ? Math.atan2(-l.z, -l.x) : Math.atan2(dz, dx);
+
+  /* the rim radius — clamp the (rare) deep-inside point out to the edge */
+  const r = l.keep + 0.02;
+
+  /* bias: rotate 20° toward the side of the target, so a nearly radial
+     pass still gains tangential progress and never stalls on the rim */
+  let bias = 0;
+  if (target) {
+    const cross = dx * (target.z - l.z) - dz * (target.x - l.x);
+    bias = (cross >= 0 ? 1 : -1) * 0.35;
+  }
+  const ang = baseAng + bias;
+
+  /* the walk ends here only when the errand itself pointed into the
+     keep-out — that was a place visit, and the rim IS the place */
+  const arrived = target !== null && Math.hypot(target.x - l.x, target.z - l.z) < l.keep + 0.1;
+
+  return {
+    x: l.x + Math.cos(ang) * r,
+    z: l.z + Math.sin(ang) * r,
+    arrived,
+  };
+}
+
+/**
  * The zone whose island contains (or is closest within `maxDist` to)
  * the given point — the "near zone" the child is visiting right now.
  */

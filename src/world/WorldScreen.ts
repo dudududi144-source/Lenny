@@ -12,7 +12,7 @@
  * Zones, movement, creatures and Lenny arrive in commits 2-6.
  * ============================================================ */
 
-import { freshGarden, LocalProgressStore, isUnlocked, type GardenData } from '../games/core/ProgressStore';
+import { freshGarden, LocalProgressStore, isUnlocked, consumeNewZones, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT, QUEST_TEXT, type ZoneId } from '../data/garden';
 import { LANDMARKS, type LandmarkDef } from './WorldLayout';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
@@ -119,6 +119,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       const zone = shelfZone;
       shelfZone = null;
       phase = 'exploring';
+      root.dataset.worldPhase = phase;
       if (zone && spec) {
         diary.notePick();
         /* arena time is game time, not garden time — the diary's
@@ -128,7 +129,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       }
     },
     onClose: () => {
-      if (phase === 'shelf-open') phase = 'exploring';
+      if (phase === 'shelf-open') {
+        phase = 'exploring';
+        root.dataset.worldPhase = phase;
+      }
     },
   }, { id: 'world-shelf' });
 
@@ -724,12 +728,19 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             shelf.open(zone, null);
             diary.noteShelfOpen();
             phase = 'shelf-open';
+            root.dataset.worldPhase = 'shelf-open';
           }
         },
         onPhase: (p) => {
           phase = p;
           root.dataset.worldPhase = p;
           if (p === 'exploring' && firstVisit) markWorldOnboarded();
+          /* V3: the flyover just ended on a FIRST visit — boot's own
+             scheduling ran before exploring existed. Offer the first
+             quest like every other session gets one. */
+          if (p === 'exploring' && !currentQuest && questTimer === null && quests.current() === null) {
+            scheduleQuestOffer(8000);
+          }
         },
       },
       loadGarden(),
@@ -774,13 +785,14 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     if (app) {
       app.setPaused(false);
       const data = loadGarden();
-      const grew = growthDiff(data);
-      app.refresh(data, grew);
+      app.refresh(data, growthDiff(data));
       app.setFoundLandmarks(foundIds);
       foundCount.textContent = String(foundIds.length);
-      /* W8: a gate opened since the last visit — the world celebrates it
-         too (the classic map no longer owns the sparkle party alone) */
-      if (grew && grew.size > 0) {
+      /* V7: celebrate REAL gate openings — the unlock queue is drained
+         by whichever garden the child is actually in (world or classic),
+         so the wording is always true */
+      const freshGates = consumeNewZones();
+      if (freshGates.length > 0) {
         showBubble(GARDEN_TEXT.newZone);
         sparkleBurst();
       }
@@ -840,6 +852,19 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     currentQuest = null;
     questStage = 'idle';
     hideQuestPanel();
+    /* V6: the world owns its timers — closing leaves none behind */
+    if (platesTimer !== null) {
+      window.clearInterval(platesTimer);
+      platesTimer = null;
+    }
+    if (bubbleTimer !== null) {
+      window.clearTimeout(bubbleTimer);
+      bubbleTimer = null;
+    }
+    if (bubblePinner !== null) {
+      window.clearInterval(bubblePinner);
+      bubblePinner = null;
+    }
     if (app) {
       app.dispose();
       app = null;
