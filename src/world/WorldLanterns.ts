@@ -141,6 +141,7 @@ export function buildLanterns(scene: Scene): LanternHandle {
   litMat.specularColor = new Color3(0.02, 0.02, 0.02);
 
   const heads: Mesh[] = [];
+  const posts: Mesh[] = [];
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
     const post = MeshBuilder.CreateCylinder(
@@ -152,6 +153,7 @@ export function buildLanterns(scene: Scene): LanternHandle {
     post.material = postMat;
     post.parent = root;
     post.isPickable = false;
+    posts.push(post);
 
     const head = MeshBuilder.CreateBox(`lantern-head-${i}`, { width: 0.2, height: 0.22, depth: 0.2 }, scene);
     head.position.set(spot.x, 0.93, spot.z);
@@ -159,6 +161,14 @@ export function buildLanterns(scene: Scene): LanternHandle {
     head.parent = root;
     head.isPickable = false;
     heads.push(head);
+  }
+  /* twelve identical posts become ONE mesh — twelve draw calls saved,
+     forever, on every device (critic W6) */
+  const postsMesh = Mesh.MergeMeshes(posts, true, false, undefined, false, false);
+  if (postsMesh) {
+    postsMesh.name = 'lantern-posts';
+    postsMesh.parent = root;
+    postsMesh.isPickable = false;
   }
 
   /* the springy pop for newly lit lanterns (reused slots, no churn) */

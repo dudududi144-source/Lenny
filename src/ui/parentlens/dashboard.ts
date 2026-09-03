@@ -66,6 +66,17 @@ function worldPicksPhrase(count: number): string {
   return `${count} מִשְׂחָקִים נִפְתְּחוּ מֵאֵי הַגַּן.`;
 }
 
+function worldQuestsPhrase(count: number): string {
+  if (count === 1) return 'מְשִׂימַת גִּלּוּי אַחַת הֻשְׁלַמָּה בַּגַּן הַשָּׁבוּעַ.';
+  return `${count} מְשִׂימוֹת גִּלּוּי הֻשְׁלְמוּ בַּגַּן הַשָּׁבוּעַ.`;
+}
+
+function worldFoundPhrase(found: number, total: number): string {
+  if (found === 0) return '';
+  if (found === total) return 'כָּל הַמְּקוֹמוֹת בַּגַּן מֻכָּרִים!';
+  return `${found} מִתּוֹךְ ${total} מְקוֹמוֹת בַּגַּן כְּבָר מֻכָּרִים.`;
+}
+
 function gamesPhrase(count: number): string {
   if (count === 0) return 'בִּינְתַּיִם בְּלִי מִשְׂחָק שֶׁהֻשְׁלַם';
   if (count === 1) return 'מִשְׂחָק אֶחָד שֶׁהֻשְׁלַם';
@@ -154,6 +165,13 @@ function worldCard(data: LensData): HTMLElement {
     }
     if (w.picks7d > 0) {
       lines.push(h('p', { class: 'parent-line' }, worldPicksPhrase(w.picks7d)));
+    }
+    if (w.quests7d > 0) {
+      lines.push(h('p', { class: 'parent-line' }, worldQuestsPhrase(w.quests7d)));
+    }
+    const foundLine = worldFoundPhrase(w.landmarksFound, w.landmarksTotal);
+    if (foundLine) {
+      lines.push(h('p', { class: 'parent-line' }, foundLine));
     }
   }
   /* the spiral is the map — all 10 islands always show, even the quiet ones */

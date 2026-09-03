@@ -13,10 +13,21 @@
  * ============================================================ */
 
 import { freshGarden, LocalProgressStore, isUnlocked, type GardenData } from '../games/core/ProgressStore';
-import { GARDEN_TEXT, type ZoneId } from '../data/garden';
+import { GARDEN_TEXT, QUEST_TEXT, type ZoneId } from '../data/garden';
+import { LANDMARKS, type LandmarkDef } from './WorldLayout';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
+import { loadFound, markFound } from './worldFound';
+import {
+  WorldQuests,
+  buildPatternQuest,
+  countingCountFor,
+  questHash,
+  type ActiveQuest,
+  type PatternColor,
+} from './worldQuests';
 import { WorldDiary } from './worldDiary';
 import { bubbleLineFor } from './LennyStar';
+import { audio } from '../games/engine/AudioEngine';
 import { music } from '../audio/MusicEngine';
 import { createGameShelf, type GameShelfHandle } from '../ui/components/GameShelf';
 import { h } from '../ui/components/common/el';
@@ -51,6 +62,9 @@ export interface WorldScreenHandle {
 const store = new LocalProgressStore();
 /* stage 8: the parent's lens sees the world too — local, identifier-free */
 const diary = new WorldDiary();
+/* critic round B: discovery state + quest progress, local only */
+const quests = new WorldQuests();
+let foundIds: string[] = loadFound();
 
 function loadGarden(): GardenData {
   try {
@@ -74,6 +88,24 @@ declare global {
       life(): { butterflies: number; fireflies: number; fish: number } | null;
       /** Lit path lanterns — the journey made visible. */
       lanterns(): number;
+      /** The eight places beyond the path (discovery state). */
+      landmarks(): Array<{ id: string; found: boolean; x: number; z: number }>;
+      foundCount(): number;
+      /** The offered discovery quest, if any (e2e + lens tooling). */
+      quest(): {
+        family: string;
+        tier: number;
+        seq: number;
+        stage: string;
+        picked: number;
+        count: number;
+        target: string | null;
+        answer: string | null;
+      } | null;
+      /** Canvas-fraction spot of a live quest prop. */
+      propScreen(id: string): { x: number; y: number; on: boolean } | null;
+      /** Project any world point to canvas fractions (read-only). */
+      screenOf(x: number, z: number): { x: number; y: number; on: boolean } | null;
     };
   }
 }
@@ -116,6 +148,15 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     lightCount,
   );
 
+  /* the discovered-places chip — environment knowledge, honest count */
+  const foundCount = h('span', { class: 'found-count' }, String(foundIds.length));
+  const foundChip = h(
+    'span',
+    { class: 'light-chip found-chip', id: 'world-found-chip', 'aria-label': 'מקומות שהתגלו בגן' },
+    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✪'),
+    foundCount,
+  );
+
   /* Lenny's arrival bubble — she speaks the zone's own mission line,
      never new content (data/garden.ts is the only voice). */
   const bubble = h(
@@ -150,12 +191,47 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     onPress: callbacks.onBack,
   });
 
+  /* ---------- discovery quests: the roaming becomes learning ----------
+     DOM overlay (critic W7): one line + big chips, niqqud, no timers,
+     no "wrong" — a miss re-asks softly. Ignorable for free. */
+  const questLine = h('p', { class: 'world-quest-line' });
+  const questCounter = h('span', { class: 'world-quest-count hidden' });
+  const questChips = h('div', { class: 'world-quest-chips', role: 'group', 'aria-label': 'תשובות' });
+  const questLater = uiButton({
+    label: 'אַחֲרֵי כָּךְ',
+    variant: 'ghost',
+    id: 'world-quest-later',
+    ariaLabel: 'אולי אחרי כך',
+    onPress: () => deferQuest(),
+  });
+  const questPanel = h(
+    'section',
+    { class: 'world-quest hidden', id: 'world-quest', 'aria-label': QUEST_TEXT.questChip },
+    questLine,
+    h('div', { class: 'world-quest-row' }, questCounter, questChips, questLater),
+  );
+
+  /* found-landmark name plates — environmental print, appears on discovery */
+  const plates: Array<HTMLElement> = [];
+  const plateById = new Map<string, HTMLElement>();
+  for (const l of LANDMARKS) {
+    const plate = h(
+      'span',
+      { class: 'landmark-plate hidden', id: `landmark-plate-${l.id}`, 'aria-hidden': 'true' },
+      l.name,
+    );
+    plates.push(plate);
+    plateById.set(l.id, plate);
+  }
+
   const root = h(
     'section',
     { class: 'screen screen--world hidden', id: 'world-screen', 'aria-label': 'הגן התלת-ממדי' },
     stage,
     bubble,
+    ...plates,
     shelf.root,
+    questPanel,
     loading,
     h(
       'header',
@@ -166,7 +242,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         h('h2', { class: 'world-title' }, 'הַגַּן שֶׁל לֶנִי'),
         h('p', { class: 'world-sub' }, 'בּוֹא נְהַלֵּךְ בַּגַּן'),
       ),
-      h('div', { class: 'world-head-side' }, lightChip, createSoundToggle('world-sound-toggle'), back),
+      h('div', { class: 'world-head-side' }, lightChip, foundChip, createSoundToggle('world-sound-toggle'), back),
     ),
     h(
       'footer',
@@ -220,6 +296,307 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     return true;
   }
 
+  /* ---------- discovery quests: the state machine (critic W2) ----------
+     Three families, one at a time, offered — never forced:
+       wayfinding: walk to the named place (spatial / landmark knowledge)
+       counting:   tap every bloomed flower, then say HOW MANY (cardinality)
+       pattern:    which color continues the stone sequence (seriation)
+     A miss re-asks softly (a correction) — nothing is ever "wrong". */
+
+  let currentQuest: ActiveQuest | null = null;
+  let questStage: 'idle' | 'counting' | 'answering' | 'pattern' = 'idle';
+  let questCount = 0;
+  let questPicked = 0;
+  let questTrials = 0;
+  let questCorrections = 0;
+  const pickedFlowers = new Set<number>();
+  let patternAnswer: PatternColor | null = null;
+  let wayfindingTargetId: string | null = null;
+  let questTimer: number | null = null;
+
+  /** Hebrew speech, best effort — silent when the sound choice is off. */
+  function speak(line: string): void {
+    try {
+      if (audio.isMuted()) return;
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      synth.cancel();
+      /* niqqud is for the eyes; the voice reads the letters alone */
+      const u = new SpeechSynthesisUtterance(line.replace(/[\u0591-\u05C7]/g, ''));
+      u.lang = 'he-IL';
+      u.rate = 0.85;
+      synth.speak(u);
+    } catch {
+      /* no TTS in this environment — the visual hint stands alone */
+    }
+  }
+
+  function setQuestPanel(line: string, counter: string | null, chips: Array<{ label: string; color?: PatternColor; value: number }>): void {
+    questLine.textContent = line;
+    if (counter === null) {
+      questCounter.classList.add('hidden');
+    } else {
+      questCounter.textContent = counter;
+      questCounter.classList.remove('hidden');
+    }
+    questChips.replaceChildren(
+      ...chips.map((c) =>
+        h(
+          'button',
+          {
+            class: c.color ? `quest-chip quest-chip-${c.color}` : 'quest-chip quest-chip-num',
+            type: 'button',
+            'data-count': c.value !== undefined && c.color === undefined ? String(c.value) : undefined,
+            'data-color': c.color,
+            'aria-label': c.color === undefined ? String(c.value) : c.label,
+            onClick: () => {
+              if (c.color === undefined) onCountChip(c.value);
+              else if (c.color) onColorChip(c.color);
+            },
+          },
+          c.color ? '' : String(c.value),
+        ),
+      ),
+    );
+  }
+
+  function hideQuestPanel(): void {
+    questPanel.classList.add('hidden');
+  }
+
+  function scheduleQuestOffer(ms: number): void {
+    if (questTimer !== null) window.clearTimeout(questTimer);
+    questTimer = window.setTimeout(() => {
+      questTimer = null;
+      offerQuest();
+    }, ms);
+  }
+
+  function offerQuest(): void {
+    if (!app || phase !== 'exploring' || shelf.isOpen()) {
+      scheduleQuestOffer(5000);
+      return;
+    }
+    startQuest(quests.offerNext());
+  }
+
+  /** Begin (or resume) a quest — content is deterministic in (tier, seq). */
+  function startQuest(q: ActiveQuest): void {
+    if (!app) return;
+    currentQuest = q;
+    questTrials = 0;
+    questCorrections = 0;
+    questPicked = 0;
+    pickedFlowers.clear();
+    questPanel.classList.remove('hidden');
+
+    if (q.family === 'wayfinding') {
+      /* a target away from where the child stands — a real little journey */
+      const pos = app.presencePos() ?? { x: 0, z: 0 };
+      let idx = questHash(q.seq, 3) % LANDMARKS.length;
+      for (let tries = 0; tries < LANDMARKS.length; tries++) {
+        const cand = LANDMARKS[idx];
+        if (Math.hypot(cand.x - pos.x, cand.z - pos.z) > 4) break;
+        idx = (idx + 1) % LANDMARKS.length;
+      }
+      const target = LANDMARKS[idx];
+      wayfindingTargetId = target.id;
+      app.setQuestTarget(target.id);
+      app.setQuestProps(null);
+      const line = QUEST_TEXT.wayfinding(target.name);
+      setQuestPanel(line, null, []);
+      showBubble(line);
+      speak(line);
+      questStage = 'idle'; /* completion is driven by arrival, not chips */
+      return;
+    }
+
+    if (q.family === 'counting') {
+      questCount = countingCountFor(q.tier, q.seq);
+      questStage = 'counting';
+      app.setQuestTarget(null);
+      app.setQuestProps({ kind: 'counting', anchor: app.presencePos() ?? { x: 0, z: 0 }, count: questCount });
+      setQuestPanel(QUEST_TEXT.countingOffer, `0/${questCount}`, []);
+      speak(QUEST_TEXT.countingOffer);
+      return;
+    }
+
+    /* patterns */
+    const pq = buildPatternQuest(q.tier, q.seq);
+    patternAnswer = pq.answer;
+    questStage = 'pattern';
+    app.setQuestTarget(null);
+    app.setQuestProps({ kind: 'pattern', anchor: app.presencePos() ?? { x: 0, z: 0 }, stones: pq.stones });
+    setQuestPanel(
+      QUEST_TEXT.patternOffer,
+      null,
+      pq.options.map((c) => ({
+        label: c === 'gold' ? 'צהוב' : c === 'rose' ? 'ורוד' : 'טורקיז',
+        color: c as PatternColor,
+        value: 0,
+      })),
+    );
+    speak(QUEST_TEXT.patternOffer);
+  }
+
+  function completeQuest(): void {
+    if (!currentQuest) return;
+    quests.complete(currentQuest.family, questTrials, questCorrections);
+    showBubble(QUEST_TEXT.done);
+    speak(QUEST_TEXT.done);
+    sparkleBurst();
+    app?.setQuestProps(null);
+    app?.setQuestTarget(null);
+    wayfindingTargetId = null;
+    currentQuest = null;
+    questStage = 'idle';
+    hideQuestPanel();
+    scheduleQuestOffer(16_000);
+  }
+
+  /** "Maybe later" — ignoring a quest is free, forever (ETHICS). */
+  function deferQuest(): void {
+    if (questTimer !== null) {
+      window.clearTimeout(questTimer);
+      questTimer = null;
+    }
+    app?.setQuestProps(null);
+    app?.setQuestTarget(null);
+    wayfindingTargetId = null;
+    currentQuest = null;
+    questStage = 'idle';
+    hideQuestPanel();
+    showBubble(QUEST_TEXT.later);
+    scheduleQuestOffer(75_000);
+  }
+
+  function onCountChip(n: number): void {
+    if (questStage !== 'answering' || !currentQuest) return;
+    if (n === questCount) {
+      completeQuest();
+      return;
+    }
+    /* not "wrong" — the flowers rebloom and the child counts again */
+    questCorrections += 1;
+    quests.noteCorrection(currentQuest.family);
+    showBubble(QUEST_TEXT.countingAgain);
+    speak(QUEST_TEXT.countingAgain);
+    pickedFlowers.clear();
+    questPicked = 0;
+    questStage = 'counting';
+    app?.setQuestProps({ kind: 'counting', anchor: app.presencePos() ?? { x: 0, z: 0 }, count: questCount });
+    setQuestPanel(QUEST_TEXT.countingOffer, `0/${questCount}`, []);
+  }
+
+  function onColorChip(c: PatternColor): void {
+    if (questStage !== 'pattern' || !currentQuest) return;
+    if (c === patternAnswer) {
+      questStage = 'answering'; /* guard double taps while the stone springs in */
+      app?.fillQuestGap(c);
+      completeQuest();
+      return;
+    }
+    questCorrections += 1;
+    quests.noteCorrection(currentQuest.family);
+    showBubble(QUEST_TEXT.patternAgain);
+    speak(QUEST_TEXT.patternAgain);
+  }
+
+  /** A landmark came close: discover it, or finish a wayfinding quest. */
+  function handleLandmarkNear(landmark: LandmarkDef): void {
+    if (!foundIds.includes(landmark.id)) {
+      foundIds = markFound(landmark.id);
+      foundCount.textContent = String(foundIds.length);
+      app?.setFoundLandmarks(foundIds);
+      showBubble(landmark.line);
+      speak(landmark.line);
+      if (foundIds.length === LANDMARKS.length) {
+        window.setTimeout(() => {
+          showBubble(QUEST_TEXT.foundAll);
+          speak(QUEST_TEXT.foundAll);
+        }, 2800);
+      }
+    }
+    if (currentQuest && currentQuest.family === 'wayfinding' && wayfindingTargetId) {
+      if (landmark.id === wayfindingTargetId) {
+        completeQuest();
+      } else if (questTrials < 5) {
+        questTrials += 1;
+        quests.noteTrial(currentQuest.family);
+        showBubble(QUEST_TEXT.notYet);
+        speak(QUEST_TEXT.notYet);
+      }
+    }
+  }
+
+  function handlePropTap(propName: string): void {
+    if (!currentQuest || !app) return;
+    if (currentQuest.family === 'counting' && questStage === 'counting') {
+      const m = /^quest-flower-(\d+)/.exec(propName);
+      if (!m) return;
+      const idx = Number(m[1]);
+      if (pickedFlowers.has(idx)) return;
+      pickedFlowers.add(idx);
+      questPicked = pickedFlowers.size;
+      app.pickQuestFlower(idx);
+      if (questPicked < questCount) {
+        setQuestPanel(QUEST_TEXT.countingOffer, `${questPicked}/${questCount}`, []);
+      } else {
+        questStage = 'answering';
+        setQuestPanel(
+          QUEST_TEXT.countingAsk,
+          `${questPicked}/${questCount}`,
+          [questCount - 1, questCount, questCount + 1].map((n) => ({ label: String(n), value: n })),
+        );
+        speak(QUEST_TEXT.countingAsk);
+      }
+      return;
+    }
+    if (currentQuest.family === 'patterns' && propName === 'quest-gap') {
+      /* tapping the gap itself — a gentle re-ask of the question */
+      speak(QUEST_TEXT.patternOffer);
+    }
+  }
+
+  /** A tiny celebration burst — CSS sparkles, removed when done. */
+  function sparkleBurst(): void {
+    for (let i = 0; i < 10; i++) {
+      const s = h('span', { class: 'quest-sparkle', 'aria-hidden': 'true' }, '✦');
+      s.style.insetInlineStart = `${34 + Math.random() * 32}%`;
+      s.style.top = `${52 + Math.random() * 16}%`;
+      s.style.animationDelay = `${i * 60}ms`;
+      root.appendChild(s);
+      window.setTimeout(() => s.remove(), 1500);
+    }
+  }
+
+  /** Found-landmark name plates follow their places (150ms cadence).
+      A garden with nothing found yet costs nothing at all. */
+  function updatePlates(): void {
+    if (!app || foundIds.length === 0) return;
+    const spots = app.landmarkScreens();
+    for (const s of spots) {
+      const plate = plateById.get(s.id);
+      if (!plate) continue;
+      if (!foundIds.includes(s.id) || !s.on) {
+        plate.classList.add('hidden');
+        continue;
+      }
+      plate.style.left = `${Math.round(s.x * 100)}%`;
+      plate.style.top = `${Math.round(s.y * 100)}%`;
+      plate.classList.remove('hidden');
+    }
+  }
+  let platesTimer: number | null = null;
+  function startPlates(): void {
+    if (platesTimer === null) {
+      platesTimer = window.setInterval(() => {
+        if (!app) return;
+        updatePlates();
+      }, 150);
+    }
+  }
+
   /* ---------- the world diary: honest minutes, local only ---------- */
 
   let sessionMark = 0;
@@ -261,7 +638,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
 
   window.__lennyWorld = {
-    version: 'stage-7',
+    version: 'stage-9',
     presencePos: () => app?.presencePos() ?? null,
     nearZone: () => app?.nearZone() ?? null,
     zones: () => app?.zones() ?? [],
@@ -271,6 +648,24 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     sky: () => app?.skyPhase() ?? null,
     life: () => app?.life() ?? null,
     lanterns: () => app?.lanterns() ?? 0,
+    landmarks: () =>
+      LANDMARKS.map((l) => ({ id: l.id, found: foundIds.includes(l.id), x: l.x, z: l.z })),
+    foundCount: () => foundIds.length,
+    quest: () =>
+      currentQuest
+        ? {
+            family: currentQuest.family,
+            tier: currentQuest.tier,
+            seq: currentQuest.seq,
+            stage: questStage,
+            picked: questPicked,
+            count: questCount,
+            target: wayfindingTargetId,
+            answer: currentQuest.family === 'patterns' ? patternAnswer : null,
+          }
+        : null,
+    propScreen: (id) => app?.propScreens().find((p) => p.id === id) ?? null,
+    screenOf: (x, z) => app?.screenOf(x, z) ?? null,
   };
 
   async function boot(): Promise<void> {
@@ -298,6 +693,20 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
           if (line) showBubble(line);
           diary.noteArrival(zone);
         },
+        onLandmarkNear: (landmark) => {
+          try {
+            handleLandmarkNear(landmark);
+          } catch {
+            /* discovery never crashes the garden */
+          }
+        },
+        onPropTap: (propName) => {
+          try {
+            handlePropTap(propName);
+          } catch {
+            /* a quest tap never crashes the garden */
+          }
+        },
         onArrive: (zone) => {
           if (!zone) return;
           const fresh = visitFresh(zone);
@@ -324,9 +733,16 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         },
       },
       loadGarden(),
-      { onboard: firstVisit },
+      { onboard: firstVisit, found: foundIds },
     );
     phase = firstVisit ? 'onboarding' : 'exploring';
+    startPlates();
+    /* the quest offer waits until the child is exploring (or resumes) */
+    if (phase === 'exploring') {
+      const active = quests.current();
+      if (active) startQuest(active);
+      else scheduleQuestOffer(8000);
+    }
   }
 
   /** Zones that grew since the last time the world was seen. */
@@ -358,12 +774,27 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     if (app) {
       app.setPaused(false);
       const data = loadGarden();
-      app.refresh(data, growthDiff(data));
+      const grew = growthDiff(data);
+      app.refresh(data, grew);
+      app.setFoundLandmarks(foundIds);
+      foundCount.textContent = String(foundIds.length);
+      /* W8: a gate opened since the last visit — the world celebrates it
+         too (the classic map no longer owns the sparkle party alone) */
+      if (grew && grew.size > 0) {
+        showBubble(GARDEN_TEXT.newZone);
+        sparkleBurst();
+      }
       /* the soundtrack walks back into the garden */
       music.setMood('garden-exploring');
       music.resume();
       diary.noteOpen();
       startHeartbeat();
+      startPlates();
+      if (!currentQuest && questTimer === null && quests.current() === null) {
+        scheduleQuestOffer(6000);
+      } else if (quests.current() && !currentQuest) {
+        startQuest(quests.current()!);
+      }
       return;
     }
     if (opening) return opening;
@@ -401,6 +832,14 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     stopHeartbeat();
     if (shelf.isOpen()) shelf.close();
     shelfZone = null;
+    /* quests pause with the world — an active offer resumes on return */
+    if (questTimer !== null) {
+      window.clearTimeout(questTimer);
+      questTimer = null;
+    }
+    currentQuest = null;
+    questStage = 'idle';
+    hideQuestPanel();
     if (app) {
       app.dispose();
       app = null;

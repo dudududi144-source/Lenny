@@ -23,6 +23,8 @@ import type { ZoneId } from '../data/garden';
 export interface WorldInputEvents {
   /** A tap resolved into a walk target (or a rim hold at a fog island). */
   onWalkTarget(resolved: WalkResolution): void;
+  /** A tap landed on a quest prop (flower / stone / gap) — never a walk. */
+  onPropTap(propName: string): void;
   /** A tap tried to enter a fog island (already throttled). */
   onLockedTap(zone: ZoneId): void;
   /** A pointer-down landed while the tour is active (skip request). */
@@ -37,9 +39,12 @@ export interface WorldInputHandle {
 /** One gentle locked-island note per this long — never a spam. */
 const LOCKED_TOAST_MS = 2600;
 
-/** The only meshes a walk tap may land on: the grass and the platforms. */
-function walkPickable(meshName: string): boolean {
-  return meshName === 'ground' || meshName.startsWith('plat-mesh-');
+/** The meshes a tap may land on: grass, platforms, landmarks, quest props. */
+function pickKind(meshName: string): 'walk' | 'prop' | null {
+  if (meshName === 'ground' || meshName.startsWith('plat-mesh-')) return 'walk';
+  if (meshName.startsWith('landmark-')) return 'walk'; /* the rim IS the destination */
+  if (meshName.startsWith('quest-')) return 'prop';
+  return null;
 }
 
 export function attachWorldInput(
@@ -79,11 +84,23 @@ export function attachWorldInput(
     if (ev.pointerType === 'mouse' && ev.button !== 0) return;
     if (events.isOnboarding()) return; /* walking unlocks after the tour */
 
-    /* ray-based pick: CSS coords in, walkable-surface predicate on */
+    /* ray-based pick: CSS coords in, surface predicate on */
     const ray = new Ray(Vector3.Zero(), Vector3.Zero());
     scene.createPickingRayToRef(ev.offsetX, ev.offsetY, Matrix.Identity(), ray, camera);
-    const pick = scene.pickWithRay(ray, (m) => m.isPickable && walkPickable(m.name));
+    const pick = scene.pickWithRay(ray, (m) => m.isPickable && pickKind(m.name) !== null);
+    /* TEMP DEBUG */
+    (window as unknown as { __lastPick?: string }).__lastPick = pick?.pickedMesh?.name ?? `none h=${String(pick?.hit)} d=${pick?.distance?.toFixed(2)}`;
     if (!pick || !pick.hit || !pick.pickedPoint) return;
+
+    if (pickKind(pick.pickedMesh!.name) === 'prop') {
+      /* a flower is a flower — prop taps never resolve into walks */
+      try {
+        events.onPropTap(pick.pickedMesh!.name);
+      } catch {
+        /* a prop tap never crashes the garden */
+      }
+      return;
+    }
 
     const resolved = resolveWalkTarget(pick.pickedPoint.x, pick.pickedPoint.z, isZoneLocked);
     if (resolved.blocked && resolved.blockedZone) {

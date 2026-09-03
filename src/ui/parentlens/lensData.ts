@@ -16,6 +16,9 @@ import { AdaptiveDifficulty } from '../../games/core/AdaptiveDifficulty';
 import { LITERACY_GRAPH, SkillGraph } from '../../games/core/SkillGraph';
 import { dayKeyFor, type WorldDiaryData } from '../../world/worldDiary';
 import { WorldDiary } from '../../world/worldDiary';
+import { WorldQuests, type WorldQuestData } from '../../world/worldQuests';
+import { loadFound } from '../../world/worldFound';
+import { LANDMARKS } from '../../world/WorldLayout';
 import { ZONES } from '../../data/garden';
 
 const SIG_KEY = 'lenny-signals-v1';
@@ -55,6 +58,13 @@ export interface WorldLens {
   picks7d: number;
   /** arrivals per zone id over the last 7 days */
   zones: Record<string, number>;
+  /** discovery quests completed over the last 7 days (all families) */
+  quests7d: number;
+  /** lifetime completions per quest family (wayfinding/counting/patterns) */
+  questCompletions: Record<string, number>;
+  /** landmark places the child has discovered, out of the total */
+  landmarksFound: number;
+  landmarksTotal: number;
   hasData: boolean;
 }
 
@@ -76,7 +86,11 @@ function buildDdaTiers(): Record<string, number> {
   return tiers;
 }
 
-export function worldLensFromDiary(diary: WorldDiaryData, nowMs: number = Date.now()): WorldLens {
+export function worldLensFromDiary(
+  diary: WorldDiaryData,
+  nowMs: number = Date.now(),
+  extras?: { quests?: WorldQuestData; foundCount?: number },
+): WorldLens {
   const cutoff = dayKeyFor(nowMs - 7 * 86_400_000);
   let ms = 0;
   let opens = 0;
@@ -94,13 +108,32 @@ export function worldLensFromDiary(diary: WorldDiaryData, nowMs: number = Date.n
     }
   }
   const minutes7d = Math.round(ms / 60_000);
+  let quests7d = 0;
+  for (const [key, stat] of Object.entries(extras?.quests?.days ?? {})) {
+    if (key >= cutoff) quests7d += stat.completed;
+  }
+  const questCompletions: Record<string, number> = {};
+  for (const [family, stat] of Object.entries(extras?.quests?.families ?? {})) {
+    questCompletions[family] = stat.completions;
+  }
+  const foundCount = extras?.foundCount ?? 0;
   return {
     minutes7d,
     opens7d: opens,
     arrivals7d: arrivals,
     picks7d: picks,
     zones,
-    hasData: minutes7d > 0 || opens > 0 || arrivals > 0 || picks > 0,
+    quests7d,
+    questCompletions,
+    landmarksFound: foundCount,
+    landmarksTotal: LANDMARKS.length,
+    hasData:
+      minutes7d > 0 ||
+      opens > 0 ||
+      arrivals > 0 ||
+      picks > 0 ||
+      quests7d > 0 ||
+      foundCount > 0,
   };
 }
 
@@ -159,7 +192,11 @@ export function loadLensData(garden: GardenData): LensData {
 
   const zoneRounds = Object.values(player.zones).reduce((a, z) => a + z.rounds, 0);
   const diary = new WorldDiary();
-  const world = worldLensFromDiary(diary.snapshot());
+  const quests = new WorldQuests();
+  const world = worldLensFromDiary(diary.snapshot(), Date.now(), {
+    quests: quests.snapshot(),
+    foundCount: loadFound().length,
+  });
   const hasAnyData = totalFinished > 0 || zoneRounds > 0 || summary.attempts > 0 || world.hasData;
 
   return {

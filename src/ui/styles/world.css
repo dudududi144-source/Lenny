@@ -275,3 +275,193 @@
 .world-head button {
   pointer-events: auto;
 }
+
+/* ============================================================
+   critic round B — discovery layer: quest HUD, landmark name
+   plates, found chip, celebration sparkles.
+   ============================================================ */
+
+.screen--world .light-chip.found-chip {
+  color: #6b4d8f;
+}
+
+/* ---------- landmark name plates (environmental print) ---------- */
+
+.landmark-plate {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: rgba(24, 34, 28, 0.6);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 215, 106, 0.5);
+  color: #fff3cf;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 3px 12px;
+  border-radius: 999px;
+  z-index: 4;
+  pointer-events: none;
+  white-space: nowrap;
+  animation: plate-in 0.4s ease;
+}
+
+.landmark-plate.hidden {
+  display: none;
+}
+
+@keyframes plate-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
+
+/* ---------- the quest panel ---------- */
+
+.world-quest {
+  position: absolute;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92%, 420px);
+  background: rgba(255, 253, 244, 0.94);
+  border: 1.5px solid rgba(255, 215, 106, 0.85);
+  border-radius: 18px;
+  box-shadow: 0 8px 26px rgba(20, 40, 30, 0.25);
+  padding: 10px 14px 12px;
+  z-index: 6;
+  animation: bubble-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.world-quest.hidden {
+  display: none;
+}
+
+.world-quest-line {
+  margin: 0 0 8px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #3a2b12;
+  line-height: 1.4;
+}
+
+.world-quest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.world-quest-count {
+  background: rgba(255, 215, 106, 0.35);
+  border: 1px solid rgba(255, 215, 106, 0.7);
+  color: #6b4d00;
+  font-weight: 800;
+  font-size: 1rem;
+  padding: 8px 14px;
+  border-radius: 999px;
+}
+
+.world-quest.hidden .world-quest-count {
+  display: none;
+}
+
+.world-quest-chips {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.quest-chip {
+  appearance: none;
+  border: 2px solid rgba(58, 43, 18, 0.25);
+  background: #fffdf4;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #3a2b12;
+  min-width: 56px;
+  min-height: 56px;
+  border-radius: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 3px 10px rgba(20, 40, 30, 0.14);
+}
+
+.quest-chip:hover {
+  transform: translateY(-2px);
+}
+
+.quest-chip:active {
+  transform: scale(0.94);
+}
+
+.quest-chip-gold {
+  background: #f3cd5e;
+}
+
+.quest-chip-rose {
+  background: #f08ab6;
+}
+
+.quest-chip-teal {
+  background: #6fd8c5;
+}
+
+.world-quest .ui-btn,
+.world-quest button.world-ghost {
+  font-size: 0.82rem;
+  min-height: 44px;
+}
+
+#world-quest-later {
+  margin-inline-start: auto;
+}
+
+/* ---------- celebration sparkles ---------- */
+
+.quest-sparkle {
+  position: absolute;
+  z-index: 7;
+  color: #ffd76a;
+  font-size: 1.5rem;
+  text-shadow: 0 0 16px rgba(255, 215, 106, 0.9);
+  pointer-events: none;
+  animation: sparkle-fly 1.4s ease-out forwards;
+}
+
+@keyframes sparkle-fly {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-90px) scale(1.25) rotate(160deg);
+  }
+}
+
+/* the quest panel steps aside while the shelf is open */
+.screen--world[data-world-phase='shelf-open'] .world-quest {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quest-sparkle,
+  .landmark-plate,
+  .world-quest {
+    animation: none;
+  }
+}

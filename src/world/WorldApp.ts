@@ -49,11 +49,21 @@ import {
 import { FpsGovernor } from './FpsGovernor';
 import { buildIslands, type IslandsHandle } from './WorldIslands';
 import { buildLanterns, lanternsFor, type LanternHandle } from './WorldLanterns';
+import { buildLandmarks, type LandmarksHandle, type LandmarkScreenSpot } from './WorldLandmarks';
+import {
+  buildQuestProps,
+  type QuestPropsSpec,
+  type QuestPropSpot,
+} from './WorldQuestProps';
 import {
   islandCenter,
   isInsideIsland,
+  isInsideLandmark,
+  landmarkRimPoint,
+  nearestLandmark,
   nearestZone,
   walkStepToward,
+  type LandmarkDef,
   WORLD_ISLANDS,
 } from './WorldLayout';
 import { attachWorldInput } from './WorldInput';
@@ -78,6 +88,10 @@ export interface WorldAppEvents {
   onArrive?(zone: ZoneId | null): void;
   /** A zone was passed THROUGH mid-walk — roaming counts as a visit. */
   onZonePass?(zone: ZoneId): void;
+  /** The child came close to a landmark — discovery or quest arrival. */
+  onLandmarkNear?(landmark: LandmarkDef): void;
+  /** A tap landed on a quest prop (flower / stone / gap). */
+  onPropTap?(propName: string): void;
   /** A tap tried to enter a fog island — the shell whispers gently. */
   onLockedTap?(zone: ZoneId): void;
   /** Onboarding flyover begins/ends (the shell records the flag). */
@@ -326,6 +340,22 @@ export interface WorldApp {
   life(): CreatureCounts;
   /** How many path lanterns are currently lit (bridge). */
   lanterns(): number;
+  /** Show/hide discovery beacons for found landmarks. */
+  setFoundLandmarks(ids: ReadonlyArray<string>): void;
+  /** The wayfinding quest's target beacon (or none). */
+  setQuestTarget(id: string | null): void;
+  /** Show/clear the quest props (flowers / pattern stones). */
+  setQuestProps(spec: QuestPropsSpec | null): void;
+  /** A counting flower was tapped-picked (visual fold). */
+  pickQuestFlower(index: number): void;
+  /** The pattern gap was filled (visual spring-in). */
+  fillQuestGap(color: 'gold' | 'rose' | 'teal'): void;
+  /** Canvas-fraction spots of landmarks (DOM plates + e2e). */
+  landmarkScreens(): LandmarkScreenSpot[];
+  /** Canvas-fraction spots of live quest props (e2e taps). */
+  propScreens(): QuestPropSpot[];
+  /** Project any world point to canvas fractions (bridge helper). */
+  screenOf(x: number, z: number): { x: number; y: number; on: boolean };
   /** Lenny's bubble anchor on the canvas (0..1 fractions). */
   lennyScreen(): { x: number; y: number; on: boolean };
   /** 'onboarding' until the flyover finishes (or is skipped). */
@@ -339,6 +369,8 @@ export interface WorldApp {
 export interface WorldAppOptions {
   /** First visit: the 6s skippable flyover (ETHICS: the child is always in control). */
   onboard?: boolean;
+  /** Landmark ids already discovered (their beacons start hidden). */
+  found?: ReadonlyArray<string>;
 }
 
 export async function createWorldApp(
@@ -366,6 +398,11 @@ export async function createWorldApp(
   const lanterns: LanternHandle = buildLanterns(scene);
   lanterns.setLit(lanternsFor(data.lights || 0), false);
 
+  /* the places beyond the path + the quest props that live there */
+  const landmarks: LandmarksHandle = buildLandmarks(scene);
+  landmarks.setFound(new Set(options.found ?? []));
+  const questProps = buildQuestProps(scene);
+
   const creatures: CreaturesHandle = buildCreatures(scene);
   creatures.setPhase(phase);
 
@@ -390,8 +427,19 @@ export async function createWorldApp(
   };
   applyPalette(palette);
 
-  const glow = new GlowLayer('world-glow', scene, { mainTextureSamples: 1, blurKernelSize: 24 });
-  glow.intensity = 0.55;
+  /* glow is DECORATION: created only when the device proves fast, disposed
+     when it stops being true (the same stewardship as the shadows — a
+     slow device gets its framerate, not its halos) */
+  let glow: GlowLayer | null = null;
+  const makeGlow = (): void => {
+    try {
+      glow = new GlowLayer('world-glow', scene, { mainTextureSamples: 1, blurKernelSize: 16 });
+      glow.intensity = 0.55;
+      for (const m of landmarks.glowExclusions()) glow.addExcludedMesh(m);
+    } catch {
+      glow = null; /* decoration, never load-bearing */
+    }
+  };
 
   /* shadows: ONLY Lenny + the island under her feet, low blur, and
      only when the device is genuinely fast (governor-gated — a slow
@@ -401,6 +449,14 @@ export async function createWorldApp(
   const shadowProbe = window.setInterval(() => {
     if (disposed || paused) return;
     const fps = governor.fps(performance.now());
+    /* glow follows the same budget as the shadows: >40 earns it,
+       <30 takes it back — with hysteresis so it never flaps */
+    if (glow === null && fps > 40) {
+      makeGlow();
+    } else if (glow !== null && fps < 30) {
+      glow.dispose();
+      glow = null;
+    }
     if (shadows === null && fps > 40) {
       try {
         shadows = new ShadowGenerator(512, sun);
@@ -510,6 +566,8 @@ export async function createWorldApp(
   let near: ZoneId | null = null;
 
   const NEAR_DIST = 1.35;
+  const NEAR_LANDMARK_DIST = 0.55; /* rim standing counts as "at the place" */
+  let nearLandmark: string | null = null;
   let lastMusicIntensity = -1;
   const prevPresence = { x: presencePos.x, z: presencePos.z };
   const vel = { x: 0, z: 0 };
@@ -601,6 +659,36 @@ export async function createWorldApp(
     }
 
     creatures.update(t, dt);
+    landmarks.update(t, dt);
+    questProps.update(t, now);
+
+    /* landmark proximity — the wandering child discovers the garden */
+    const nl = nearestLandmark(presencePos.x, presencePos.z, NEAR_LANDMARK_DIST);
+    const landmarkId = nl ? nl.landmark.id : null;
+    if (landmarkId !== nearLandmark) {
+      nearLandmark = landmarkId;
+      if (nl) {
+        try {
+          events.onLandmarkNear?.(nl.landmark);
+        } catch {
+          /* discovery handlers never crash the garden */
+        }
+      }
+    }
+
+    /* landmark keep-out: the child slides along the rim, never through
+       a pond or a windmill (the walk is a straight line; this bends it) */
+    const inside = isInsideLandmark(presencePos.x, presencePos.z);
+    if (inside) {
+      const rim = landmarkRimPoint(inside, presencePos.x, presencePos.z);
+      presencePos.x = rim.x;
+      presencePos.z = rim.z;
+      /* the rim is where the child stands — the errand is done */
+      if (walkTarget) {
+        walkTarget = null;
+        destMat.alpha = 0;
+      }
+    }
 
     /* Lenny rides the presence: velocity for the lean */
     vel.x = dt > 0 ? (presencePos.x - prevPresence.x) / dt : 0;
@@ -663,6 +751,13 @@ export async function createWorldApp(
         destRing.position.set(resolved.x, ringY, resolved.z);
         destMat.alpha = 0.75;
       },
+      onPropTap: (propName) => {
+        try {
+          events.onPropTap?.(propName);
+        } catch {
+          /* a prop tap never crashes the garden */
+        }
+      },
       onLockedTap: (zone) => {
         try {
           events.onLockedTap?.(zone);
@@ -675,6 +770,19 @@ export async function createWorldApp(
     },
   );
 
+  function projectToCanvas(p: Vector3): { x: number; y: number; on: boolean } {
+    const w = engine.getRenderWidth();
+    const hgt = engine.getRenderHeight();
+    const vf = camera.viewport.toGlobal(w, hgt);
+    const q = Vector3.Project(p, Matrix.Identity(), scene.getTransformMatrix(), vf);
+    const on = q.z >= 0 && q.z <= 1 && q.x >= -80 && q.y >= -80 && q.x <= w + 80;
+    return {
+      x: Math.max(0, Math.min(1, q.x / w)),
+      y: Math.max(0, Math.min(1, q.y / hgt)),
+      on,
+    };
+  }
+
   return {
     fps: () => governor.fps(performance.now()),
     rendererKind: () => kind,
@@ -684,17 +792,33 @@ export async function createWorldApp(
     skyPhase: () => phase,
     life: () => creatures.counts(),
     lanterns: () => lanterns.lit(),
-    worldPhase: () => (onboard.active() ? 'onboarding' : 'exploring'),
-    lennyScreen: () => {
-      const vf = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
-      const p = Vector3.Project(lenny.worldPos(), Matrix.Identity(), scene.getTransformMatrix(), vf);
-      const on = p.z >= 0 && p.z <= 1 && p.x >= -80 && p.y >= -80 && p.x <= engine.getRenderWidth() + 80;
-      return {
-        x: Math.max(0, Math.min(1, p.x / engine.getRenderWidth())),
-        y: Math.max(0, Math.min(1, p.y / engine.getRenderHeight())),
-        on,
-      };
+    setFoundLandmarks: (ids) => landmarks.setFound(new Set(ids)),
+    setQuestTarget: (id) => landmarks.setQuestTarget(id),
+    setQuestProps: (spec) => {
+      if (spec) {
+        /* props sit on the surface under the child — a platform top,
+           never sunk into it; and flowers bloom toward the camera */
+        const sy = isInsideIsland(presencePos.x, presencePos.z) ? islands.islandTopY() : 0;
+        if (spec.kind === 'counting') {
+          const cp = camera.globalPosition;
+          const fx = cp.x - presencePos.x;
+          const fz = cp.z - presencePos.z;
+          const fl = Math.hypot(fx, fz) || 1;
+          questProps.show({ ...spec, facing: { x: fx / fl, z: fz / fl }, surfaceY: sy });
+        } else {
+          questProps.show({ ...spec, surfaceY: sy });
+        }
+      } else {
+        questProps.show(null);
+      }
     },
+    pickQuestFlower: (index) => questProps.pickFlower(index),
+    fillQuestGap: (color) => questProps.fillGap(color),
+    landmarkScreens: () => landmarks.spots(projectToCanvas),
+    propScreens: () => questProps.spots(projectToCanvas),
+    screenOf: (x, z) => projectToCanvas(new Vector3(x, 0.15, z)),
+    worldPhase: () => (onboard.active() ? 'onboarding' : 'exploring'),
+    lennyScreen: () => projectToCanvas(lenny.worldPos()),
     refresh: (fresh: GardenData, grewZones?: ReadonlySet<string>) => {
       islands.refresh(fresh, grewZones);
       lanterns.setLit(lanternsFor(fresh.lights || 0), true);
@@ -720,12 +844,15 @@ export async function createWorldApp(
       window.clearInterval(dayInterval);
       window.clearInterval(shadowProbe);
       shadows?.dispose();
+      glow?.dispose();
       window.removeEventListener('resize', onResize);
       worldInput.detach();
       engine.stopRenderLoop();
       lenny.dispose();
       creatures.dispose();
       lanterns.dispose();
+      landmarks.dispose();
+      questProps.dispose();
       islands.dispose();
       ground.dispose();
       sky.dispose();
