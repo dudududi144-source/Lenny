@@ -124,13 +124,16 @@ function zonesCard(data: LensData): HTMLElement {
       ...ZONES.map((zone) => {
         const done = finishedCount(data.garden, zone.id);
         const stat = data.player.zones[zone.id];
+        const dda = data.ddaTiers[zone.id];
+        const rung = dda ? `דַּרְגָּה ${'אבגד'[dda - 1] ?? dda}` : '';
+        const tempo = [stat ? tempoFor(data, zone.id) : '', rung].filter(Boolean).join(' · ');
         return h(
           'div',
           { class: 'parent-zone-row' },
           h('span', { class: 'parent-zone-name' }, zone.name),
           bar(Math.min(1, done / 3), zone.uiColor),
           h('span', { class: 'parent-zone-count' }, `${done}`),
-          h('span', { class: 'parent-zone-tempo' }, stat ? tempoFor(data, zone.id) : ''),
+          h('span', { class: 'parent-zone-tempo' }, tempo),
         );
       }),
     ),
@@ -183,7 +186,7 @@ function skillsCard(data: LensData): HTMLElement {
   return h(
     'section',
     { class: 'parent-card', 'aria-label': 'מגדל המיומנויות' },
-    h('h3', { class: 'parent-card-title' }, 'מִגְדַּל הַמִּיָּמָחוֹת'),
+    h('h3', { class: 'parent-card-title' }, 'מִגְדַּל הַמְּיֻמָּנוּיוֹת'),
     h('div', { class: 'parent-skill-row' },
       bar(progress, 'linear-gradient(135deg,#ffd76a,#f2549a)'),
       h('span', { class: 'parent-zone-count' }, `${Math.round(progress * 100)}%`)),
@@ -191,6 +194,15 @@ function skillsCard(data: LensData): HTMLElement {
     h('p', { class: 'parent-line' }, 'כָּל מִיּוּמָן נִרְכָּשׁ בְּעַכְשֵׁו — הַמִּגְדָּל נִבְנֶה בַּקֶּצֶב שֶׁל הַיֶּלֶד.'),
   );
 }
+
+/* raw error-kind ids become warm Hebrew phrases (audit 9-d #9) */
+const ERROR_KIND_LABEL: Record<string, string> = {
+  'confused-bet-kaf': 'בּ/כּ מִתְבַּלְבְּלִים',
+  'confused-mem-samech': 'מ/ס מִתְבַּלְבְּלִים',
+  'confused-dalet-resh': 'ד/ר מִתְבַּלְבְּלִים',
+  'confused-similar-emotions': 'רְגָשׁוֹת דּוֹמוֹת',
+  'wrong-emotion': 'זִיהוּי רְגָשׁוֹת',
+};
 
 function signalsCard(data: LensData): HTMLElement {
   const s = data.summary;
@@ -201,7 +213,7 @@ function signalsCard(data: LensData): HTMLElement {
     h('h3', { class: 'parent-card-title' }, 'אוֹתוֹת הַלְּמִידָה'),
     h('p', { class: 'parent-line' }, `נִסְיוֹנוֹת: ${s.attempts} · הַצְלָחוֹת: ${s.correct} · עִזְרָה שֶׁנִּדְרְשָׁה: ${s.hints}`),
     errorKinds.length
-      ? h('p', { class: 'parent-line' }, `סוּגֵי טָעוּיָה נָפו֦צִים: ${errorKinds.map(([kind, count]) => `${kind} (${count})`).join(' · ')}`)
+      ? h('p', { class: 'parent-line' }, `סוּגֵי טָעוּיָה נָפו֦צִים: ${errorKinds.map(([kind, count]) => `${ERROR_KIND_LABEL[kind] ?? kind} (${count})`).join(' · ')}`)
       : h('p', { class: 'parent-line' }, 'עַדַּיִן אֵין טָעוּיּוֹת מִפְתַּח — הַכֹּל בִּקְצֶב שֶׁל הַיֶּלֶד.'),
   );
 }

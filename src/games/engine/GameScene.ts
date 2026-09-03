@@ -368,7 +368,9 @@ export abstract class GameScene {
     if (this.finished) return;
     this.finished = true;
     const stats: SessionStats = this.score.stats();
-    recordZoneFinish(this.ctx.zone, stats.secs);
+    /* the ceremony stars ARE the honest outcome: 1 star (sloppy session)
+       records a loss so the DDA can ease off and the lens can tell the truth */
+    recordZoneFinish(this.ctx.zone, stats.secs, stats.stars >= 2);
     /* Stage 6: per-game completion (feeds the shelf's tier locks) */
     if (this.ctx.spec) recordGameFinish(this.ctx.spec.id);
     /* the ceremony gets its own mood (crossfades in ~2s) */

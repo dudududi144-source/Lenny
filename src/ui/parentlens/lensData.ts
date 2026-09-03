@@ -12,6 +12,7 @@
 import { PlayerModel } from '../../games/core/PlayerModel';
 import { LearningSignals, type LearningEvent, type SessionSummary } from '../../games/core/LearningSignals';
 import { bloomLevel, finishedCount, type GardenData } from '../../games/core/ProgressStore';
+import { AdaptiveDifficulty } from '../../games/core/AdaptiveDifficulty';
 import { LITERACY_GRAPH, SkillGraph } from '../../games/core/SkillGraph';
 import { dayKeyFor, type WorldDiaryData } from '../../world/worldDiary';
 import { WorldDiary } from '../../world/worldDiary';
@@ -41,6 +42,8 @@ export interface LensData {
   interestZone: string | null;
   /** stage 8: the 3D garden through the parent's eyes (local diary) */
   world: WorldLens;
+  /** audit 9-d #7: the DDA finally visible to the parent — per-zone rung 1..4 */
+  ddaTiers: Record<string, number>;
   hasAnyData: boolean;
 }
 
@@ -56,6 +59,23 @@ export interface WorldLens {
 }
 
 /** Pure transform: the diary's day buckets → the parent's 7-day view. */
+/** The adaptive engine's own tier per zone (1-based; 1 = דַּרְגָּה א), read-only. */
+function buildDdaTiers(): Record<string, number> {
+  const tiers: Record<string, number> = {};
+  try {
+    const raw = localStorage.getItem('lenny-dda-v1');
+    if (!raw) return tiers;
+    const all = JSON.parse(raw) as Record<string, { rounds?: number }>;
+    for (const zone of ZONES) {
+      /* only zones with real play history — untouched zones stay quiet */
+      if ((all[zone.id]?.rounds ?? 0) > 0) tiers[zone.id] = new AdaptiveDifficulty(zone.id).tier() + 1;
+    }
+  } catch {
+    /* no data — no rungs */
+  }
+  return tiers;
+}
+
 export function worldLensFromDiary(diary: WorldDiaryData, nowMs: number = Date.now()): WorldLens {
   const cutoff = dayKeyFor(nowMs - 7 * 86_400_000);
   let ms = 0;
@@ -154,6 +174,7 @@ export function loadLensData(garden: GardenData): LensData {
     approxMinutes: Math.max(1, Math.round(approxSeconds / 60)),
     interestZone: playerModel.interest(),
     world,
+    ddaTiers: buildDdaTiers(),
     hasAnyData,
   };
 }

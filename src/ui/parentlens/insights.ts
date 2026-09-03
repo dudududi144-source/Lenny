@@ -111,6 +111,14 @@ export function buildInsights(data: LensData): Insight[] {
   return out;
 }
 
+/* audit 9-d #9: a skill id the graph doesn't carry still gets Hebrew */
+const SKILL_FALLBACK_LABEL: Record<string, string> = {
+  'memory.pairs': 'זִכְּרוֹן זוּגוֹת',
+  'letter.alef': 'הָאוֹת א',
+  'letter.bet': 'הָאוֹת ב',
+  'emotion.recognition': 'זִיהוּי רְגָשׁוֹת',
+};
+
 /* skills that crossed the mastery threshold inside the last 7 days
    (from the append-only signals stream — real timestamps only) */
 function recentMilestones(data: LensData): string[] {
@@ -121,7 +129,7 @@ function recentMilestones(data: LensData): string[] {
     if (e.kind !== 'mastery' || e.t < weekAgo) continue;
     if (seen.has(e.skill)) continue;
     seen.add(e.skill);
-    const label = data.graph.getNode(e.skill)?.label ?? e.skill;
+    const label = data.graph.getNode(e.skill)?.label ?? SKILL_FALLBACK_LABEL[e.skill] ?? e.skill;
     labels.push(label);
   }
   return labels;

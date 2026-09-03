@@ -102,6 +102,10 @@ export class FindLetterScene extends GameScene {
     const targetIdx = Math.floor(Math.random() * 6);
     const target = chosen[targetIdx];
     this.targetLetter = target;
+    /* audit 9-d #5: the letter is SPOKEN (audit mandate: language is the
+       weakest category) — pre-readers hear the target, not just see it.
+       Guarded: no WebSpeech / muted choice / missing voice = silent. */
+    this.speakLetter(target);
     const partner = this.CONFUSABLES[target];
     if (level >= 0.5 && partner && !chosen.includes(partner)) {
       const slot = chosen.findIndex((c, i) => i !== targetIdx);
@@ -155,7 +159,7 @@ export class FindLetterScene extends GameScene {
       this.signals.attempt(this.skillIdFor(this.targetLetter), true);
       this.wrongSinceLastFind = 0;
       this.lastHint = 'none';
-      this.score.hit(20, { x: spot.x, y: spot.y }, `א ${this.targetLetter}`);
+      this.score.hit(20, { x: spot.x, y: spot.y }, this.targetLetter);
       audio.play('chime', this.found % 4);
       this.sparkle(spot.x, spot.y);
       /* the letter FLIES to the bunny — the collection moment */
@@ -209,6 +213,23 @@ export class FindLetterScene extends GameScene {
       'ד': 'confused-dalet-resh', 'ר': 'confused-dalet-resh',
     };
     return confusables[tapped] ?? 'wrong-letter';
+  }
+
+  /** Speak the target letter in Hebrew — best effort, ETHICS §9 safe
+      (silent when the sound choice is off) and a no-op without TTS. */
+  private speakLetter(letter: string): void {
+    try {
+      if (audio.isMuted()) return;
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(letter);
+      u.lang = 'he-IL';
+      u.rate = 0.85;
+      synth.speak(u);
+    } catch {
+      /* no TTS in this environment — the visual hint stands alone */
+    }
   }
 
   private skillIdFor(letter: string): string {
