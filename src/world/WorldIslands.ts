@@ -74,18 +74,33 @@ function darken(c: Color3, k: number): Color3 {
 /* ---------- label + lock textures ---------- */
 
 function labelTexture(scene: Scene, text: string): DynamicTexture {
-  const w = 512;
-  const hgt = 128;
+  /* audit 9-b #4: niqqud marks were specks at 62px on 512px — bigger
+     canvas + bigger glyphs + a dark rounded plate give the vowel marks
+     the pixel room the mission depends on. */
+  const w = 768;
+  const hgt = 192;
   const tex = new DynamicTexture(`label-${text}`, { width: w, height: hgt }, scene, true);
   const draw = (): void => {
     const ctx = tex.getContext() as CanvasRenderingContext2D;
     ctx.clearRect(0, 0, w, hgt);
-    ctx.font = '700 62px Heebo, "Segoe UI", Arial, sans-serif';
+    /* rounded dark plate — the label separates from any sky/grass */
+    const pw = Math.min(w - 24, w / 2 + ctx.measureText(text).width / 2 + 48);
+    ctx.fillStyle = 'rgba(16, 32, 20, 0.62)';
+    ctx.beginPath();
+    const r = 36, px = (w - pw) / 2, py = 16, ph = hgt - 32;
+    ctx.moveTo(px + r, py);
+    ctx.arcTo(px + pw, py, px + pw, py + ph, r);
+    ctx.arcTo(px + pw, py + ph, px, py + ph, r);
+    ctx.arcTo(px, py + ph, px, py, r);
+    ctx.arcTo(px, py, px + pw, py, r);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = '700 84px Heebo, "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.direction = 'rtl';
-    ctx.lineWidth = 10;
-    ctx.strokeStyle = 'rgba(20,40,24,0.85)';
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = 'rgba(20,40,24,0.9)';
     ctx.strokeText(text, w / 2, hgt / 2 + 4);
     ctx.fillStyle = '#fffdf4';
     ctx.fillText(text, w / 2, hgt / 2 + 4);

@@ -217,6 +217,23 @@ body {
 
 /* ---------- Hero ---------- */
 
+/* audit 9-b #1: on short viewports the hero's CTA got clipped (start
+   button 9px off-screen, header buttons halved). Compact the vertical
+   rhythm AND let the hero scroll as a last-resort safety net. */
+@media (max-height: 640px) {
+  .hero-center { gap: clamp(8px, 1.6vh, 14px); margin-block-start: 4px; }
+  .lenny-figure { width: clamp(120px, 24vmin, 170px); }
+  .hero-title { font-size: clamp(2.6rem, 12vmin, 4.2rem); }
+  .topbar { padding-block-start: var(--space-2); }
+}
+
+/* audit 9-b #2: stop the phone-column tunnel vision on real screens —
+   the 9:16 cap made 74% of a desktop a purple desert. Mobile keeps the
+   exact current layout (the e2e viewport never hits this query). */
+@media (min-width: 900px) {
+  .frame { max-width: min(94vw, 780px); }
+}
+
 .screen--hero {
   align-items: stretch;
   justify-content: space-between;
@@ -316,8 +333,11 @@ body {
   transition: border-color var(--dur-med) ease, box-shadow var(--dur-med) ease;
 }
 
+/* audit 9-b #5: the first Hebrew word a child meets must be legible —
+   niqqud marks vanished at 45% alpha over the gold gradient */
 .name-input::placeholder {
-  color: rgba(255, 246, 236, 0.45);
+  color: rgba(255, 246, 236, 0.85);
+  opacity: 1;
 }
 
 .name-input:focus-visible {
