@@ -28,9 +28,9 @@ describe('WorldLayout', () => {
   it('starts the journey near the center and ends at the calm far end', () => {
     const islands = layoutIslands();
     expect(islands[0].zone).toBe('light-path');
-    expect(islands[0].dist).toBeLessThan(5);
+    expect(islands[0].dist).toBeLessThan(12);
     expect(islands[9].zone).toBe('breath-pool');
-    expect(islands[9].dist).toBeGreaterThan(10);
+    expect(islands[9].dist).toBeGreaterThan(40);
   });
 
   it('keeps every island fully inside the walkable world', () => {
@@ -83,7 +83,7 @@ describe('WorldLayout', () => {
     const inside = clampToWalkArea(3, 4);
     expect(inside.x).toBe(3);
     expect(inside.z).toBe(4);
-    const outside = clampToWalkArea(30, 40);
+    const outside = clampToWalkArea(51, 51);
     expect(Math.hypot(outside.x, outside.z)).toBeCloseTo(WORLD_WALK_RADIUS, 6);
   });
 

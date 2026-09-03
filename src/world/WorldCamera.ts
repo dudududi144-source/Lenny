@@ -21,14 +21,14 @@ import type { Scene } from '@babylonjs/core/scene';
 export const CHILD_CAMERA = {
   betaMin: 0.15,
   betaMax: 1.25,
-  radiusMin: 6,
-  radiusMax: 18,
+  radiusMin: 3.4,
+  radiusMax: 26,
   inertia: 0.92,
   /** default angular sensibility 1000 → slower = bigger value */
   angularSensibility: Math.round(1000 / 0.6),
   startAlpha: -Math.PI / 2,
   startBeta: 1.02,
-  startRadius: 12.5,
+  startRadius: 14,
 } as const;
 
 export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamera {
@@ -93,7 +93,7 @@ export function flyoverPose(k: number, homeX: number, homeZ: number): CameraPose
   return {
     alpha: -Math.PI / 2 - (1 - t) * 2.1,
     beta: 0.62 + (CHILD_CAMERA.startBeta - 0.62) * t,
-    radius: 17.5 + (CHILD_CAMERA.startRadius - 17.5) * t,
+    radius: 21 + (CHILD_CAMERA.startRadius - 21) * t,
     tx: homeX * t,
     tz: homeZ * t,
   };

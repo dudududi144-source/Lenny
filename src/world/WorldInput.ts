@@ -38,6 +38,15 @@ export interface WorldInputHandle {
       The keyboard is the desktop child's legs — same walk rules,
       same clamps, same invariants as a tap (round C a11y). */
   keyboardStep(): { x: number; z: number } | null;
+  /** The combined direct-control vector (joystick first, keyboard
+      second): x = right(+), z = FORWARD(+) — camera-relative in the
+      world, normalized. Null = no direct input this frame (stage 11:
+      the child walks the garden like a platformer hero, not a map). */
+  moveVector(): { x: number; z: number } | null;
+  /** The shell feeds the touch joystick here (x right, z forward). */
+  setJoystickVector(x: number, z: number): void;
+  /** True once per jump request (space / button), cleared on read. */
+  consumeJump(): boolean;
   /** The shell turns keyboard walking off while the shelf is open. */
   setKeyboardEnabled(on: boolean): void;
 }
@@ -74,7 +83,18 @@ export function attachWorldInput(
     'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
     'w', 'a', 's', 'd', 'W', 'A', 'S', 'D',
   ];
+  const JUMP_KEYS = [' ', 'Spacebar'];
+  let jumpQueued = false;
+  let joyX = 0;
+  let joyZ = 0;
   const onKeyDown = (ev: KeyboardEvent): void => {
+    if (JUMP_KEYS.includes(ev.key)) {
+      if (!events.isOnboarding() && keyboardEnabled) {
+        ev.preventDefault(); /* space never scrolls the garden away */
+        jumpQueued = true;
+      }
+      return;
+    }
     if (!WALK_KEYS.includes(ev.key)) return;
     if (events.isOnboarding()) return; /* the tour owns the camera */
     ev.preventDefault(); /* arrows never scroll the garden away */
@@ -160,7 +180,7 @@ export function attachWorldInput(
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerCancel);
 
-  return {
+  const handle: WorldInputHandle = {
     detach(): void {
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
@@ -182,9 +202,37 @@ export function attachWorldInput(
       const len = Math.hypot(x, z);
       return { x: x / len, z: z / len };
     },
+    moveVector(): { x: number; z: number } | null {
+      if (!keyboardEnabled) return null;
+      /* the joystick speaks first — a thumb on the stick is the will */
+      if (joyX !== 0 || joyZ !== 0) {
+        const len = Math.hypot(joyX, joyZ);
+        if (len > 0.12) return { x: joyX / len, z: joyZ / len };
+      }
+      const kb = heldKeys.size === 0 ? null : handle.keyboardStep();
+      if (!kb) return null;
+      /* keyboard z is screen-up(-z) — the move contract is forward(+z) */
+      return { x: kb.x, z: -kb.z };
+    },
+    setJoystickVector(x: number, z: number): void {
+      joyX = Math.max(-1, Math.min(1, x));
+      joyZ = Math.max(-1, Math.min(1, z));
+    },
+    consumeJump(): boolean {
+      if (!jumpQueued) return false;
+      jumpQueued = false;
+      return true;
+    },
     setKeyboardEnabled(on: boolean): void {
       keyboardEnabled = on;
-      if (!on) heldKeys.clear();
+      if (!on) {
+        heldKeys.clear();
+        jumpQueued = false;
+        joyX = 0;
+        joyZ = 0;
+      }
     },
   };
+
+  return handle;
 }

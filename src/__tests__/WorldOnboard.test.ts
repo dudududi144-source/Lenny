@@ -42,7 +42,7 @@ function fakeCamera(): { camera: OnboardCamera; targets: () => number; attaches:
 describe('onboardTick — pure tour math', () => {
   it('starts far, high and swept aside, not done', () => {
     const { pose, done } = onboardTick(initialOnboardState(1000), 1000, PLAY);
-    expect(pose.radius).toBeGreaterThan(16);
+    expect(pose.radius).toBeGreaterThan(19);
     expect(pose.tx).toBeCloseTo(0, 6);
     expect(pose.tz).toBeCloseTo(0, 6);
     expect(done).toBe(false);
@@ -64,7 +64,7 @@ describe('onboardTick — pure tour math', () => {
       const { pose } = onboardTick(state, (i / 30) * FLYOVER_MS, PLAY);
       expect(pose.beta).toBeGreaterThanOrEqual(CHILD_CAMERA.betaMin);
       expect(pose.beta).toBeLessThanOrEqual(1.02);
-      expect(pose.radius).toBeLessThanOrEqual(17.5);
+      expect(pose.radius).toBeLessThanOrEqual(21);
       expect(Math.hypot(pose.tx, pose.tz)).toBeLessThanOrEqual(Math.hypot(PLAY.tx, PLAY.tz) + 0.001);
     }
   });
@@ -79,7 +79,7 @@ describe('onboardTick — pure tour math', () => {
     expect(mid.done).toBe(false);
     /* still between the captured pose and the play pose */
     expect(mid.pose.radius).toBeGreaterThan(PLAY.radius);
-    expect(mid.pose.radius).toBeLessThan(17.5);
+    expect(mid.pose.radius).toBeLessThan(21);
     const settled = onboardTick(state, 2000 + FLYOVER_SETTLE_MS, PLAY);
     expect(settled.done).toBe(true);
     expect(settled.pose.alpha).toBeCloseTo(PLAY.alpha, 6);

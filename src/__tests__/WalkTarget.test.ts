@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  WANDER_RADIUS,
   WORLD_ISLANDS,
-  WORLD_WALK_RADIUS,
   islandCenter,
   isInsideIsland,
   resolveWalkTarget,
@@ -45,9 +45,11 @@ describe('resolveWalkTarget — fog islands repel gently', () => {
     expect(r.blocked).toBe(false);
   });
 
-  it('never resolves beyond the walkable world', () => {
+  it('never resolves beyond the wanderable world (the meadow is open, the edge is not)', () => {
     const r = resolveWalkTarget(60, 60, locked);
-    expect(Math.hypot(r.x, r.z)).toBeCloseTo(WORLD_WALK_RADIUS, 6);
+    expect(Math.hypot(r.x, r.z)).toBeLessThanOrEqual(WANDER_RADIUS);
+    const far = resolveWalkTarget(400, 0, locked);
+    expect(Math.hypot(far.x, far.z)).toBeCloseTo(WANDER_RADIUS, 6);
   });
 });
 

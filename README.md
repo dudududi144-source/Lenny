@@ -44,12 +44,23 @@ exact ledger — no inflated claims, no hidden shrinkage.
   scenes + a coming-soon guard) mounted by `src/ui/components/GameHost.ts`;
   spec-driven content (`src/games/builder/`, `src/content/`); cognitive
   core (`src/games/core/` — DDA, progress, signals, skill graph).
-- **3D world** (`src/world/`): Babylon.js garden on a LAZY chunk —
-  golden-angle island spiral, tap-to-walk presence, hour skies, bloom
-  fields, Lenny the companion, fps governor, and a silent fallback chain
-  (WebGPU → WebGL2 → classic garden). Desktop children walk with the
-  keyboard too (arrows/WASD through the same clamps as a tap), and a
-  reduced-motion preference skips the flyover. Details in docs/ARCHITECTURE.md.
+- **3D world** (`src/world/`): Babylon.js garden on a LAZY chunk — and
+  since stage 11, a real journey: you ARE a little fox who walks, turns
+  and jumps (third-person camera, keyboard/joystick/tap-to-walk, jump on
+  space or the thumb button). The curated garden ring is ~×10 larger —
+  ten zone islands along a golden-angle spiral, joined by a plank
+  boardwalk that follows the road, with five Hebrew signposts ("עוד ~N
+  צעדים"), glowing waystones, and a game cottage standing on every
+  island. SIXTEEN named landmarks (windmill, rainbow gate, giant
+  sunflower, crystal cave, campfire, swing…) and four named friends
+  greet you along the way. Beyond the ring rolls the ENDLESS MEADOW —
+  deterministic seeded chunks (flowers, trees, benches, ponds, standing
+  stones) streamed in and out to a wander radius of 168 units, dotted
+  with golden sparkles the walk gathers into an honest local ledger. A
+  wayfinding compass points to the next open zone; hour skies, bloom
+  fields, Lenny the star companion, fps governor, and the silent
+  fallback chain (WebGPU → WebGL2 → classic garden) all stay. Details in
+  docs/ARCHITECTURE.md.
 - **Sound** (`src/audio/`): fully synthesized music engine — silent by
   default (ETHICS §9); sound on is an explicit, remembered choice.
 - **ParentLens** (`src/ui/parentlens/`): a read-only dashboard over the
