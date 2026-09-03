@@ -1,5 +1,6 @@
 import lennySvg from '../assets/lenny-star.svg?raw';
 import { uiButton } from './common/Button';
+import { createSoundToggle } from './SoundToggle';
 import { h } from './common/el';
 
 export interface HeroCallbacks {
@@ -70,7 +71,7 @@ export function createHero(callbacks: HeroCallbacks): HeroHandle {
     h(
       'header',
       { class: 'topbar' },
-      h('div', { class: 'topbar-side' }, badge),
+      h('div', { class: 'topbar-side' }, badge, createSoundToggle('hero-sound-toggle')),
       parentBtn,
     ),
     h(

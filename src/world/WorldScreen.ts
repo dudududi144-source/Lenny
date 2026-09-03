@@ -21,6 +21,7 @@ import { music } from '../audio/MusicEngine';
 import { createGameShelf, type GameShelfHandle } from '../ui/components/GameShelf';
 import { h } from '../ui/components/common/el';
 import { uiButton } from '../ui/components/common/Button';
+import { createSoundToggle } from '../ui/components/SoundToggle';
 import type { WorldApp } from './WorldApp';
 
 export interface WorldScreenCallbacks {
@@ -163,7 +164,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         h('h2', { class: 'world-title' }, 'הַגַּן שֶׁל לֶנִי'),
         h('p', { class: 'world-sub' }, 'בּוֹא נְהַלֵּךְ בַּגַּן'),
       ),
-      h('div', { class: 'world-head-side' }, lightChip, back),
+      h('div', { class: 'world-head-side' }, lightChip, createSoundToggle('world-sound-toggle'), back),
     ),
     h(
       'footer',

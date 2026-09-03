@@ -1268,3 +1268,19 @@ body {
   font-weight: 700;
   color: var(--color-glow);
 }
+
+/* sound choice toggle (hero + world) — ETHICS §9: silence by default */
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1.05rem;
+  color: #ffd76a;
+  background: rgba(255, 215, 106, 0.12);
+  border: 1px solid rgba(255, 215, 106, 0.42);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+}

@@ -35,9 +35,12 @@ export class AudioEngine {
 
   constructor() {
     try {
-      this.muted = localStorage.getItem('lenny-muted') === '1';
+      /* ETHICS §9: אין אודיו כברירת מחדל — the app is SILENT unless sound
+         was explicitly turned on (lenny-muted='0' is an explicit choice,
+         remembered on-device). Absence of the key = silence. */
+      this.muted = localStorage.getItem('lenny-muted') !== '0';
     } catch {
-      /* private mode: default unmuted */
+      /* private mode: default silent */
     }
   }
 
