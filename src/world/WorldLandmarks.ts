@@ -107,9 +107,15 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
     return m;
   };
 
-  /* ---------- the eight builds (each a few primitives) ---------- */
+  /* ---------- the builds (each a few primitives) ---------- */
 
   let windmillBlades: TransformNode | null = null;
+  /* stage 11 animated parts (kept out of the merged mesh, like the
+     windmill blades): the swing's seat, the balloon, the campfire */
+  let swingSeat: TransformNode | null = null;
+  let balloonNode: TransformNode | null = null;
+  let balloonTop: Mesh | null = null;
+  let campfireFlame: TransformNode | null = null;
 
   for (const l of LANDMARKS) {
     group = [];
@@ -229,6 +235,190 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
         head.material = stoneMat;
         break;
       }
+      case 'orchard': {
+        /* three fruit trees in a row, red fruit catching the eye */
+        for (let i = 0; i < 3; i++) {
+          const tx = l.x - 0.9 + i * 0.9;
+          const tz = l.z + (i % 2 === 0 ? 0.35 : -0.3);
+          const trunk = mesh(`landmark-${l.id}-trunk${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-trunk${i}`, { diameterTop: 0.12, diameterBottom: 0.2, height: 1.0, tessellation: 6 }, scene));
+          trunk.position.set(tx, 0.5, tz);
+          trunk.material = barkMat;
+          const crown = mesh(`landmark-${l.id}-cr${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-cr${i}`, { diameter: 0.95, segments: 7 }, scene));
+          crown.position.set(tx, 1.25, tz);
+          crown.material = leafMat;
+          for (let f = 0; f < 3; f++) {
+            const fruit = mesh(`landmark-${l.id}-f${i}-${f}`, MeshBuilder.CreateSphere(`landmark-${l.id}-f${i}-${f}`, { diameter: 0.14, segments: 6 }, scene));
+            const fa = (f / 3) * Math.PI * 2 + i;
+            fruit.position.set(tx + Math.cos(fa) * 0.42, 1.2 + Math.sin(fa * 2) * 0.2, tz + Math.sin(fa) * 0.42);
+            fruit.material = roseMat;
+          }
+        }
+        break;
+      }
+      case 'hollow-log': {
+        /* a lying log with a dark mouth — who lives inside? */
+        const log = mesh(`landmark-${l.id}-log`, MeshBuilder.CreateCylinder(`landmark-${l.id}-log`, { diameter: 0.6, height: 2.0, tessellation: 10 }, scene));
+        log.rotation.z = Math.PI / 2;
+        log.rotation.y = 0.5;
+        log.position.set(l.x, 0.3, l.z);
+        log.material = barkMat;
+        const mouth = mesh(`landmark-${l.id}-mouth`, MeshBuilder.CreateDisc(`landmark-${l.id}-mouth`, { radius: 0.24, tessellation: 12 }, scene));
+        mouth.position.set(l.x + Math.cos(0.5) * 0.98, 0.32, l.z - Math.sin(0.5) * 0.98);
+        mouth.rotation.y = -0.5;
+        mouth.material = stoneMat;
+        break;
+      }
+      case 'swing': {
+        /* an A-frame with a seat that actually swings */
+        const postL = mesh(`landmark-${l.id}-pl`, MeshBuilder.CreateCylinder(`landmark-${l.id}-pl`, { diameter: 0.09, height: 1.7, tessellation: 6 }, scene));
+        postL.position.set(l.x - 0.55, 0.85, l.z);
+        postL.rotation.z = 0.28;
+        postL.material = barkMat;
+        const postR = postL.clone(`landmark-${l.id}-pr`);
+        postR.position.x = l.x + 0.55;
+        postR.rotation.z = -0.28;
+        postR.material = barkMat;
+        postR.isPickable = false;
+        allMeshes.push(postR);
+        const beam = mesh(`landmark-${l.id}-beam`, MeshBuilder.CreateBox(`landmark-${l.id}-beam`, { width: 1.6, height: 0.09, depth: 0.09 }, scene));
+        beam.position.set(l.x, 1.62, l.z);
+        beam.material = barkMat;
+        swingSeat = new TransformNode(`landmark-${l.id}-seat`, scene);
+        swingSeat.position.set(l.x, 1.6, l.z);
+        swingSeat.parent = root;
+        const ropeL = MeshBuilder.CreateCylinder(`landmark-${l.id}-rl`, { diameter: 0.03, height: 0.8, tessellation: 5 }, scene);
+        ropeL.position.set(-0.3, -0.4, 0);
+        ropeL.material = barkMat;
+        ropeL.isPickable = false;
+        ropeL.parent = swingSeat;
+        allMeshes.push(ropeL);
+        const ropeR = ropeL.clone(`landmark-${l.id}-rr`);
+        ropeR.position.x = 0.3;
+        ropeR.parent = swingSeat;
+        allMeshes.push(ropeR);
+        const seat = MeshBuilder.CreateBox(`landmark-${l.id}-seat`, { width: 0.72, height: 0.07, depth: 0.3 }, scene);
+        seat.position.set(0, -0.82, 0);
+        seat.material = barkMat;
+        seat.isPickable = false;
+        seat.parent = swingSeat;
+        allMeshes.push(seat);
+        break;
+      }
+      case 'well': {
+        const ringWall = mesh(`landmark-${l.id}-wall`, MeshBuilder.CreateCylinder(`landmark-${l.id}-wall`, { diameter: 0.9, height: 0.5, tessellation: 12 }, scene));
+        ringWall.position.set(l.x, 0.25, l.z);
+        ringWall.material = stoneMat;
+        const water = mesh(`landmark-${l.id}-water`, MeshBuilder.CreateDisc(`landmark-${l.id}-water`, { radius: 0.36, tessellation: 14 }, scene));
+        water.rotation.x = Math.PI / 2;
+        water.position.set(l.x, 0.42, l.z);
+        water.material = waterMat;
+        const postA = mesh(`landmark-${l.id}-pa`, MeshBuilder.CreateBox(`landmark-${l.id}-pa`, { width: 0.08, height: 0.85, depth: 0.08 }, scene));
+        postA.position.set(l.x - 0.4, 0.85, l.z);
+        postA.material = barkMat;
+        const postB = postA.clone(`landmark-${l.id}-pb`);
+        postB.position.x = l.x + 0.4;
+        postB.material = barkMat;
+        postB.isPickable = false;
+        allMeshes.push(postB);
+        const roofTop = mesh(`landmark-${l.id}-roof`, MeshBuilder.CreateCylinder(`landmark-${l.id}-roof`, { diameterTop: 0.02, diameterBottom: 1.05, height: 0.35, tessellation: 4 }, scene));
+        roofTop.position.set(l.x, 1.42, l.z);
+        roofTop.rotation.y = Math.PI / 4;
+        roofTop.material = roseMat;
+        break;
+      }
+      case 'balloon': {
+        /* a great striped balloon straining at its tether */
+        balloonNode = new TransformNode(`landmark-${l.id}-node`, scene);
+        balloonNode.position.set(l.x, 0, l.z);
+        balloonNode.parent = root;
+        balloonTop = MeshBuilder.CreateSphere(`landmark-${l.id}-ball`, { diameter: 1.5, segments: 10 }, scene);
+        balloonTop.scaling.y = 1.15;
+        balloonTop.material = roseMat;
+        balloonTop.isPickable = false;
+        balloonTop.parent = balloonNode;
+        balloonTop.position.y = 3.4;
+        allMeshes.push(balloonTop);
+        const band = MeshBuilder.CreateTorus(`landmark-${l.id}-band`, { diameter: 1.28, thickness: 0.09, tessellation: 18 }, scene);
+        band.scaling.y = 3.6;
+        band.position.y = 3.4;
+        band.material = goldMat;
+        band.isPickable = false;
+        band.parent = balloonNode;
+        allMeshes.push(band);
+        const basket = MeshBuilder.CreateBox(`landmark-${l.id}-basket`, { width: 0.3, height: 0.22, depth: 0.3 }, scene);
+        basket.position.y = 2.45;
+        basket.material = barkMat;
+        basket.isPickable = false;
+        basket.parent = balloonNode;
+        allMeshes.push(basket);
+        const tether = MeshBuilder.CreateCylinder(`landmark-${l.id}-tether`, { diameter: 0.02, height: 2.4, tessellation: 5 }, scene);
+        tether.position.y = 1.2;
+        tether.material = barkMat;
+        tether.isPickable = false;
+        tether.parent = balloonNode;
+        allMeshes.push(tether);
+        break;
+      }
+      case 'sunflower': {
+        const stem = mesh(`landmark-${l.id}-stem`, MeshBuilder.CreateCylinder(`landmark-${l.id}-stem`, { diameterTop: 0.07, diameterBottom: 0.12, height: 1.6, tessellation: 7 }, scene));
+        stem.position.set(l.x, 0.8, l.z);
+        stem.material = leafMat;
+        const leafA = mesh(`landmark-${l.id}-la`, MeshBuilder.CreateSphere(`landmark-${l.id}-la`, { diameter: 0.3, segments: 6 }, scene));
+        leafA.scaling.set(1.4, 0.4, 0.7);
+        leafA.position.set(l.x - 0.22, 0.85, l.z);
+        leafA.material = leafMat;
+        const leafB = leafA.clone(`landmark-${l.id}-lb`);
+        leafB.position.set(l.x + 0.22, 1.15, l.z);
+        leafB.material = leafMat;
+        leafB.isPickable = false;
+        allMeshes.push(leafB);
+        const head = mesh(`landmark-${l.id}-head`, MeshBuilder.CreateDisc(`landmark-${l.id}-head`, { radius: 0.55, tessellation: 18 }, scene));
+        head.rotation.x = -0.35;
+        head.position.set(l.x, 1.75, l.z);
+        head.material = goldMat;
+        const core = mesh(`landmark-${l.id}-core`, MeshBuilder.CreateSphere(`landmark-${l.id}-core`, { diameter: 0.34, segments: 8 }, scene));
+        core.position.set(l.x, 1.78, l.z + 0.04);
+        core.material = barkMat;
+        break;
+      }
+      case 'crystal-cave': {
+        /* a rocky mouth with teal crystals glinting inside */
+        const mound = mesh(`landmark-${l.id}-mound`, MeshBuilder.CreateSphere(`landmark-${l.id}-mound`, { diameter: 2.2, segments: 8, slice: 0.62 }, scene));
+        mound.position.set(l.x, -0.25, l.z);
+        mound.material = stoneMat;
+        for (let i = 0; i < 5; i++) {
+          const ang = -1.1 + i * 0.55;
+          const cr = mesh(`landmark-${l.id}-cr${i}`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-cr${i}`, { type: 1, size: 0.14 + (i % 2) * 0.07 }, scene));
+          cr.position.set(l.x + Math.cos(ang) * 0.55, 0.18 + (i % 3) * 0.12, l.z - 0.45 + Math.sin(ang) * 0.2);
+          cr.rotation.x = 0.4;
+          cr.material = tealMat;
+        }
+        break;
+      }
+      case 'campfire': {
+        /* a ring of stones and a living flame */
+        for (let i = 0; i < 7; i++) {
+          const ang = (i / 7) * Math.PI * 2;
+          const st = mesh(`landmark-${l.id}-st${i}`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-st${i}`, { radius: 0.14, subdivisions: 1 }, scene));
+          st.position.set(l.x + Math.cos(ang) * 0.55, 0.08, l.z + Math.sin(ang) * 0.55);
+          st.material = stoneMat;
+        }
+        const logs = mesh(`landmark-${l.id}-logs`, MeshBuilder.CreateCylinder(`landmark-${l.id}-logs`, { diameter: 0.16, height: 0.7, tessellation: 6 }, scene));
+        logs.rotation.z = Math.PI / 2.3;
+        logs.rotation.y = 0.6;
+        logs.position.set(l.x, 0.1, l.z);
+        logs.material = barkMat;
+        campfireFlame = new TransformNode(`landmark-${l.id}-flame`, scene);
+        campfireFlame.position.set(l.x, 0.2, l.z);
+        campfireFlame.parent = root;
+        const flame = MeshBuilder.CreateCylinder(`landmark-${l.id}-fl`, { diameterTop: 0.01, diameterBottom: 0.22, height: 0.5, tessellation: 7 }, scene);
+        flame.position.y = 0.25;
+        flame.material = goldMat;
+        flame.isPickable = false;
+        flame.parent = campfireFlame;
+        allMeshes.push(flame);
+        break;
+      }
     }
 
     /* merge the place's static parts into ONE mesh (multi-material keeps
@@ -290,6 +480,18 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
     },
     update(t: number, dt: number): void {
       if (windmillBlades) windmillBlades.rotation.y += dt * 0.55;
+      /* stage 11: the swing swings, the balloon strains upward, the
+         campfire breathes — small living motions, transform-only */
+      if (swingSeat) swingSeat.rotation.x = Math.sin(t * 1.3) * 0.28;
+      if (balloonNode && balloonTop) {
+        balloonNode.position.y = Math.sin(t * 0.7) * 0.18;
+        balloonTop.rotation.z = Math.sin(t * 0.5) * 0.06;
+      }
+      if (campfireFlame) {
+        const flick = 0.85 + Math.abs(Math.sin(t * 7.3)) * 0.3;
+        campfireFlame.scaling.y = flick;
+        campfireFlame.rotation.y += dt * 2.2;
+      }
       for (let i = 0; i < bobbers.length; i++) {
         const b = bobbers[i];
         b.mesh.position.y = b.baseY + Math.sin(t * b.speed + b.phase) * b.amp;
@@ -312,6 +514,9 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
       for (const m of liveMeshes) m.dispose();
       for (const [, b] of beacons) b.dispose();
       if (windmillBlades) windmillBlades.dispose();
+      if (swingSeat) swingSeat.dispose();
+      if (balloonNode) balloonNode.dispose();
+      if (campfireFlame) campfireFlame.dispose();
       root.dispose(false, true);
       for (const m of allMats) m.dispose();
     },

@@ -86,6 +86,37 @@ functions; it is not really accessible." The round's ledger:
 8. **Organic garden cards** (9-b #7): illustrated scene thumbnails and
    grown (not graded) progress frames on the classic map.
 
+## Stage 11 — DELIVERED: the great journey (Croc-scale, still zero assets)
+
+- **A body, not a dot** (`WorldFox.ts`): the child is a caramel cub who
+  turns to face her path, swings her legs, flops her ears mid-jump,
+  squashes on landing and blinks. Jump physics (space / thumb button),
+  direct camera-relative walking (keyboard + touch joystick), tap-to-walk
+  preserved — every mode obeys the same locked-rim and landmark clamps.
+- **A world worth crossing** (`WorldLayout.ts`): the curated ring grew
+  from r=15.5 to r=51 (~×10 area), islands 2.6r at golden-angle spiral
+  distances 8.5→47.7, WANDER_RADIUS 168 beyond it.
+- **The endless meadow** (`WorldMeadow.ts` + `worldCollect.ts`):
+  deterministic seeded chunks (additive chunk hash — swapped coords can
+  never seed one world), build-budgeted streaming (3 chunks/tick — a
+  hitch on a child's tablet is a fall), golden sparkles with an honest
+  capped localStorage ledger, rare bench/pondlet/standing-stone finds.
+- **A road you can read** (`WorldRoad.ts`): plank boardwalks that FOLLOW
+  the path (straight-chord bridges at 14–21u spans were highways — found
+  in screenshots, fixed), five Hebrew signposts with step counts,
+  pulsing waystones.
+- **Games as places** (`WorldCottages.ts`): a zone-colored cottage on
+  every island; taps walk to the island and the shelf opens on arrival.
+- **Company** (`WorldFriends.ts`): bee, snail, frog, bunny — greetings,
+  never gates. **16 landmarks** (8 beloved + 8 new, animated swing /
+  balloon / campfire).
+- **Wayfinding UI** (`WorldScreen.ts`): a screen-honest compass chip
+  (fox→island projection), sparkle ledger chip, ≥64px touch controls
+  that never cover the grown-up corner.
+- **Continuous arrival**: walking into a zone with the joystick counts
+  exactly like a tap arrival (with a 450ms settle and spawn-awareness —
+  a fresh garden never opens with a shelf in its face).
+
 ## P3 — engineering hygiene
 
 9. **Split WorldApp.ts** (767 lines — 9-c #7): extract WorldInput

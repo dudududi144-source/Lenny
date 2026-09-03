@@ -13,10 +13,11 @@
  * ============================================================ */
 
 import { freshGarden, LocalProgressStore, isUnlocked, consumeNewZones, type GardenData } from '../games/core/ProgressStore';
-import { GARDEN_TEXT, QUEST_TEXT, type ZoneId } from '../data/garden';
-import { LANDMARKS, type LandmarkDef } from './WorldLayout';
+import { GARDEN_TEXT, QUEST_TEXT, getZone, type ZoneId } from '../data/garden';
+import { FRIENDS, LANDMARKS, WORLD_ISLANDS, zoneHint, type LandmarkDef } from './WorldLayout';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
 import { loadFound, markFound } from './worldFound';
+import { loadSparkles, markSparkle } from './worldCollect';
 import {
   WorldQuests,
   buildPatternQuest,
@@ -66,6 +67,14 @@ const diary = new WorldDiary();
 const quests = new WorldQuests();
 let foundIds: string[] = loadFound();
 
+/* stage 11: the meadow's rare finds whisper one honest line each —
+   they are rest stops, never tasks (ETHICS: offered, never forced) */
+const MEADOW_FIND_LINES: Record<string, string> = {
+  bench: 'סַפְסָל בַּמַּרְחָב! אֶפְשָׁר לָנוּחַ כָּאן וְלִרְאּוֹת אֶת הַגַּן מִלְמַעְלָה.',
+  pondlet: 'בְּרֵכָה קְטַנָּה נֶחְבְּאָה כָּאן! רְגַע, מִי זָז בַּמַּיִם?',
+  'standing-stone': 'אֶבֶן עוֹמֶדֶת! מִי הִצִּיב אוֹתָהּ כָּאן כָּל כָּךְ רָחוֹק?',
+};
+
 function loadGarden(): GardenData {
   try {
     return store.load();
@@ -88,9 +97,13 @@ declare global {
       life(): { butterflies: number; fireflies: number; fish: number } | null;
       /** Lit path lanterns — the journey made visible. */
       lanterns(): number;
-      /** The eight places beyond the path (discovery state). */
+      /** The places beyond the path (discovery state). */
       landmarks(): Array<{ id: string; found: boolean; x: number; z: number }>;
       foundCount(): number;
+      /** Sparkles gathered from the endless meadow (ledger length). */
+      sparkles(): number;
+      /** The named friends beside the road. */
+      friends(): Array<{ id: string; x: number; z: number }>;
       /** The offered discovery quest, if any (e2e + lens tooling). */
       quest(): {
         family: string;
@@ -162,6 +175,22 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✪'),
     foundCount,
   );
+
+  /* stage 11: the meadow's golden sparkles — the walker's honest ledger */
+  let sparkleLedger: string[] = loadSparkles();
+  const sparkleCount = h('span', { class: 'sparkle-count' }, String(sparkleLedger.length));
+  const sparkleChip = h(
+    'span',
+    { class: 'light-chip sparkle-chip', id: 'world-sparkle-chip', 'aria-label': 'ניצוצות שנאספו במרחב' },
+    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✧'),
+    sparkleCount,
+  );
+
+  /* stage 11: the wayfinding compass — an arrow on the HUD that
+     points at the next open zone the child is NOT standing in */
+  const compassText = h('span', { class: 'zone-compass-text' }, '');
+  const compassArrow = h('span', { class: 'zone-compass-arrow', 'aria-hidden': 'true' }, '➤');
+  const compass = h('div', { class: 'zone-compass hidden', id: 'zone-compass' }, compassArrow, compassText);
 
   /* Lenny's arrival bubble — she speaks the zone's own mission line,
      never new content (data/garden.ts is the only voice). */
@@ -238,7 +267,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     ...plates,
     shelf.root,
     questPanel,
+    compass,
     loading,
+    buildTouchControls(),
     h(
       'header',
       { class: 'world-head' },
@@ -248,7 +279,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         h('h2', { class: 'world-title' }, 'הַגַּן שֶׁל לֶנִי'),
         h('p', { class: 'world-sub' }, 'בּוֹא נְהַלֵּךְ בַּגַּן'),
       ),
-      h('div', { class: 'world-head-side' }, lightChip, foundChip, createSoundToggle('world-sound-toggle'), back),
+      h('div', { class: 'world-head-side' }, lightChip, sparkleChip, foundChip, createSoundToggle('world-sound-toggle'), back),
     ),
     h(
       'footer',
@@ -282,6 +313,71 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   let opening: Promise<void> | null = null;
   let phase: WorldPhase = 'closed';
   let shelfZone: string | null = null;
+
+  /* ---------- stage 11: touch controls + desktop hint ----------
+     The touch child walks like a platformer hero: a thumb-stick
+     bottom-left, a jump button bottom-right (both ≥64px — small
+     fingers, big targets). The desktop child gets a one-line hint
+     (keys + space); the classic garden never changes. */
+
+  function buildTouchControls(): HTMLElement {
+    const touch =
+      typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    const joyBase = h('div', { class: 'world-joy', id: 'world-joy', 'aria-hidden': 'true' }, h('div', { class: 'world-joy-knob', id: 'world-joy-knob' }));
+    const jumpBtn = h(
+      'button',
+      { class: 'world-jump-btn', id: 'world-jump-btn', type: 'button', 'aria-label': 'קפיצה' },
+      '⬆',
+    );
+    const hint = h(
+      'div',
+      { class: 'world-controls-hint', 'aria-hidden': 'true' },
+      touch ? 'הָעִגּוּל לְהִלָּחֵךְ · הַכְּפָתוֹר לִקְפֹּץ' : 'WASD / חִצִּים לְהִלָּחֵךְ · רֶוַח לִקְפֹּץ',
+    );
+
+    /* the joystick: pointer events, vector from the base center */
+    let joyPointer: number | null = null;
+    const R = 46;
+    const joyEl = joyBase as HTMLElement;
+    const knob = joyEl.querySelector('.world-joy-knob') as HTMLElement;
+    const setVec = (dx: number, dy: number): void => {
+      const len = Math.hypot(dx, dy);
+      const k = len > R ? R / len : 1;
+      const x = dx * k;
+      const y = dy * k;
+      knob.style.transform = `translate(${x}px, ${y}px)`;
+      app?.setJoystickVector(x / R, -y / R); /* screen down = backward */
+    };
+    joyEl.addEventListener('pointerdown', (ev) => {
+      joyPointer = ev.pointerId;
+      joyEl.setPointerCapture(ev.pointerId);
+      const r = joyEl.getBoundingClientRect();
+      setVec(ev.clientX - (r.left + r.width / 2), ev.clientY - (r.top + r.height / 2));
+    });
+    joyEl.addEventListener('pointermove', (ev) => {
+      if (joyPointer !== ev.pointerId) return;
+      const r = joyEl.getBoundingClientRect();
+      setVec(ev.clientX - (r.left + r.width / 2), ev.clientY - (r.top + r.height / 2));
+    });
+    const joyEnd = (ev: PointerEvent): void => {
+      if (joyPointer !== ev.pointerId) return;
+      joyPointer = null;
+      knob.style.transform = 'translate(0px, 0px)';
+      app?.setJoystickVector(0, 0);
+    };
+    joyEl.addEventListener('pointerup', joyEnd);
+    joyEl.addEventListener('pointercancel', joyEnd);
+
+    jumpBtn.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      app?.requestJump();
+    });
+
+    const wrap = h('div', { class: 'world-controls' }, joyBase, jumpBtn, hint);
+    if (touch) wrap.classList.add('world-touch');
+    return wrap;
+  }
+
   /* the growth diary: which zones grew since the world was last seen?
      Their new flowers open with the bloom-in payoff on return. */
   let prevCounts: Record<string, number> | null = null;
@@ -397,15 +493,23 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     questPanel.classList.remove('hidden');
 
     if (q.family === 'wayfinding') {
-      /* a target away from where the child stands — a real little journey */
+      /* a target away from where the child stands — a real LITTLE
+         journey: stage-11's garden is big, so the errand pool keeps to
+         a child-sized walk (4–26 units, ≈10–30s at a cub's pace); the
+         seeded pick rotates inside that honest band */
       const pos = app.presencePos() ?? { x: 0, z: 0 };
-      let idx = questHash(q.seq, 3) % LANDMARKS.length;
-      for (let tries = 0; tries < LANDMARKS.length; tries++) {
-        const cand = LANDMARKS[idx];
-        if (Math.hypot(cand.x - pos.x, cand.z - pos.z) > 4) break;
-        idx = (idx + 1) % LANDMARKS.length;
+      const inBand: number[] = [];
+      for (let i = 0; i < LANDMARKS.length; i++) {
+        const d = Math.hypot(LANDMARKS[i].x - pos.x, LANDMARKS[i].z - pos.z);
+        if (d > 4 && d <= 26) inBand.push(i);
       }
-      const target = LANDMARKS[idx];
+      const pool =
+        inBand.length > 0
+          ? inBand
+          : LANDMARKS.map((_, i) => i).filter(
+              (i) => Math.hypot(LANDMARKS[i].x - pos.x, LANDMARKS[i].z - pos.z) > 4,
+            );
+      const target = LANDMARKS[pool.length > 0 ? pool[questHash(q.seq, 3) % pool.length] : 0];
       wayfindingTargetId = target.id;
       app.setQuestTarget(target.id);
       app.setQuestProps(null);
@@ -593,12 +697,45 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       plate.classList.remove('hidden');
     }
   }
+
+  /** The wayfinding compass: an arrow that points at the next open
+      zone on SCREEN (from the fox's screen spot toward the island's
+      screen spot) — it stays honest whichever way the camera turns. */
+  function updateCompass(): void {
+    if (!app || phase === 'closed' || phase === 'shelf-open') return;
+    const data = loadGarden();
+    const pos = app.presencePos();
+    if (!pos) return;
+    const hint = zoneHint(pos.x, pos.z, (zone) => isUnlocked(data, zone));
+    if (!hint) {
+      compass.classList.add('hidden');
+      return;
+    }
+    const island = WORLD_ISLANDS.find((i) => i.zone === hint.zone);
+    const from = app.lennyScreen();
+    const to = island ? app.screenOf(island.x, island.z) : null;
+    if (!to || !to.on || !from.on) {
+      compass.classList.add('hidden');
+      return;
+    }
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (Math.hypot(dx, dy) < 0.09) {
+      compass.classList.add('hidden');
+      return;
+    }
+    const deg = Math.round((Math.atan2(dx, -dy) * 180) / Math.PI);
+    compassArrow.style.transform = `rotate(${deg}deg)`;
+    compassText.textContent = `${getZone(hint.zone)?.name ?? ''} · עוֹד ~${hint.steps} צְעָדִים`;
+    compass.classList.remove('hidden');
+  }
   let platesTimer: number | null = null;
   function startPlates(): void {
     if (platesTimer === null) {
       platesTimer = window.setInterval(() => {
         if (!app) return;
         updatePlates();
+        updateCompass();
       }, 150);
     }
   }
@@ -644,7 +781,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
 
   window.__lennyWorld = {
-    version: 'stage-9',
+    version: 'stage-11',
     presencePos: () => app?.presencePos() ?? null,
     nearZone: () => app?.nearZone() ?? null,
     zones: () => app?.zones() ?? [],
@@ -657,6 +794,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     landmarks: () =>
       LANDMARKS.map((l) => ({ id: l.id, found: foundIds.includes(l.id), x: l.x, z: l.z })),
     foundCount: () => foundIds.length,
+    sparkles: () => loadSparkles().length,
+    friends: () => FRIENDS.map((f) => ({ id: f.id, x: f.x, z: f.z })),
     quest: () =>
       currentQuest
         ? {
@@ -713,6 +852,33 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             /* discovery never crashes the garden */
           }
         },
+        onSparkle: (id, total) => {
+          try {
+            sparkleLedger = markSparkle(id);
+            sparkleCount.textContent = String(sparkleLedger.length);
+            audio.play('star');
+            void total;
+          } catch {
+            /* a sparkle never crashes the garden */
+          }
+        },
+        onFriendNear: (friend) => {
+          try {
+            showBubble(friend.line);
+            audio.play('pop');
+          } catch {
+            /* a hello never crashes the garden */
+          }
+        },
+        onMeadowFind: (kind) => {
+          try {
+            const line = MEADOW_FIND_LINES[kind];
+            if (line) showBubble(line);
+            audio.play('chime');
+          } catch {
+            /* a whisper never crashes the garden */
+          }
+        },
         onPropTap: (propName) => {
           try {
             handlePropTap(propName);
@@ -756,7 +922,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         },
       },
       loadGarden(),
-      { onboard: firstVisit, found: foundIds },
+      { onboard: firstVisit, found: foundIds, sparkles: sparkleLedger },
     );
     phase = firstVisit ? 'onboarding' : 'exploring';
     startPlates();

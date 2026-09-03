@@ -40,6 +40,24 @@ import { phaseNow, type DayPhase } from '../content/dayCycle';
 import { paletteChanged, paletteForPhase, type WorldPalette } from './WorldSky';
 import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
 import { buildLennyStar, type LennyStarHandle } from './LennyStar';
+import {
+  buildFox,
+  yawFor,
+  type FoxHandle,
+} from './WorldFox';
+import {
+  MEADOW_CHUNK,
+  buildMeadow,
+  chunkFind,
+  chunkOf,
+  isMeadowPoint,
+  type MeadowFindKind,
+  type MeadowHandle,
+} from './WorldMeadow';
+import { buildFriends, type FriendsHandle } from './WorldFriends';
+import { buildRoad, type RoadHandle } from './WorldRoad';
+import { buildCottages, type CottageHandle } from './WorldCottages';
+import { nearestFriend, type FriendDef } from './WorldLayout';
 import type { GardenData } from '../games/core/ProgressStore';
 import {
   createWorldCamera,
@@ -56,12 +74,13 @@ import {
   type QuestPropSpot,
 } from './WorldQuestProps';
 import {
+  clampToWanderArea,
   islandCenter,
   isInsideIsland,
   isInsideLandmark,
+  MAX_WALK_SPEED,
   nearestLandmark,
   nearestZone,
-  resolveWalkTarget,
   slideAroundLandmark,
   walkStepToward,
   type LandmarkDef,
@@ -97,6 +116,12 @@ export interface WorldAppEvents {
   onLockedTap?(zone: ZoneId): void;
   /** Onboarding flyover begins/ends (the shell records the flag). */
   onPhase?(phase: WorldPhaseLite): void;
+  /** A meadow sparkle was gathered (stage 11): id + total this session. */
+  onSparkle?(id: string, sessionTotal: number): void;
+  /** The child came close to a named friend (bubble words live in the shell). */
+  onFriendNear?(friend: FriendDef): void;
+  /** A rare restful find appeared beside the walker in the meadow. */
+  onMeadowFind?(kind: Exclude<MeadowFindKind, 'none'>): void;
 }
 
 export type WorldPhaseLite = 'onboarding' | 'exploring';
@@ -304,14 +329,16 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 
   tex.wrapU = Texture.WRAP_ADDRESSMODE;
   tex.wrapV = Texture.WRAP_ADDRESSMODE;
-  tex.uScale = 9;
-  tex.vScale = 9;
+  tex.uScale = 52;
+  tex.vScale = 52;
 
   const mat = new StandardMaterial('grass-mat', scene);
   mat.diffuseTexture = tex;
   mat.specularColor = new Color3(0.02, 0.03, 0.02);
 
-  const ground = MeshBuilder.CreateGround('ground', { width: 64, height: 64, subdivisions: 2 }, scene);
+  /* stage 11: the ground grew with the journey — the meadow walker
+     never sees grass end (the fog owns the horizon) */
+  const ground = MeshBuilder.CreateGround('ground', { width: 380, height: 380, subdivisions: 2 }, scene);
   ground.material = mat;
   ground.isPickable = true;
   ground.receiveShadows = true;
@@ -366,6 +393,12 @@ export interface WorldApp {
   setPaused(paused: boolean): void;
   /** Keyboard walking on/off (the shell disables it while the shelf is open). */
   setKeyboardEnabled(on: boolean): void;
+  /** The touch joystick speaks here (x right, z forward, -1..1). */
+  setJoystickVector(x: number, z: number): void;
+  /** One jump, please (the touch button; space flows through input). */
+  requestJump(): void;
+  /** Sparkles gathered this session (the ledger lives in the shell). */
+  sparklesFound(): number;
   dispose(): void;
 }
 
@@ -374,6 +407,8 @@ export interface WorldAppOptions {
   onboard?: boolean;
   /** Landmark ids already discovered (their beacons start hidden). */
   found?: ReadonlyArray<string>;
+  /** Sparkle ids already collected (the meadow never respawns them). */
+  sparkles?: ReadonlyArray<string>;
 }
 
 export async function createWorldApp(
@@ -386,7 +421,7 @@ export async function createWorldApp(
 
   const scene = new Scene(engine);
   scene.fogMode = Scene.FOGMODE_EXP2;
-  scene.fogDensity = 0.0075;
+  scene.fogDensity = 0.0105;
 
   /* the day the child walks into (visual only — hour never touches play) */
   let phase: DayPhase = phaseNow();
@@ -410,6 +445,15 @@ export async function createWorldApp(
   creatures.setPhase(phase);
 
   const lenny: LennyStarHandle = buildLennyStar(scene);
+
+  /* stage 11 — the great journey: a real walker, the endless
+     meadow beyond the ring, the road furniture, the friends, and
+     the cottages that make every game a place */
+  const fox: FoxHandle = buildFox(scene);
+  const meadow: MeadowHandle = buildMeadow(scene, new Set(options.sparkles ?? []));
+  const friends: FriendsHandle = buildFriends(scene);
+  const road: RoadHandle = buildRoad(scene);
+  const cottages: CottageHandle = buildCottages(scene);
 
   const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
   const sun = new DirectionalLight('sun', new Vector3(...palette.sunDir), scene);
@@ -444,7 +488,7 @@ export async function createWorldApp(
     }
   };
 
-  /* shadows: ONLY Lenny + the island under her feet, low blur, and
+  /* shadows: ONLY the fox + the island under her feet, low blur, and
      only when the device is genuinely fast (governor-gated — a slow
      device gets its framerate, not its decoration) */
   let shadows: ShadowGenerator | null = null;
@@ -465,7 +509,7 @@ export async function createWorldApp(
         shadows = new ShadowGenerator(512, sun);
         shadows.useBlurExponentialShadowMap = true;
         shadows.blurKernel = 8;
-        shadows.addShadowCaster(lenny.bodyMesh());
+        shadows.addShadowCaster(fox.bodyMesh());
         if (near) {
           const plat = islands.platformMesh(near);
           if (plat) {
@@ -526,27 +570,19 @@ export async function createWorldApp(
     }
   }
 
-  /* ---------- the presence point (commit 3: the child IS here) ---------- */
-
-  const presenceMat = new StandardMaterial('presence-mat', scene);
-  presenceMat.emissiveColor = Color3.FromHexString('#ffe9a6');
-  presenceMat.diffuseColor = Color3.Black();
-  presenceMat.specularColor = Color3.Black();
-  presenceMat.disableLighting = true;
-
-  const presenceMesh = MeshBuilder.CreateSphere('presence', { diameter: 0.34, segments: 10 }, scene);
-  presenceMesh.material = presenceMat;
-  presenceMesh.position.set(home.x, 0.72, home.z);
-  presenceMesh.isPickable = false;
+  /* ---------- the walker (stage 11: the child has a BODY) ----------
+     The old hover-dot became a soft glow ring under the fox's
+     feet; the fox IS the presence now, and Lenny the star hovers
+     above her like a lantern that chose you. */
 
   const ringMat = new StandardMaterial('presence-ring-mat', scene);
   ringMat.emissiveColor = Color3.FromHexString('#ffd76a');
   ringMat.diffuseColor = Color3.Black();
   ringMat.specularColor = Color3.Black();
   ringMat.disableLighting = true;
-  ringMat.alpha = 0.6;
+  ringMat.alpha = 0.5;
 
-  const presenceRing = MeshBuilder.CreateTorus('presence-ring', { diameter: 0.62, thickness: 0.05, tessellation: 22 }, scene);
+  const presenceRing = MeshBuilder.CreateTorus('presence-ring', { diameter: 0.7, thickness: 0.045, tessellation: 22 }, scene);
   presenceRing.scaling.y = 0.32;
   presenceRing.material = ringMat;
   presenceRing.isPickable = false;
@@ -569,17 +605,31 @@ export async function createWorldApp(
   let near: ZoneId | null = null;
 
   const NEAR_DIST = 1.35;
-  const NEAR_LANDMARK_DIST = 0.55; /* rim standing counts as "at the place" */
+  /* rim standing counts as "at the place" — stage 11's places are
+     bigger, and a child at the doorstep HAS arrived: 0.8 past the rim */
+  const NEAR_LANDMARK_DIST = 0.8;
   let nearLandmark: string | null = null;
   let lastMusicIntensity = -1;
   const prevPresence = { x: presencePos.x, z: presencePos.z };
   const vel = { x: 0, z: 0 };
 
-  function presenceY(): number {
+  /* the jump: a small, honest arc — up, gravity, landing squash */
+  const JUMP_V = 4.3;
+  const GRAVITY = 11.5;
+  let jumpY = 0;
+  let jumpVy = 0;
+  let grounded = true;
+  let landedThisFrame = false;
+  let facing = 0;
+  let sparklesSession = 0;
+  let jumpQueued = false; /* requestJump() — the touch button's queue */
+
+  /** ground height under the feet: platform tops, then grass */
+  function groundY(): number {
     for (const p of WORLD_ISLANDS) {
-      if (Math.hypot(presencePos.x - p.x, presencePos.z - p.z) < p.radius - 0.15) return 0.66;
+      if (Math.hypot(presencePos.x - p.x, presencePos.z - p.z) < p.radius - 0.12) return islands.islandTopY();
     }
-    return 0.72;
+    return 0;
   }
 
   /* ---------- fps governor (spec: soften below 25, distress below 15×5s) ---------- */
@@ -591,44 +641,75 @@ export async function createWorldApp(
   let paused = false;
   let disposed = false;
   let distressFired = false;
-  let kbWalking = false;
+  /* one gentle "you are near a friend" per approach (per friend) */
+  const friendGreetedAt = new Map<string, number>();
+  let lastMeadowFindAt = 0;
+  /* continuous-arrival: standing in a zone's ring counts, joystick or
+     not — but the child SPAWNS arrived at the home island: a fresh
+     garden opens in 'exploring', never with a shelf in its face */
+  let nearSince: number | null = null;
+  let lastArrivedZone: ZoneId | null = (() => {
+    const h = nearestZone(home.x, home.z, 0.2);
+    return h ? h.zone : null;
+  })();
 
   engine.runRenderLoop(() => {
     if (paused || disposed) return;
     const now = performance.now();
     const dt = Math.min(0.1, engine.getDeltaTime() / 1000);
 
-    /* keyboard walking (round C a11y): a held direction becomes a walk
-       target refreshed every frame, through the SAME resolveWalkTarget
-       clamps a tap uses — rim, keep-outs and locked islands all hold.
-       Releasing the keys stops the walk at once: a keyboard errand is
-       held, not fired (critic round C #1). */
-    const kb = worldInput.keyboardStep();
-    if (kb && !onboard.active()) {
-      kbWalking = true;
-      const resolved = resolveWalkTarget(
-        presencePos.x + kb.x * 7,
-        presencePos.z + kb.z * 7,
-        (zone) => islands.zones().some((z) => z.id === zone && !z.unlocked),
-      );
-      walkTarget = { x: resolved.x, z: resolved.z };
-      /* the destination ring follows the keyboard too (was tap-only) */
-      const ringY = isInsideIsland(resolved.x, resolved.z) ? islands.islandTopY() + 0.04 : 0.14;
-      destRing.position.set(resolved.x, ringY, resolved.z);
-      destMat.alpha = 0.75;
-    } else if (kbWalking) {
-      /* the keys were released — a keyboard errand never outlives them */
-      kbWalking = false;
+    /* ---------- movement, stage 11: direct control ----------
+       Joystick or keyboard = the fox's legs (camera-relative, the
+       platformer contract). A tap still sends a walk errand — but
+       a held direction always wins the very next frame. */
+    const mv = onboard.active() ? null : worldInput.moveVector();
+    const isLocked = (zone: ZoneId): boolean => islands.zones().some((z) => z.id === zone && !z.unlocked);
+    let moved = false;
+
+    if (mv) {
+      /* camera-relative: forward = where the eye looks, right = its side */
+      const cam = camera;
+      let fx = cam.target.x - cam.globalPosition.x;
+      let fz = cam.target.z - cam.globalPosition.z;
+      const fl = Math.hypot(fx, fz) || 1;
+      fx /= fl;
+      fz /= fl;
+      const wx = fx * mv.z + fz * mv.x;
+      const wz = fz * mv.z - fx * mv.x;
+      const wl = Math.hypot(wx, wz) || 1;
+
+      presencePos.x += (wx / wl) * MAX_WALK_SPEED * dt;
+      presencePos.z += (wz / wl) * MAX_WALK_SPEED * dt;
+      moved = true;
+      facing = yawFor(wx, wz);
+
+      /* a direct step cancels any standing tap errand */
       walkTarget = null;
       destMat.alpha = 0;
+
+      /* the soft walls of the world (same rules a tap obeys) */
+      const clamped = clampToWanderArea(presencePos.x, presencePos.z);
+      presencePos.x = clamped.x;
+      presencePos.z = clamped.z;
+      for (const p of WORLD_ISLANDS) {
+        const d = Math.hypot(presencePos.x - p.x, presencePos.z - p.z);
+        if (d < p.radius - 0.12 && isLocked(p.zone)) {
+          const ang = d < 0.01 ? Math.atan2(-p.z, -p.x) : Math.atan2(presencePos.z - p.z, presencePos.x - p.x);
+          presencePos.x = p.x + Math.cos(ang) * (p.radius - 0.1);
+          presencePos.z = p.z + Math.sin(ang) * (p.radius - 0.1);
+        }
+      }
     }
 
-    /* presence easing + camera follow — the clamp lives in
-       walkStepToward (pure, unit-pinned): no first-frame lurch */
+    /* the tap errand (walkStepToward keeps its soft landing) */
     if (walkTarget) {
       const step = walkStepToward(presencePos, walkTarget, dt);
       presencePos.x = step.x;
       presencePos.z = step.z;
+      if (Math.hypot(step.x - presencePos.x, step.z - presencePos.z) > 1e-6) {
+        facing = yawFor(step.x - prevPresence.x, step.z - prevPresence.z);
+      }
+      moved = !step.arrived;
       destMat.alpha = Math.max(0.25, destMat.alpha - dt * 0.1);
       if (step.arrived) {
         walkTarget = null;
@@ -640,6 +721,7 @@ export async function createWorldApp(
           near = snapped ? snapped.zone : null;
           islands.setNear(near);
         }
+        lastArrivedZone = near;
         try {
           events.onArrive?.(near);
         } catch {
@@ -647,21 +729,53 @@ export async function createWorldApp(
         }
       }
     }
-    const t = now / 1000;
-    presenceMesh.position.set(presencePos.x, presenceY() + Math.sin(t * 2.2) * 0.045, presencePos.z);
-    presenceRing.position.set(presencePos.x, presenceY() - 0.06, presencePos.z);
-    const ringPulse = 1 + Math.sin(t * 3.1) * 0.1;
+
+    /* the jump: consume a request, fly, fall, land */
+    landedThisFrame = false;
+    if (worldInput.consumeJump() || jumpQueued) {
+      jumpQueued = false;
+      if (grounded && !onboard.active()) {
+        grounded = false;
+        jumpVy = JUMP_V;
+      }
+    }
+    if (!grounded) {
+      jumpY += jumpVy * dt;
+      jumpVy -= GRAVITY * dt;
+      if (jumpY <= 0) {
+        jumpY = 0;
+        jumpVy = 0;
+        grounded = true;
+        landedThisFrame = true;
+      }
+    }
+
+    const speed = moved ? MAX_WALK_SPEED : 0;
+    const gy = groundY();
+    fox.update(now / 1000, dt, {
+      pos: presencePos,
+      speed,
+      facing,
+      groundY: gy,
+      jumpY,
+      landed: landedThisFrame,
+    });
+    presenceRing.position.set(presencePos.x, gy + 0.03, presencePos.z);
+    const ringPulse = 1 + Math.sin(now / 1000 * 3.1) * 0.1;
     presenceRing.scaling.x = ringPulse;
     presenceRing.scaling.z = ringPulse;
-
-    /* camera: the flyover owns it; afterwards the target follows presence */
+    const t = now / 1000;
+    /* camera: the flyover owns it; afterwards the target follows the fox
+       with a touch of look-ahead — the run reads like a journey */
     if (onboard.active()) {
       onboard.tick(now, camera);
     } else {
       const camT = camera.target;
-      camT.x += (presencePos.x - camT.x) * Math.min(1, dt * 1.9);
-      camT.z += (presencePos.z - camT.z) * Math.min(1, dt * 1.9);
-      camT.y += (0.66 - camT.y) * Math.min(1, dt * 1.4);
+      const lookX = presencePos.x + vel.x * 0.22;
+      const lookZ = presencePos.z + vel.z * 0.22;
+      camT.x += (lookX - camT.x) * Math.min(1, dt * 2.2);
+      camT.z += (lookZ - camT.z) * Math.min(1, dt * 2.2);
+      camT.y += (gy + 0.5 - camT.y) * Math.min(1, dt * 1.6);
     }
 
     /* near-zone: the zone the child is visiting right now */
@@ -680,6 +794,23 @@ export async function createWorldApp(
       }
     }
 
+    /* continuous arrival (stage 11): walking into a zone with the
+       joystick counts exactly like a tap arrival — after a short
+       settle so pass-throughs don't slide the shelf open */
+    if (near && !walkTarget && !onboard.active()) {
+      if (nearSince === null) nearSince = now;
+      if (now - nearSince > 450 && near !== lastArrivedZone) {
+        lastArrivedZone = near;
+        try {
+          events.onArrive?.(near);
+        } catch {
+          /* arrival handlers never crash the garden */
+        }
+      }
+    } else {
+      nearSince = null;
+    }
+
     /* musical space: the arpeggio swells as a zone comes near */
     const wantedIntensity = nz ? 0.3 + (1 - Math.min(1, nz.dist / NEAR_DIST)) * 0.45 : 0.28;
     if (Math.abs(wantedIntensity - lastMusicIntensity) > 0.02) {
@@ -690,6 +821,9 @@ export async function createWorldApp(
     creatures.update(t, dt);
     landmarks.update(t, dt);
     questProps.update(t, now);
+    friends.update(t, dt);
+    road.update(t, dt);
+    meadow.update(t, dt, presencePos.x, presencePos.z);
 
     /* landmark proximity — the wandering child discovers the garden */
     const nl = nearestLandmark(presencePos.x, presencePos.z, NEAR_LANDMARK_DIST);
@@ -718,7 +852,45 @@ export async function createWorldApp(
       }
     }
 
-    /* Lenny rides the presence: velocity for the lean */
+    /* friends: a gentle hello, once per approach (10s cooldown) */
+    const nf = nearestFriend(presencePos.x, presencePos.z, 1.35);
+    if (nf) {
+      const last = friendGreetedAt.get(nf.friend.id) ?? -99999;
+      if (now - last > 10_000) {
+        friendGreetedAt.set(nf.friend.id, now);
+        try {
+          events.onFriendNear?.(nf.friend);
+        } catch {
+          /* a hello never crashes the garden */
+        }
+      }
+    }
+
+    /* the meadow pays the walker: sparkles within arm's reach */
+    const got = meadow.sparkleWithinReach(presencePos.x, presencePos.z, 0.62);
+    if (got) {
+      sparklesSession++;
+      try {
+        events.onSparkle?.(got.id, sparklesSession);
+      } catch {
+        /* a sparkle never crashes the garden */
+      }
+    }
+    /* rare meadow finds whisper when they are new (once per 30s) */
+    if (isMeadowPoint(presencePos.x, presencePos.z) && now - lastMeadowFindAt > 30_000) {
+      const c = chunkOf(presencePos.x, presencePos.z);
+      const kind = chunkFind(c.cx, c.cz);
+      if (kind !== 'none' && Math.hypot(presencePos.x - (c.cx + 0.5) * MEADOW_CHUNK, presencePos.z - (c.cz + 0.5) * MEADOW_CHUNK) < 2.2) {
+        lastMeadowFindAt = now;
+        try {
+          events.onMeadowFind?.(kind);
+        } catch {
+          /* a whisper never crashes the garden */
+        }
+      }
+    }
+
+    /* Lenny rides the fox: velocity for the lean */
     vel.x = dt > 0 ? (presencePos.x - prevPresence.x) / dt : 0;
     vel.z = dt > 0 ? (presencePos.z - prevPresence.z) / dt : 0;
     prevPresence.x = presencePos.x;
@@ -773,6 +945,7 @@ export async function createWorldApp(
     (zone) => islands.zones().some((z) => z.id === zone && !z.unlocked),
     {
       onWalkTarget: (resolved) => {
+        if (onboard.active()) return;
         walkTarget = { x: resolved.x, z: resolved.z };
         /* the destination ring floats on platforms, never sinks into them */
         const ringY = isInsideIsland(resolved.x, resolved.z) ? islands.islandTopY() + 0.04 : 0.14;
@@ -817,7 +990,13 @@ export async function createWorldApp(
     rendererKind: () => kind,
     presencePos: () => ({ x: presencePos.x, z: presencePos.z }),
     nearZone: () => near,
-    zones: () => islands.zones(),
+    /* zones carry their layout coords now (stage 11): the compass,
+       the parent lens and the e2e bridge all read one honest map */
+    zones: () =>
+      islands.zones().map((z) => {
+        const p = WORLD_ISLANDS.find((i) => i.zone === z.id);
+        return { ...z, x: p?.x ?? 0, z: p?.z ?? 0 };
+      }),
     skyPhase: () => phase,
     life: () => creatures.counts(),
     lanterns: () => lanterns.lit(),
@@ -869,6 +1048,13 @@ export async function createWorldApp(
     setKeyboardEnabled(on: boolean): void {
       worldInput.setKeyboardEnabled(on);
     },
+    setJoystickVector(x: number, z: number): void {
+      worldInput.setJoystickVector(x, z);
+    },
+    requestJump(): void {
+      if (!disposed && !paused) jumpQueued = true;
+    },
+    sparklesFound: () => sparklesSession,
     dispose(): void {
       if (disposed) return;
       disposed = true;
@@ -881,6 +1067,11 @@ export async function createWorldApp(
       worldInput.detach();
       engine.stopRenderLoop();
       lenny.dispose();
+      fox.dispose();
+      meadow.dispose();
+      friends.dispose();
+      road.dispose();
+      cottages.dispose();
       creatures.dispose();
       lanterns.dispose();
       landmarks.dispose();

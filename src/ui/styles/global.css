@@ -1320,3 +1320,152 @@ body {
   padding: 6px 12px;
   cursor: pointer;
 }
+
+/* ============================================================
+ * stage 11 — the great journey: sparkle chip, wayfinding compass,
+ * touch joystick + jump button, desktop controls hint
+ * ============================================================ */
+
+/* the meadow's golden ledger chip (a calmer twin of the light chip) */
+.sparkle-chip {
+  color: #ffe9a6;
+  background: rgba(255, 233, 166, 0.1);
+  border-color: rgba(255, 233, 166, 0.4);
+  box-shadow: 0 2px 14px rgba(255, 233, 166, 0.14);
+}
+
+/* the wayfinding compass — points the child to the next open zone */
+.zone-compass {
+  position: absolute;
+  inset-block-start: 64px;
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(16, 32, 20, 0.55);
+  border: 1px solid rgba(255, 215, 106, 0.35);
+  color: #fff8e8;
+  font-weight: 700;
+  font-size: 0.92rem;
+  pointer-events: none;
+  z-index: 6;
+  backdrop-filter: blur(3px);
+  transition: opacity 400ms ease;
+}
+
+.zone-compass.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.zone-compass-arrow {
+  display: inline-block;
+  font-size: 1rem;
+  color: #ffd76a;
+  text-shadow: 0 0 8px rgba(255, 215, 106, 0.8);
+  transform-origin: 50% 50%;
+  transition: transform 300ms ease;
+}
+
+/* the journey's controls: joystick + jump (touch), hint (desktop) */
+.world-controls {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.world-controls-hint {
+  position: absolute;
+  inset-inline-start: 50%;
+  transform: translateX(50%);
+  inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 52px);
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(16, 32, 20, 0.45);
+  color: rgba(255, 248, 232, 0.85);
+  font-size: 0.85rem;
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.world-joy {
+  position: absolute;
+  inset-inline-start: max(18px, env(safe-area-inset-left, 0px));
+  /* above the grown-up corner (world-foot ~48px) — never cover the
+     parents' links (a control that hides the exit is a trap) */
+  inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 66px);
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: rgba(16, 32, 20, 0.38);
+  border: 2px solid rgba(255, 215, 106, 0.5);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  touch-action: none;
+  display: none;
+}
+
+.world-joy-knob {
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ffe9a6, #ffd76a 62%, #d9a83a);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3);
+}
+
+.world-jump-btn {
+  position: absolute;
+  inset-inline-end: max(18px, env(safe-area-inset-right, 0px));
+  inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 70px);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #4a3220;
+  background: radial-gradient(circle at 34% 30%, #ffe9a6, #ffd76a 62%, #d9a83a);
+  border: 2px solid rgba(255, 248, 232, 0.65);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  display: none;
+}
+
+.world-jump-btn:active {
+  transform: scale(0.94);
+}
+
+/* coarse pointers get the thumb controls and lose the key hint */
+.world-controls.world-touch .world-joy,
+.world-controls.world-touch .world-jump-btn {
+  display: block;
+}
+
+.world-controls.world-touch .world-controls-hint {
+  inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 46px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zone-compass-arrow {
+    transition: none;
+  }
+}
+
+/* stage 11: while the shelf owns the screen the journey controls rest —
+   less clutter while a panel is up (the keys are disabled too) */
+.screen--world[data-world-phase='shelf-open'] .world-controls.world-touch .world-joy,
+.screen--world[data-world-phase='shelf-open'] .world-controls.world-touch .world-jump-btn,
+.screen--world[data-world-phase='shelf-open'] .world-controls .world-controls-hint {
+  display: none;
+}

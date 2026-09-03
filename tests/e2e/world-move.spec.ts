@@ -89,25 +89,43 @@ test('standing at an island lights its nearZone; open grass clears it', async ({
 test('a locked fog island repels the walk with a gentle toast', async ({ page }) => {
   await openWorld(page);
 
-  /* sweep the upper screen band (the fog islands' territory in the
-     default view) until a tap lands on a locked gate */
-  const spots: Array<[number, number]> = [
-    [0.72, 0.28],
-    [0.3, 0.28],
-    [0.5, 0.18],
-    [0.85, 0.42],
-    [0.15, 0.4],
-    [0.5, 0.1],
-  ];
+  test.setTimeout(90_000);
+  /* stage 11: the garden is journey-scale — no fog island is visible
+     from spawn. The child WALKS toward the nearest locked gate (the
+     bridge's screenOf clamps off-screen targets, so the clamped
+     fraction is the honest direction), then taps the island itself. */
   let toastSeen = false;
-  for (const [fx, fy] of spots) {
-    await tapAt(page, fx, fy);
-    await page.waitForTimeout(1400);
-    toastSeen = await page.evaluate(() => {
-      const el = document.getElementById('toast');
-      return !!el && el.textContent.length > 0 && !el.classList.contains('hidden');
+  for (let step = 0; step < 24 && !toastSeen; step++) {
+    const target = await page.evaluate(() => {
+      const w = window.__lennyWorld!;
+      let best: { fx: number; fy: number; onScreen: boolean } | null = null;
+      let bestD = Infinity;
+      for (const z of w.zones().filter((q) => !q.unlocked)) {
+        const s = w.screenOf(z.x, z.z)!;
+        if (s.on && s.x > 0.06 && s.x < 0.94 && s.y > 0.14 && s.y < 0.78) {
+          return { fx: s.x, fy: s.y, onScreen: true };
+        }
+        const d = Math.hypot(s.x - 0.5, s.y - 0.55);
+        if (d < bestD) {
+          bestD = d;
+          best = {
+            fx: Math.min(0.9, Math.max(0.1, s.x)),
+            fy: Math.min(0.72, Math.max(0.3, s.y)),
+            onScreen: false,
+          };
+        }
+      }
+      return best;
     });
-    if (toastSeen) break;
+    if (!target) break;
+    await tapAt(page, target.fx, target.fy);
+    await page.waitForTimeout(2400);
+    if (target.onScreen) {
+      toastSeen = await page.evaluate(() => {
+        const el = document.getElementById('toast');
+        return !!el && el.textContent.length > 0 && !el.classList.contains('hidden');
+      });
+    }
   }
   expect(toastSeen).toBe(true);
   /* the never-inside-the-fog invariant is pinned by the pure

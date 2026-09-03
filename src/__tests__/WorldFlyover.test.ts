@@ -16,7 +16,7 @@ describe('flyoverPose — the first-visit tour', () => {
 
   it('starts far, high and swept aside — over the world center', () => {
     const p = flyoverPose(0, HOME.x, HOME.z);
-    expect(p.radius).toBeGreaterThan(16);
+    expect(p.radius).toBeGreaterThan(19);
     expect(p.tx).toBeCloseTo(0, 6);
     expect(p.tz).toBeCloseTo(0, 6);
     expect(p.alpha).toBeLessThan(CHILD_CAMERA.startAlpha - 1.5);
@@ -36,8 +36,8 @@ describe('flyoverPose — the first-visit tour', () => {
     for (let i = 0; i <= 20; i++) {
       const p = flyoverPose(i / 20, HOME.x, HOME.z);
       expect(p.beta).toBeGreaterThanOrEqual(CHILD_CAMERA.betaMin);
-      expect(p.beta).toBeLessThanOrEqual(1.02); /* between high view and play view */
-      expect(p.radius).toBeLessThanOrEqual(17.5);
+      expect(p.beta).toBeLessThanOrEqual(1.02); /* between the wide view and the play view */
+      expect(p.radius).toBeLessThanOrEqual(21);
       /* the target walks from the center to the island — never beyond */
       expect(Math.hypot(p.tx, p.tz)).toBeLessThanOrEqual(Math.hypot(HOME.x, HOME.z) + 0.001);
     }

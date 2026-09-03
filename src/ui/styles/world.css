@@ -124,7 +124,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  z-index: 4;
+  z-index: 8; /* above the touch controls — the exit is never covered */
 }
 
 .world-parents-link,
@@ -333,7 +333,7 @@
   border-radius: 18px;
   box-shadow: 0 8px 26px rgba(20, 40, 30, 0.25);
   padding: 10px 14px 12px;
-  z-index: 6;
+  z-index: 8; /* above the journey's touch controls — an offered quest is never covered */
   animation: bubble-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
