@@ -605,7 +605,9 @@ export async function createWorldApp(
   let near: ZoneId | null = null;
 
   const NEAR_DIST = 1.35;
-  const NEAR_LANDMARK_DIST = 0.55; /* rim standing counts as "at the place" */
+  /* rim standing counts as "at the place" — stage 11's places are
+     bigger, and a child at the doorstep HAS arrived: 0.8 past the rim */
+  const NEAR_LANDMARK_DIST = 0.8;
   let nearLandmark: string | null = null;
   let lastMusicIntensity = -1;
   const prevPresence = { x: presencePos.x, z: presencePos.z };

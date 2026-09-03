@@ -30,9 +30,11 @@ const hex = (s: string): Color3 => Color3.FromHexString(s);
 /* ---------- the pure, testable half ---------- */
 
 export const MEADOW_CHUNK = 16;
-/** chunks load around the walker / dissolve behind her */
-export const MEADOW_LOAD_RADIUS = 60;
-export const MEADOW_DROP_RADIUS = 76;
+/** chunks load around the walker / dissolve behind her — tight radii
+    so streaming stays a whisper: the meadow builds itself as the child
+    genuinely heads out, never all at once while she plays the garden */
+export const MEADOW_LOAD_RADIUS = 46;
+export const MEADOW_DROP_RADIUS = 62;
 /** the meadow begins beyond the curated ring (a margin keeps the
     garden's own decoration from doubling with chunk flowers) */
 export const MEADOW_START = WORLD_WALK_RADIUS + 7;

@@ -1461,3 +1461,11 @@ body {
     transition: none;
   }
 }
+
+/* stage 11: while the shelf owns the screen the journey controls rest —
+   less clutter while a panel is up (the keys are disabled too) */
+.screen--world[data-world-phase='shelf-open'] .world-controls.world-touch .world-joy,
+.screen--world[data-world-phase='shelf-open'] .world-controls.world-touch .world-jump-btn,
+.screen--world[data-world-phase='shelf-open'] .world-controls .world-controls-hint {
+  display: none;
+}

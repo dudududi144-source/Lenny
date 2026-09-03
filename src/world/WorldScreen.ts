@@ -493,15 +493,23 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     questPanel.classList.remove('hidden');
 
     if (q.family === 'wayfinding') {
-      /* a target away from where the child stands — a real little journey */
+      /* a target away from where the child stands — a real LITTLE
+         journey: stage-11's garden is big, so the errand pool keeps to
+         a child-sized walk (4–26 units, ≈10–30s at a cub's pace); the
+         seeded pick rotates inside that honest band */
       const pos = app.presencePos() ?? { x: 0, z: 0 };
-      let idx = questHash(q.seq, 3) % LANDMARKS.length;
-      for (let tries = 0; tries < LANDMARKS.length; tries++) {
-        const cand = LANDMARKS[idx];
-        if (Math.hypot(cand.x - pos.x, cand.z - pos.z) > 4) break;
-        idx = (idx + 1) % LANDMARKS.length;
+      const inBand: number[] = [];
+      for (let i = 0; i < LANDMARKS.length; i++) {
+        const d = Math.hypot(LANDMARKS[i].x - pos.x, LANDMARKS[i].z - pos.z);
+        if (d > 4 && d <= 26) inBand.push(i);
       }
-      const target = LANDMARKS[idx];
+      const pool =
+        inBand.length > 0
+          ? inBand
+          : LANDMARKS.map((_, i) => i).filter(
+              (i) => Math.hypot(LANDMARKS[i].x - pos.x, LANDMARKS[i].z - pos.z) > 4,
+            );
+      const target = LANDMARKS[pool.length > 0 ? pool[questHash(q.seq, 3) % pool.length] : 0];
       wayfindingTargetId = target.id;
       app.setQuestTarget(target.id);
       app.setQuestProps(null);

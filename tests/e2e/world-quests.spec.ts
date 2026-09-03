@@ -55,14 +55,30 @@ async function closeShelfIfOpen(page: Page): Promise<void> {
 }
 
 async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number): Promise<void> {
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 90; i++) {
     await closeShelfIfOpen(page);
     const p = await page.evaluate(() => window.__lennyWorld?.presencePos());
     if (p && Math.hypot(p.x - wx, p.z - wz) <= nearDist) return;
-    const s = await page.evaluate(([x, z]) => window.__lennyWorld?.screenOf(x!, z!), [wx, wz]);
-    if (!s) throw new Error('bridge missing');
-    const fx = Math.min(0.78, Math.max(0.22, s.x));
-    const fy = Math.min(0.72, Math.max(0.32, s.y));
+    /* stage 11: the world is journey-scale — a far errand is OFF-SCREEN.
+       A child walks toward it anyway: sample the bearing line for the
+       first stretch of ground that IS visible, and tap that. */
+    const spot = await page.evaluate(([x, z]) => {
+      const w = window.__lennyWorld!;
+      const me = w.presencePos()!;
+      const s = w.screenOf(x!, z!)!;
+      if (s.on && (s.x > 0.03 || s.x < 0.97) && s.y > 0.02) return { fx: s.x, fy: s.y };
+      const dx = x! - me.x;
+      const dz = z! - me.z;
+      const len = Math.hypot(dx, dz) || 1;
+      for (const k of [3, 5, 8, 12, 17, 23, 30]) {
+        const probe = w.screenOf(me.x + (dx / len) * k, me.z + (dz / len) * k);
+        if (probe && probe.on) return { fx: probe.x, fy: probe.y };
+      }
+      return null;
+    }, [wx, wz]);
+    if (!spot) throw new Error('no visible ground toward the errand');
+    const fx = Math.min(0.78, Math.max(0.22, spot.fx));
+    const fy = Math.min(0.72, Math.max(0.32, spot.fy));
     await tapAt(page, fx, fy);
     await page.waitForTimeout(650);
   }
@@ -70,6 +86,7 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
 }
 
 test('wayfinding: the child walks to the named place and the quest completes', async ({ page }) => {
+  test.setTimeout(75_000); /* stage 11: even a banded errand is a real walk */
   await openWorldWithQuests(page, { counting: 1, patterns: 1 });
   const q = await page.evaluate(() => window.__lennyWorld?.quest());
   expect(q!.family).toBe('wayfinding');
