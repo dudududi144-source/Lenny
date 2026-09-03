@@ -21,6 +21,9 @@ function createGameHost(callbacks: GameHostCallbacks): GameHostHandle {
   const root = h(
     'section',
     { class: 'screen screen--game hidden', id: 'game-screen', 'aria-label': 'משחק בגן' },
+    /* round C a11y: the PixiJS ceremony is invisible to assistive tech —
+       this live region repeats what the ceremony says, in text */
+    h('div', { class: 'sr-only', id: 'game-live', role: 'status', 'aria-live': 'polite' }),
   );
   let impl: Promise<GameHostHandle> | null = null;
   let loaded: GameHostHandle | null = null;

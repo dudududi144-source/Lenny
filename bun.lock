@@ -5,6 +5,7 @@
     "": {
       "name": "lenny",
       "dependencies": {
+        "@babylonjs/core": "^9.23.0",
         "pixi-filters": "^6",
         "pixi.js": "^8.20.1",
       },
@@ -21,6 +22,8 @@
     },
   },
   "packages": {
+    "@babylonjs/core": ["@babylonjs/core@9.24.0", "", {}, "sha512-NdMiu11hCnrMObrukVtRCg+iFtbX3iRoxvyWpqZAIhPV/8CHsS+lGEU7MJm3zQlLdOE574dv1NMxXfrqHDRwow=="],
+
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.21.5", "", { "os": "aix", "cpu": "ppc64" }, "sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ=="],
 
     "@esbuild/android-arm": ["@esbuild/android-arm@0.21.5", "", { "os": "android", "cpu": "arm" }, "sha512-vCPvzSjpPHEi1siZdlvAlsPxXl7WbOVUBBAowWug4rJHb68Ox8KualB+1ocNvT5fjv6wpkX6o/iEpbDrf68zcg=="],

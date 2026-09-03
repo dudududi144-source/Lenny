@@ -35,6 +35,56 @@ const EMOTION_HEX: Record<Emotion, number> = {
 /* old timing constants */
 const CORRECT_LOCK_MS = 700;
 
+/* round C 'situation' variant: short, familiar vignettes — the child
+   HEARS (and reads) what happened and infers the feeling. The claimed
+   empathy/perspective skill finally has real practice (audit 9-d #10). */
+const SITUATIONS: Record<Emotion, string[]> = {
+  happy: [
+    'דָּנִי קִבֵּל מַתָּנָה שֶׁרָצָה מְאֹד. מָה הוּא מַרְגִּישׁ?',
+    'הַחֲבֵרָה שֶׁל נוֹגָה שִׂיחְקָה אִתָּהַיּוֹם בַּחֲצֵר. מָה הִיא מַרְגִּישָׁה?',
+  ],
+  sad: [
+    'הַבָּלוֹן שֶׁל אִיתַי נָפַץ. מָה הוּא מַרְגִּישׁ?',
+    'כֶּלֶב קָטָן נִשְׁאַר לְבַד בַּגַּשֶׁם. מָה הוּא מַרְגִּישׁ?',
+  ],
+  angry: [
+    'מִישֶׁהוּ הֶפֵּל אֶת הַמִּגְדָּל שֶׁעֲלִי בָּנָה. מָה הוּא מַרְגִּישׁ?',
+    'לָקְחוּ לְתָמָר אֶת הַצַעְצוּעַ בְּלִי לִשְׁאֹל. מָה הוּא מַרְגִּישׁ?',
+  ],
+  surprised: [
+    'מִתּוֹךְ הַקֻּפְסָא קָפַץ צַפְרְדֵּעַ! מָה הוּא מַרְגִּישׁ?',
+    'בַּקֹּפְסָה שֶׁל הַמַּתָּנָה הָיָה חָתוּל קָטָן! מָה הוּא מַרְגִּישׁ?',
+  ],
+  calm: [
+    'אַחֲרֵי הַסִּפּוּר נָשַׁם מַיִם לְאַט וְנָחָה. מָה הוּא מַרְגִּישׁ?',
+    'שָׁכַב עַל הַדֶּשֶׁא, הִסְתַּכֵּל בֶּעָנָנִים וְנָחָה. מָה הוּא מַרְגִּישׁ?',
+  ],
+};
+
+/** A tiny vector emotion face for the option tiles — pre-readers pick
+    by LOOKING, not by decoding Hebrew labels (audit 9-d #10). */
+function miniFace(emo: Emotion): Graphics {
+  const g = new Graphics();
+  g.circle(0, 0, 13).fill({ color: 0x7dffb8 });
+  g.circle(0, 0, 13).stroke({ color: EMOTION_HEX[emo], width: 2.5, alpha: 0.95 });
+  g.circle(-4.5, -3, 2).fill({ color: 0x0a0416 });
+  g.circle(4.5, -3, 2).fill({ color: 0x0a0416 });
+  if (emo === 'happy') {
+    g.arc(0, 3, 5, 0.25, Math.PI - 0.25).stroke({ color: 0x0a0416, width: 1.8 });
+  } else if (emo === 'sad') {
+    g.arc(0, 11, 5, Math.PI + 0.25, Math.PI * 2 - 0.25).stroke({ color: 0x0a0416, width: 1.8 });
+  } else if (emo === 'angry') {
+    g.moveTo(-7, -7).lineTo(-2.5, -5).stroke({ color: 0x0a0416, width: 1.5 });
+    g.moveTo(7, -7).lineTo(2.5, -5).stroke({ color: 0x0a0416, width: 1.5 });
+    g.moveTo(-4.5, 6).lineTo(4.5, 5).stroke({ color: 0x0a0416, width: 1.8 });
+  } else if (emo === 'surprised') {
+    g.circle(0, 5, 2.6).fill({ color: 0x0a0416 });
+  } else {
+    g.moveTo(-4, 5.5).lineTo(4, 5.5).stroke({ color: 0x0a0416, width: 1.8 });
+  }
+  return g;
+}
+
 
 /**
  * EmotionFace — "help the turtle name its feeling" (feelings-garden).
@@ -63,6 +113,9 @@ export class EmotionFaceScene extends GameScene {
   private optionCount = 3;
   private optionSpots: { x: number; y: number }[] = [];
   private lastHint: 'none' | 'gentle' | 'clear' | 'show' = 'none';
+  /* round C 'situation' variant: hear a vignette, infer the feeling */
+  private situationMode = false;
+  private situationText = '';
 
   constructor(ctx: SceneCtx) {
     super(ctx);
@@ -75,6 +128,7 @@ export class EmotionFaceScene extends GameScene {
     this.lock = false;
     this.lastHint = 'none';
     this.TARGET = this.ctx.spec?.params.rounds ? this.ctx.spec.params.rounds : 5;
+    this.situationMode = this.ctx.spec?.params.extra?.variant === 'situation';
     /* DDA adapts the option count: options = 2 + floor(level * 3) (2..5) */
     this.optionCount = Math.min(5, Math.max(2, 2 + Math.floor(this.dda.level() * 3)));
 
@@ -130,6 +184,21 @@ export class EmotionFaceScene extends GameScene {
     this.options = picked;
     this.correctIdx = picked.indexOf(this.current);
     this.lastHint = 'none';
+
+    /* situation mode: the vignette IS the question — the turtle's
+       face stays a neutral wondering one until the reveal */
+    if (this.situationMode) {
+      const list = SITUATIONS[this.current];
+      this.situationText = list[this.found % list.length];
+      this.drawWonderingFace();
+      this.rebuildOptions();
+      this.setMsg(this.situationText);
+      this.speakText(this.situationText);
+      this.faceC.scale.set(0.8);
+      this.anim.to(this.faceC, { scale: 1 }, { durationMs: 380, ease: ease.outBack });
+      return;
+    }
+
     this.drawTurtleFace();
     this.rebuildOptions();
     /* the face ARRIVES: a springy pop + glow pulse keeps every round alive */
@@ -140,10 +209,47 @@ export class EmotionFaceScene extends GameScene {
   private updateScore(): void {
     this.scoreText.text = 'הִכַּרְתָּ: ' + this.found + ' / ' + this.TARGET;
     this.ctx.hud.ringCounts(this.found, this.TARGET);
-    this.ctx.hud.mission?.('מַה הַצָּב מַרְגִּישׁ?');
+    this.ctx.hud.mission?.(this.situationMode ? 'הַאֲזִינוּ — מָה הַרְגָּשׁ?' : 'מַה הַצָּב מַרְגִּישׁ?');
   }
 
   /* ---------- turtle face (same geometry as the Phaser Graphics) ---------- */
+
+  /** Situation-mode neutral face: the turtle wonders — the answer must
+      come from the vignette, not from reading a face. A '?' hovers. */
+  private drawWonderingFace(): void {
+    const x = this.w / 2;
+    const y = this.h * 0.4;
+    const r = 60;
+    const g = this.faceG;
+    g.clear();
+    g.circle(x, y, r + 12).fill({ color: 0x4caf6e, alpha: 0.9 });
+    g.circle(x, y, r).fill({ color: 0x7dffb8 });
+    g.circle(x - 22, y - 15, 12).fill({ color: 0xffffff });
+    g.circle(x + 22, y - 15, 12).fill({ color: 0xffffff });
+    g.circle(x - 22, y - 15, 4).fill({ color: 0x0a0416 });
+    g.circle(x + 22, y - 15, 4).fill({ color: 0x0a0416 });
+    /* a small wondering mouth: slightly open, perfectly neutral */
+    g.circle(x, y + 20, 5).stroke({ color: 0x0a0416, width: 2.5, alpha: 0.9 });
+    /* the hovering question mark */
+    const q = this.label('?', 44, 0xffd76a, '800');
+    q.anchor.set(0.5);
+    q.x = x + r * 0.78;
+    const baseY = y - r * 0.82;
+    q.y = baseY;
+    q.name = 'wonder-mark';
+    this.faceC.addChild(q);
+    this.anim.to(q, { y: baseY - 7, alpha: 0.55 }, { durationMs: 900, ease: ease.inOutSine, onDone: () => {
+      this.anim.to(q, { y: baseY, alpha: 1 }, { durationMs: 900, ease: ease.inOutSine });
+    } });
+    this.faceGlow.tint = 0xffd76a;
+  }
+
+  /** Clear the wondering '?' (before the reveal / new round). */
+  private clearWonderMark(): void {
+    for (const child of [...this.faceC.children]) {
+      if (child.name === 'wonder-mark') child.destroy({ children: true });
+    }
+  }
 
   private drawTurtleFace(): void {
     const x = this.w / 2;
@@ -217,8 +323,14 @@ export class EmotionFaceScene extends GameScene {
       sheen.height = 20;
       sheen.y = -9;
       const txt = this.label(LABELS[emo], 16, COLORS.cream, '600');
+      txt.x = 16;
+      /* the mini face sits on the leading side, the label on the other —
+         sharing the center made the Hebrew text collide with it
+         (critic round C #4) */
+      const face = miniFace(emo);
+      face.x = -26;
 
-      tile.addChild(glass, sheen, txt);
+      tile.addChild(glass, sheen, face, txt);
       tile.alpha = 0;
       this.optionLayer.addChild(tile);
       this.optionViews.push(tile);
@@ -227,6 +339,23 @@ export class EmotionFaceScene extends GameScene {
   }
 
   /* ---------- gameplay ---------- */
+
+  /** Speak Hebrew text — best effort, ETHICS §9 safe (silent when the
+      sound choice is off) and a no-op without TTS. */
+  private speakText(text: string): void {
+    try {
+      if (audio.isMuted()) return;
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'he-IL';
+      u.rate = 0.9;
+      synth.speak(u);
+    } catch {
+      /* no TTS in this environment — the vignette text stands alone */
+    }
+  }
 
   private setMsg(text: string): void {
     this.msgText.text = text;
@@ -255,6 +384,12 @@ export class EmotionFaceScene extends GameScene {
       audio.play('chime', this.found % 4);
       this.wrongSinceLastCorrect = 0;
       this.lastHint = 'none';
+      if (this.situationMode) {
+        /* the reveal: the true face arrives — inference becomes a face
+           the child can check themselves */
+        this.clearWonderMark();
+        this.drawTurtleFace();
+      }
       if (this.found >= this.TARGET) {
         this.win();
       } else {
@@ -264,7 +399,7 @@ export class EmotionFaceScene extends GameScene {
         this.anim.after(CORRECT_LOCK_MS, () => {
           if (this.isFinished()) return;
           this.lock = false;
-          this.setMsg('מַה הַצָּב מַרְגִּישׁ עַכְשָׁו?');
+          this.setMsg(this.situationMode ? 'מָה הוּא מַרְגִּישׁ עַכְשָׁו? הַאֲזִינוּ' : 'מַה הַצָּב מַרְגִּישׁ עַכְשָׁו?');
           this.newRound();
         });
       }
@@ -272,7 +407,10 @@ export class EmotionFaceScene extends GameScene {
       this.wrongSinceLastCorrect++;
       this.score.miss({ x, y });
       audio.play('softError');
-      this.fx.flash(EMOTION_HEX[this.current], 140, 0.1);
+      /* situation mode: a wrong pick never flashes the ANSWER's color —
+         each option's mini face is stroked in its own emotion hex, so
+         the flash would name the correct tile (critic round C #3) */
+      this.fx.flash(this.situationMode ? COLORS.coral : EMOTION_HEX[this.current], 140, 0.1);
       /* a wrong pick is NOT a round loss (the round is one named
          emotion, judged in the correct branch above). It feeds
          LearningSignals and the visible hint ladder instead. */
@@ -289,16 +427,33 @@ export class EmotionFaceScene extends GameScene {
          a silent difficulty drop -- same pattern as MemoryPairs */
       const hint = this.suggestHint(this.wrongSinceLastCorrect);
       this.lastHint = hint;
-      this.setMsg(
-        hint === 'show'
-          ? 'עֵינַיִם, אַחַר כָּךְ גְּבוֹת, אַחַר כָּךְ פֶּה — מָה הַצָּב מַרְגִּישׁ?'
-          : hint === 'clear'
-            ? 'הִסְתַּכֵּל עַל הַפֶּה שֶׁל הַצָּב'
-            : 'נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב',
-      );
-      if (hint === 'clear' || hint === 'show') {
-        /* point at the mouth — the clearest single feature (rendering only) */
-        this.ripple(this.w / 2, this.h * 0.4 + 22, COLORS.hint);
+      if (this.situationMode) {
+        /* inference mode: the face gives nothing away — the vignette
+           is the helper, and 'show' points at the right feeling */
+        this.setMsg(
+          hint === 'show'
+            ? 'כָּךַזֶה — חַפְּשׂוּ אֶת הַפָּנִים הַמַּתְאִימִים'
+            : hint === 'clear'
+              ? 'הַאֲזִינוּ לַמִּשְׁפָּט שׁוּב'
+              : 'נַסּוּ שׁוּב — מָה הַרְגָּשׁ?',
+        );
+        if (hint === 'clear') this.speakText(this.situationText);
+        if (hint === 'show') {
+          const spot = this.optionSpots[this.correctIdx];
+          this.ripple(spot.x, spot.y, COLORS.hint);
+        }
+      } else {
+        this.setMsg(
+          hint === 'show'
+            ? 'עֵינַיִם, אַחַר כָּךְ גְּבוֹת, אַחַר כָּךְ פֶּה — מָה הַצָּב מַרְגִּישׁ?'
+            : hint === 'clear'
+              ? 'הִסְתַּכֵּל עַל הַפֶּה שֶׁל הַצָּב'
+              : 'נַסֶּה לְהַבִּיט בַּפָּנִים שׁוּב',
+        );
+        if (hint === 'clear' || hint === 'show') {
+          /* point at the mouth — the clearest single feature (rendering only) */
+          this.ripple(this.w / 2, this.h * 0.4 + 22, COLORS.hint);
+        }
       }
     }
     return true;
@@ -319,6 +474,8 @@ export class EmotionFaceScene extends GameScene {
   debugState(): Record<string, unknown> {
     return {
       kind: 'emotion-face',
+      variant: this.situationMode ? 'situation' : 'classic',
+      situation: this.situationMode ? this.situationText : null,
       round: this.found,
       totalRounds: this.TARGET,
       emotion: this.current,

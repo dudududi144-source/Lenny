@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite } from 'pixi.js';
+import { Container, Graphics, Sprite, Text } from 'pixi.js';
 import { GameScene, type SceneCtx } from '../engine/GameScene';
 import { ease } from '../engine/AnimationSystem';
 import { softGlowTexture, sparkTexture } from '../engine/textures';
@@ -9,6 +9,32 @@ import { SkillBridge } from '../core/SkillBridge';
 const TARGET_HIT = 40;
 const TILE_W = 62;
 const TILE_H = 50;
+
+/* round C 'first-sound' variant: familiar 4-7 words with an
+   unambiguous initial letter — the phonemic step the literacy chain
+   was missing (ROADMAP P1 #1 / audit 9-d). Spoken, not just shown. */
+const FIRST_SOUND_WORDS: Array<{ word: string; initial: string }> = [
+  { word: 'אַרְנֶבֶת', initial: 'א' },
+  { word: 'בַּיִת', initial: 'ב' },
+  { word: 'גֶּשֶׁם', initial: 'ג' },
+  { word: 'דָּג', initial: 'ד' },
+  { word: 'הַר', initial: 'ה' },
+  { word: 'חָתוּל', initial: 'ח' },
+  { word: 'טִיפָּה', initial: 'ט' },
+  { word: 'יָד', initial: 'י' },
+  { word: 'כֶּלֶב', initial: 'כ' },
+  { word: 'לַיְלָה', initial: 'ל' },
+  { word: 'מַפֵּה', initial: 'מ' },
+  { word: 'נָחָל', initial: 'נ' },
+  { word: 'סַפְסָל', initial: 'ס' },
+  { word: 'עָנָן', initial: 'ע' },
+  { word: 'פֶּרַח', initial: 'פ' },
+  { word: 'צִפּוֹר', initial: 'צ' },
+  { word: 'קוֹף', initial: 'ק' },
+  { word: 'רִמּוֹן', initial: 'ר' },
+  { word: 'שָׁמַיִם', initial: 'ש' },
+  { word: 'תַּפּוּז', initial: 'ת' },
+];
 
 interface LetterSpot {
   x: number;
@@ -37,6 +63,10 @@ export class FindLetterScene extends GameScene {
   private lastHint: 'none' | 'gentle' | 'clear' | 'show' = 'none';
   private skillBridge: SkillBridge;
   private bunny!: Container;
+  /* round C 'first-sound' variant: hear a word, find its initial letter */
+  private firstSound = false;
+  private wordText: Text | null = null;
+  private currentWord = '';
 
   private readonly GLYPH_SKILL: Record<string, string> = {
     'א': 'letter.alef',
@@ -62,6 +92,7 @@ export class FindLetterScene extends GameScene {
 
   protected build(): void {
     this.totalRounds = this.ctx.spec?.params.rounds ?? 5;
+    this.firstSound = this.ctx.spec?.params.extra?.variant === 'first-sound';
 
     /* vector bunny companion (no bitmap art) */
     this.bunny = new Container();
@@ -83,6 +114,14 @@ export class FindLetterScene extends GameScene {
     });
 
     this.say(this.ctx.spec?.narrative.intro ?? ['הָאַרְנֶבֶת אִבְּדָה אֶת הָאוֹתִיּוֹת']);
+    /* the first-sound word display, created once (mode is fixed at build) */
+    if (this.firstSound) {
+      this.wordText = this.label('', 40, COLORS.cream, '800');
+      this.wordText.anchor.set(0.5);
+      this.wordText.x = this.w / 2;
+      this.wordText.y = this.h * 0.2;
+      this.board.addChild(this.wordText);
+    }
     this.ctx.hud.ringCounts(0, this.totalRounds);
     this.newRound();
   }
@@ -91,9 +130,79 @@ export class FindLetterScene extends GameScene {
     for (const spot of this.spots) if (!spot.tile.destroyed) spot.tile.destroy({ children: true });
     this.spots = [];
 
+    const level = this.dda.level();
+
+    /* ---------- first-sound variant: word -> initial letter ---------- */
+    if (this.firstSound) {
+      const entry = FIRST_SOUND_WORDS[Math.floor(Math.random() * FIRST_SOUND_WORDS.length)];
+      this.currentWord = entry.word;
+      const target = entry.initial;
+      this.targetLetter = target;
+
+      /* option tiles: the initial + 2-3 distractors (confusables first) */
+      const optionCount = Math.min(4, Math.max(3, 3 + Math.floor(level)));
+      const pool = this.LETTERS.filter((l) => l !== target);
+      const chosen: string[] = [target];
+      const partner = this.CONFUSABLES[target];
+      if (level >= 0.5 && partner && partner !== target) {
+        chosen.push(partner);
+        /* the partner must leave the pool — or the fill-loop can draw
+           it twice (critic round C #2) */
+        const pi = pool.indexOf(partner);
+        if (pi !== -1) pool.splice(pi, 1);
+      }
+      while (chosen.length < optionCount) {
+        const idx = Math.floor(Math.random() * pool.length);
+        chosen.push(pool[idx]);
+        pool.splice(idx, 1);
+      }
+      for (let i = chosen.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [chosen[i], chosen[j]] = [chosen[j], chosen[i]];
+      }
+
+      /* the word, big and centered above the tiles */
+      const wordText = this.wordText!;
+      wordText.text = this.currentWord;
+      wordText.alpha = 0;
+      this.anim.to(wordText, { alpha: 1 }, { durationMs: 300 });
+
+      this.speakText(this.currentWord);
+      this.say([`מָה הָאוֹת שֶׁמְּתַחִילָה אֶת הַמִּלָּה ${this.currentWord}?`]);
+      this.ctx.hud.mission?.('מֵאִיזָה אוֹת מִתְחִילִים?');
+
+      for (let i = 0; i < chosen.length; i++) {
+        const x = this.w * (0.3 + (i % 2) * 0.4);
+        const y = this.h * (0.5 + Math.floor(i / 2) * 0.24);
+        const tile = new Container();
+        tile.x = x;
+        tile.y = y;
+        const shape = new Graphics();
+        shape.roundRect(-TILE_W / 2, -TILE_H / 2, TILE_W, TILE_H, 14).fill({ color: 0x7c4dff, alpha: 0.92 });
+        shape.roundRect(-TILE_W / 2 + 2, -TILE_H / 2 + 2, TILE_W - 4, TILE_H - 4, 12).stroke({ color: 0x9b74ff, width: 2, alpha: 0.9 });
+        tile.addChild(shape);
+        const halo = new Sprite(softGlowTexture());
+        halo.anchor.set(0.5);
+        halo.tint = 0xffffff;
+        halo.alpha = 0.16;
+        halo.blendMode = 'add';
+        halo.width = TILE_W;
+        halo.height = TILE_H * 0.7;
+        halo.y = -TILE_H * 0.2;
+        tile.addChild(halo);
+        const glyph = this.label(chosen[i], 38, COLORS.cream, '700');
+        tile.addChild(glyph);
+        tile.scale.set(0);
+        this.board.addChild(tile);
+        this.anim.to(tile, { scale: 1 }, { durationMs: 420, delayMs: i * 60, ease: ease.outBack });
+        this.spots.push({ x, y, baseX: x, baseY: y, glyph: chosen[i], tile, phase: Math.random() * Math.PI * 2 });
+      }
+      return;
+    }
+
+    /* ---------- classic letter hunt (tier-0 ground stays still) ---------- */
     const pool = [...this.LETTERS];
     const chosen: string[] = [];
-    const level = this.dda.level();
     for (let i = 0; i < 6; i++) {
       const idx = Math.floor(Math.random() * pool.length);
       chosen.push(pool[idx]);
@@ -218,12 +327,17 @@ export class FindLetterScene extends GameScene {
   /** Speak the target letter in Hebrew — best effort, ETHICS §9 safe
       (silent when the sound choice is off) and a no-op without TTS. */
   private speakLetter(letter: string): void {
+    this.speakText(letter);
+  }
+
+  /** Speak any Hebrew text (letters and words share the same guard). */
+  private speakText(text: string): void {
     try {
       if (audio.isMuted()) return;
       const synth = window.speechSynthesis;
       if (!synth) return;
       synth.cancel();
-      const u = new SpeechSynthesisUtterance(letter);
+      const u = new SpeechSynthesisUtterance(text);
       u.lang = 'he-IL';
       u.rate = 0.85;
       synth.speak(u);
@@ -237,7 +351,11 @@ export class FindLetterScene extends GameScene {
   }
 
   private win(): void {
-    this.say(['וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!']);
+    this.say([
+      this.firstSound
+        ? 'וָאו, כָּל הַכָּבוֹד! הַמִּילִים גִּלּוּ אֶת הָאוֹתִיּוֹת הָרִאשׁוֹנוֹת שֶׁלָּהֶן!'
+        : 'וָאו, כָּל הַכָּבוֹד! הָאַרְנֶבֶת מָצְאָה אֶת הָאוֹתִיּוֹת!',
+    ]);
     audio.play('fanfare');
     this.fx.sparkleRain(this.particles, this.w);
     this.finishWithCeremony({ title: 'כָּל הָאוֹתִיּוֹת נִמְצְאוּ!' });
@@ -260,6 +378,8 @@ export class FindLetterScene extends GameScene {
   debugState(): Record<string, unknown> {
     return {
       kind: 'find-letter',
+      variant: this.firstSound ? 'first-sound' : 'classic',
+      word: this.firstSound ? this.currentWord : null,
       round: this.found,
       totalRounds: this.totalRounds,
       targetLetter: this.targetLetter,

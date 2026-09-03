@@ -16,6 +16,7 @@ interface Kite {
   x: number;
   y: number;
   color: number;
+  shape: ShapeKind;
   matched: boolean;
   view: Container;
   halo: Graphics;
@@ -25,11 +26,20 @@ interface Shadow {
   x: number;
   y: number;
   color: number;
+  shape: ShapeKind;
+  rotDeg: number;
   matched: boolean;
   view: Container;
   fill: Graphics;
   ring: Graphics;
 }
+
+type ShapeKind = 'diamond' | 'circle' | 'triangle' | 'star';
+
+const SHAPES: ShapeKind[] = ['diamond', 'circle', 'triangle', 'star'];
+/* round C 'rotated-shapes' variant: one neutral dark for EVERY shadow —
+   color can no longer key the answer, only the silhouette can */
+const SHADOW_NEUTRAL = 0x3a3554;
 
 type Hint = 'none' | 'gentle' | 'clear' | 'show';
 
@@ -51,6 +61,36 @@ function shadowTint(hex: number): number {
   return (mix(r) << 16) | (mix(g) << 8) | mix(b);
 }
 
+/** The silhouette path for one shape, centered on the origin.
+    Shared by kites, shadows and match rings (round C variants). */
+function shapePath(g: Graphics, shape: ShapeKind): void {
+  if (shape === 'diamond') {
+    g.moveTo(0, -KITE_HALF_H);
+    g.lineTo(KITE_HALF_W, 0);
+    g.lineTo(0, KITE_HALF_H);
+    g.lineTo(-KITE_HALF_W, 0);
+    g.closePath();
+  } else if (shape === 'circle') {
+    g.circle(0, 0, 22);
+  } else if (shape === 'triangle') {
+    g.moveTo(0, -KITE_HALF_H);
+    g.lineTo(KITE_HALF_W + 2, KITE_HALF_H - 6);
+    g.lineTo(-KITE_HALF_W - 2, KITE_HALF_H - 6);
+    g.closePath();
+  } else {
+    /* five-point star: outer 24, inner 10 */
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? 24 : 10;
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      const px = Math.cos(a) * r;
+      const py = Math.sin(a) * r;
+      if (i === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.closePath();
+  }
+}
+
 /**
  * KiteMatch — match each kite to its shadow (space-sky).
  * Ported 1:1 from the Phaser scene: tap kite then color-matching
@@ -70,6 +110,8 @@ export class KiteMatchScene extends GameScene {
   /* wrong taps across the whole board: the completion score's input */
   private wrongTapsTotal = 0;
   private lastHint: Hint = 'none';
+  /* round C 'rotated-shapes': tier-2+ shadows are shape-keyed AND rotated */
+  private shapesMode = false;
 
   constructor(ctx: SceneCtx) {
     super(ctx);
@@ -89,9 +131,20 @@ export class KiteMatchScene extends GameScene {
     this.TOTAL = spec?.params.itemCount
       ? Math.min(spec.params.itemCount, 6)
       : Math.min(3 + Math.floor(this.dda.level() * 5), PALETTE.length);
+    this.shapesMode = spec?.params.extra?.variant === 'rotated-shapes';
+    /* four unique silhouettes, no color cue — the board must stay
+       unambiguous, so the variant caps the count */
+    if (this.shapesMode) this.TOTAL = Math.min(this.TOTAL, SHAPES.length);
 
-    this.say(['הָעִפְעוֹפִים הִתְבַּלְבְּלוּ בַּשָּׁמַיִם']);
+    this.say([
+      this.shapesMode
+        ? 'הַצְּלָלִים הִתְגַּלְגְּלוּ בַּשָּׁמַיִם! מְצְאוּ אֶת הַצּוּרָה'
+        : 'הָעִפְעוֹפִים הִתְבַּלְבְּלוּ בַּשָּׁמַיִם',
+    ]);
     this.buildBoard();
+    if (this.shapesMode) {
+      this.ctx.hud.mission?.('הִשְׁתַמְשׁוּ בַּצּוּרוֹת — הֵן הִתְגַּלְגְּלוּ!');
+    }
   }
 
   /* ---------- board construction ---------- */
@@ -105,11 +158,11 @@ export class KiteMatchScene extends GameScene {
     /* kites on the left */
     this.kites = [];
     for (let i = 0; i < n; i++) {
-      const { view, halo } = this.buildKiteView(PALETTE[i % PALETTE.length]);
+      const { view, halo } = this.buildKiteView(PALETTE[i % PALETTE.length], this.shapesMode ? SHAPES[i % SHAPES.length] : 'diamond');
       view.x = this.w * 0.25;
       view.y = yFor(i);
       this.root.addChild(view);
-      this.kites.push({ x: this.w * 0.25, y: yFor(i), color: PALETTE[i % PALETTE.length], matched: false, view, halo });
+      this.kites.push({ x: this.w * 0.25, y: yFor(i), color: PALETTE[i % PALETTE.length], shape: this.shapesMode ? SHAPES[i % SHAPES.length] : 'diamond', matched: false, view, halo });
     }
 
     /* shadows on the right, shuffled order */
@@ -120,14 +173,21 @@ export class KiteMatchScene extends GameScene {
     }
     this.shadows = [];
     for (let i = 0; i < n; i++) {
-      const { view, fill, ring } = this.buildShadowView(PALETTE[i % PALETTE.length]);
+      const shape = this.shapesMode ? SHAPES[i % SHAPES.length] : 'diamond';
+      const { view, fill, ring } = this.buildShadowView(this.shapesMode ? SHADOW_NEUTRAL : PALETTE[i % PALETTE.length], shape);
+      /* the variant's rotation: half right angles, half half-turns —
+         deterministic per shuffled slot, never a wobble */
+      const rotDeg = this.shapesMode ? (i % 2 === 0 ? 90 : 180) : 0;
+      view.rotation = (rotDeg * Math.PI) / 180;
       view.x = this.w * 0.75;
       view.y = yFor(order[i]);
       this.root.addChild(view);
       this.shadows.push({
         x: this.w * 0.75,
         y: yFor(order[i]),
-        color: PALETTE[i % PALETTE.length],
+        color: this.shapesMode ? SHADOW_NEUTRAL : PALETTE[i % PALETTE.length],
+        shape,
+        rotDeg,
         matched: false,
         view,
         fill,
@@ -136,7 +196,7 @@ export class KiteMatchScene extends GameScene {
     }
   }
 
-  private buildKiteView(color: number): { view: Container; halo: Graphics } {
+  private buildKiteView(color: number, shape: ShapeKind): { view: Container; halo: Graphics } {
     const view = new Container();
 
     /* halo while selected (old: gold disc alpha 0.2, radius 44) */
@@ -146,25 +206,25 @@ export class KiteMatchScene extends GameScene {
     view.addChild(halo);
 
     const diamond = new Graphics();
-    /* main tint */
-    diamond.moveTo(0, -KITE_HALF_H);
-    diamond.lineTo(KITE_HALF_W, 0);
-    diamond.lineTo(0, KITE_HALF_H);
-    diamond.lineTo(-KITE_HALF_W, 0);
-    diamond.closePath();
+    shapePath(diamond, shape);
     diamond.fill({ color });
-    /* lighter half overlay = simple two-tone gradient */
-    diamond.moveTo(0, -KITE_HALF_H);
-    diamond.lineTo(KITE_HALF_W, 0);
-    diamond.lineTo(0, KITE_HALF_H);
-    diamond.closePath();
-    diamond.fill({ color: shade(color, 1.25), alpha: 0.5 });
-    /* cross lines */
-    diamond.moveTo(0, -KITE_HALF_H);
-    diamond.lineTo(0, KITE_HALF_H);
-    diamond.moveTo(-KITE_HALF_W, 0);
-    diamond.lineTo(KITE_HALF_W, 0);
-    diamond.stroke({ color: COLORS.cream, width: 1.5, alpha: 0.4 });
+    if (shape === 'diamond') {
+      /* the ORIGINAL two-tone: the right half overlaid lighter (a full
+         second pass flattened the classic kite — critic round C #5) */
+      diamond.moveTo(0, -KITE_HALF_H);
+      diamond.lineTo(KITE_HALF_W, 0);
+      diamond.lineTo(0, KITE_HALF_H);
+      diamond.closePath();
+      diamond.fill({ color: shade(color, 1.25), alpha: 0.5 });
+      diamond.moveTo(0, -KITE_HALF_H);
+      diamond.lineTo(0, KITE_HALF_H);
+      diamond.moveTo(-KITE_HALF_W, 0);
+      diamond.lineTo(KITE_HALF_W, 0);
+      diamond.stroke({ color: COLORS.cream, width: 1.5, alpha: 0.4 });
+    } else {
+      shapePath(diamond, shape);
+      diamond.fill({ color: shade(color, 1.25), alpha: 0.5 });
+    }
     view.addChild(diamond);
 
     /* tail + bows */
@@ -187,27 +247,20 @@ export class KiteMatchScene extends GameScene {
     return { view, halo };
   }
 
-  private buildShadowView(color: number): { view: Container; fill: Graphics; ring: Graphics } {
+  private buildShadowView(color: number, shape: ShapeKind): { view: Container; fill: Graphics; ring: Graphics } {
     const view = new Container();
 
     /* dark desaturated silhouette so the child can actually match
-       by color (was all-identical black = pure guessing, pre-fix) */
+       by color (classic) — in the rotated-shapes variant every shadow
+       shares one neutral dark, so only the silhouette can match */
     const fill = new Graphics();
-    fill.moveTo(0, -KITE_HALF_H);
-    fill.lineTo(KITE_HALF_W, 0);
-    fill.lineTo(0, KITE_HALF_H);
-    fill.lineTo(-KITE_HALF_W, 0);
-    fill.closePath();
+    shapePath(fill, shape);
     fill.fill({ color: shadowTint(color) });
     view.addChild(fill);
 
     /* mint stroke once matched (verbatim from the old drawShadow) */
     const ring = new Graphics();
-    ring.moveTo(0, -KITE_HALF_H);
-    ring.lineTo(KITE_HALF_W, 0);
-    ring.lineTo(0, KITE_HALF_H);
-    ring.lineTo(-KITE_HALF_W, 0);
-    ring.closePath();
+    shapePath(ring, shape);
     ring.stroke({ color: 0x7dffb8, width: 2, alpha: 0.8 });
     ring.visible = false;
     view.addChild(ring);
@@ -274,7 +327,7 @@ export class KiteMatchScene extends GameScene {
       if (si !== null) {
         const kite = this.kites[kiteIndex];
         const shadow = this.shadows[si];
-        if (!shadow.matched && kite.color === shadow.color) {
+        if (!shadow.matched && (this.shapesMode ? kite.shape === shadow.shape : kite.color === shadow.color)) {
           kite.matched = true;
           shadow.matched = true;
           this.matchedCount++;
@@ -316,9 +369,13 @@ export class KiteMatchScene extends GameScene {
           this.lastHint = hint;
           this.say([
             hint === 'show'
-              ? 'מִצְאוּ צֵל בְּאוֹתוֹ צֶבַע כְּמוֹ הָעִפְּעוֹף'
+              ? this.shapesMode
+                ? 'מִצְאוּ צֵל בְּאוֹתָהּ צוּרָה — גַּם אִם הִיא הִתְגַּלְגְּלָה'
+                : 'מִצְאוּ צֵל בְּאוֹתוֹ צֶבַע כְּמוֹ הָעִפְּעוֹף'
               : hint === 'clear'
-                ? 'הִסְתַּכְּלוּ עַל הַצֶּבַע שֶׁל הָעִפְּעוֹף שֶׁנִּבְחַר'
+                ? this.shapesMode
+                  ? 'הִסְתַּכְּלוּ עַל הַצּוּרָה שֶׁל הָעִפְּעוֹף שֶׁנִּבְחַר'
+                  : 'הִסְתַּכְּלוּ עַל הַצֶּבַע שֶׁל הָעִפְּעוֹף שֶׁנִּבְחַר'
                 : 'נַסֶּה צֵל אַחֵר',
           ]);
         }
@@ -341,16 +398,20 @@ export class KiteMatchScene extends GameScene {
     const selected = this.selectedKite !== null ? this.kites[this.selectedKite] : null;
     return {
       kind: 'kite-match',
+      variant: this.shapesMode ? 'rotated-shapes' : 'classic',
       kites: this.kites.map((k) => ({
         x: Math.round(k.x),
         y: Math.round(k.y),
         color: k.color,
+        shape: k.shape,
         matched: k.matched,
       })),
       shadows: this.shadows.map((s) => ({
         x: Math.round(s.x),
         y: Math.round(s.y),
         color: s.color,
+        shape: s.shape,
+        rotDeg: s.rotDeg,
         matched: s.matched,
       })),
       selectedKind: selected ? selected.color : null,

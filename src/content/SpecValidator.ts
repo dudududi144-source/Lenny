@@ -31,6 +31,23 @@ const KINDS = new Set([
 
 const ZONE_IDS = new Set(ZONES.map((z) => z.id as string));
 
+/* Mechanic variants (round C): the only extras a derived spec may
+   carry. Each kind accepts exactly its own variant at its own tier
+   floor, and tier-0 must stay variant-free — the seed specs + e2e
+   ground never move. */
+const VARIANTS_BY_KIND: Partial<Record<string, ReadonlySet<string>>> = {
+  'memory-pairs': new Set(['wind']),
+  'letter-find': new Set(['first-sound']),
+  'match-shadow': new Set(['rotated-shapes']),
+  'sort-order': new Set(['descending']),
+  'emotion-name': new Set(['situation']),
+};
+
+/* the tier a variant may first appear at (mirrors SpecGenerator) */
+const VARIANT_TIER_FLOOR: Partial<Record<string, number>> = {
+  'match-shadow': 2,
+};
+
 /**
  * Validate one GameSpec. Returns null when the spec is playable,
  * otherwise a short human-readable problem list.
@@ -96,6 +113,20 @@ export function validateSpec(spec: GameSpec): string | null {
     }
     if (spec.params.itemCount !== undefined && spec.params.itemCount > 12) {
       problems.push(`itemCount too large for a 4-7 attention span: ${spec.params.itemCount}`);
+    }
+    /* variant coherence (round C) */
+    const variant = spec.params.extra?.variant;
+    if (variant !== undefined) {
+      const allowed = VARIANTS_BY_KIND[spec.kind];
+      if (!allowed || typeof variant !== 'string' || !allowed.has(variant)) {
+        problems.push(`unknown variant "${String(variant)}" for kind ${spec.kind}`);
+      } else if (spec.baseTier === 0) {
+        problems.push('tier-0 spec must stay variant-free (e2e ground never moves)');
+      } else if (spec.baseTier < (VARIANT_TIER_FLOOR[spec.kind] ?? 1)) {
+        problems.push(
+          `variant "${String(variant)}" waits for tier ${VARIANT_TIER_FLOOR[spec.kind]} (got ${spec.baseTier})`,
+        );
+      }
     }
   }
 

@@ -120,6 +120,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       shelfZone = null;
       phase = 'exploring';
       root.dataset.worldPhase = phase;
+      app?.setKeyboardEnabled(true);
       if (zone && spec) {
         diary.notePick();
         /* arena time is game time, not garden time — the diary's
@@ -133,6 +134,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         phase = 'exploring';
         root.dataset.worldPhase = phase;
       }
+      app?.setKeyboardEnabled(true);
     },
   }, { id: 'world-shelf' });
 
@@ -679,7 +681,14 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     canvas.className = 'world-canvas';
     canvas.setAttribute('aria-label', 'הגן התלת-ממדי של לני');
     stage.replaceChildren(canvas);
-    const firstVisit = !isWorldOnboarded();
+    /* round C a11y: a reduced-motion preference skips the flyover —
+       the camera eases straight to the play pose and the garden starts */
+    const reducedMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const sawOnboarding = isWorldOnboarded();
+    const firstVisit = !sawOnboarding && !reducedMotion;
+    if (!sawOnboarding && reducedMotion) markWorldOnboarded();
     app = await createWorldApp(
       canvas,
       {
@@ -729,6 +738,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             diary.noteShelfOpen();
             phase = 'shelf-open';
             root.dataset.worldPhase = 'shelf-open';
+            /* the shelf owns the keys now — walking away mid-shelf
+               would be a confusing ghost (round C a11y) */
+            app?.setKeyboardEnabled(false);
           }
         },
         onPhase: (p) => {

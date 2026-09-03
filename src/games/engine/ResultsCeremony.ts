@@ -82,6 +82,18 @@ export class ResultsCeremony {
     this.newRecord = stats.score > prevBest && stats.score > 0;
     if (this.newRecord) saveBest(zone, stats.score);
 
+    /* round C a11y: the canvas ceremony is invisible to assistive tech —
+       say the same thing in the #game-live text region (best effort) */
+    try {
+      const live = document.getElementById('game-live');
+      if (live) {
+        const pct = Math.round(stats.accuracy * 100);
+        live.textContent = `${this.newRecord ? 'שִׁיא חָדָשׁ! ' : ''}${title} ${stats.stars} מִתּוֹךְ 3 כּוֹכָבִים, ${pct} אֲחוּזֵי הַצְלָחָה.`;
+      }
+    } catch {
+      /* an announcement never crashes the ceremony */
+    }
+
     const W = this.w;
     const H = this.h;
     this.root.removeChildren().forEach((c) => c.destroy({ children: true }));

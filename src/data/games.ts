@@ -1,21 +1,16 @@
 /* ============================================================
- * STATUS: CONTENT RESERVE — the 144 game NAMES are an asset for
- * future GameSpecs. The ACTIVE catalog is GameRegistry
- * (src/games/builder/GameRegistry.ts): new games are added there
- * as GameSpecs, NOT here.
+ * STATUS: THE 144-NAME SEED (round C note — the old "no consumers"
+ * remark was STALE and lied to engineers: since stage 6 the
+ * SpecGenerator (src/content/SpecGenerator.ts) derives the full
+ * 144-spec catalog from GAMES, and SpecValidator checks it at
+ * boot. New HAND-WRITTEN games still go to GameRegistry
+ * (src/games/builder/GameRegistry.ts) as GameSpecs.
  *
  * Wiring map (verified):
  *   - GameCategory (type)     -> consumed by data/garden.ts + GameSpec
- *   - CATEGORIES/CATEGORY_ORDER -> consumed by portal/MandalaSystem
- *     (portal subsystem, currently not booted by entry.ts)
- *   - GAMES / getGame / gamesByCategory / LEVELS -> NO consumers
- *     (verified by grep); kept deliberately as the name reserve.
- * Do NOT add new games here; add GameSpecs to GameRegistry instead.
- *
- * 144 Cognitive Games — The Seed
- * 9 categories x 16 games (4 levels x 4 games per level).
- * Names in clean, standard Hebrew with full niqqud, RTL-safe,
- * written for Israeli children ages 4-7.
+ *   - CATEGORIES/CATEGORY_ORDER -> portal/MandalaSystem + SpecGenerator
+ *   - GAMES                   -> SpecGenerator.deriveSpecs (the 144)
+ *     + SpecValidator (category/zone coherence)
  * ============================================================ */
 
 export type GameCategory =

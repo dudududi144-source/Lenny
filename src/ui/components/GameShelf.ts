@@ -84,16 +84,30 @@ export function createGameShelf(callbacks: GameShelfCallbacks, options: GameShel
   );
   const root = h(
     'div',
-    { class: 'game-shelf hidden', id: options.id ?? 'game-shelf', 'aria-hidden': 'true' },
+    { class: 'game-shelf hidden', id: options.id ?? 'game-shelf', 'aria-hidden': 'true', tabindex: '-1' },
     h('div', { class: 'shelf-backdrop', onClick: () => close() }),
     panel,
   );
+
+  /* round C a11y: keyboard children get the shelf too — open hands
+     focus to the panel, Esc closes, close returns focus home */
+  let lastFocus: HTMLElement | null = null;
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !root.classList.contains('hidden')) {
+      ev.stopPropagation();
+      close();
+    }
+  });
 
   function close(): void {
     if (root.classList.contains('hidden')) return;
     root.classList.remove('is-open');
     root.classList.add('hidden');
     root.setAttribute('aria-hidden', 'true');
+    if (lastFocus && document.contains(lastFocus)) {
+      lastFocus.focus({ preventScroll: true });
+    }
+    lastFocus = null;
     callbacks.onClose?.();
   }
 
@@ -153,6 +167,10 @@ export function createGameShelf(callbacks: GameShelfCallbacks, options: GameShel
     root.classList.remove('hidden');
     root.classList.add('is-open');
     root.setAttribute('aria-hidden', 'false');
+    /* the shelf is where the child's attention is — the keyboard's
+       focus follows it, and Esc + Tab work from here (round C a11y) */
+    lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    root.focus({ preventScroll: true });
   }
 
   return { root, open, close, isOpen: () => !root.classList.contains('hidden') };
