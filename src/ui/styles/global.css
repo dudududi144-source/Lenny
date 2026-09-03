@@ -55,6 +55,20 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* round C a11y: screen-reader-only live region carrier (game results
+   announcements live in #game-live inside the game screen) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ---------- App frame (keeps the 420x720 game proportion) ---------- */
 
 #app {
@@ -1133,8 +1147,10 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  /* round C a11y: 46px — inside the 44px minimum touch target for
+     small fingers (was 38px, below every children's-UI guideline) */
+  width: 46px;
+  height: 46px;
   border-radius: 12px;
   color: #fff6ec;
   background: rgba(255, 246, 236, 0.08);

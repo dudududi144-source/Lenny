@@ -34,6 +34,12 @@ export interface WorldInputEvents {
 
 export interface WorldInputHandle {
   detach(): void;
+  /** The held-direction vector from the keyboard (null = no keys).
+      The keyboard is the desktop child's legs — same walk rules,
+      same clamps, same invariants as a tap (round C a11y). */
+  keyboardStep(): { x: number; z: number } | null;
+  /** The shell turns keyboard walking off while the shelf is open. */
+  setKeyboardEnabled(on: boolean): void;
 }
 
 /** One gentle locked-island note per this long — never a spam. */
@@ -57,6 +63,32 @@ export function attachWorldInput(
   let press: PointerSnapshot | null = null;
   let dragAborted = false;
   let lockedToastAt = 0;
+
+  /* ---------- keyboard walking (round C a11y) ----------
+     Arrows / WASD = held direction. The poller in the render loop
+     turns it into walk targets through the SAME resolveWalkTarget
+     clamps a tap uses — the desktop child walks the same garden. */
+  const heldKeys = new Set<string>();
+  let keyboardEnabled = true;
+  const WALK_KEYS = [
+    'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+    'w', 'a', 's', 'd', 'W', 'A', 'S', 'D',
+  ];
+  const onKeyDown = (ev: KeyboardEvent): void => {
+    if (!WALK_KEYS.includes(ev.key)) return;
+    if (events.isOnboarding()) return; /* the tour owns the camera */
+    ev.preventDefault(); /* arrows never scroll the garden away */
+    heldKeys.add(ev.key);
+  };
+  const onKeyUp = (ev: KeyboardEvent): void => {
+    heldKeys.delete(ev.key);
+  };
+  const onBlur = (): void => {
+    heldKeys.clear(); /* a hidden tab never leaves a stuck walk */
+  };
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', onBlur);
 
   const onPointerDown = (ev: PointerEvent): void => {
     if (events.isOnboarding()) {
@@ -134,6 +166,25 @@ export function attachWorldInput(
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerCancel);
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    },
+    keyboardStep(): { x: number; z: number } | null {
+      if (!keyboardEnabled || heldKeys.size === 0) return null;
+      let x = 0;
+      let z = 0;
+      if (heldKeys.has('ArrowLeft') || heldKeys.has('a') || heldKeys.has('A')) x -= 1;
+      if (heldKeys.has('ArrowRight') || heldKeys.has('d') || heldKeys.has('D')) x += 1;
+      if (heldKeys.has('ArrowUp') || heldKeys.has('w') || heldKeys.has('W')) z -= 1;
+      if (heldKeys.has('ArrowDown') || heldKeys.has('s') || heldKeys.has('S')) z += 1;
+      if (x === 0 && z === 0) return null;
+      const len = Math.hypot(x, z);
+      return { x: x / len, z: z / len };
+    },
+    setKeyboardEnabled(on: boolean): void {
+      keyboardEnabled = on;
+      if (!on) heldKeys.clear();
     },
   };
 }

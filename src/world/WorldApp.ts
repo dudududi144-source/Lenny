@@ -61,6 +61,7 @@ import {
   isInsideLandmark,
   nearestLandmark,
   nearestZone,
+  resolveWalkTarget,
   slideAroundLandmark,
   walkStepToward,
   type LandmarkDef,
@@ -363,6 +364,8 @@ export interface WorldApp {
   /** Re-read progress (unlock fog + bloom) after a game or on open. */
   refresh(data: GardenData, grewZones?: ReadonlySet<string>): void;
   setPaused(paused: boolean): void;
+  /** Keyboard walking on/off (the shell disables it while the shelf is open). */
+  setKeyboardEnabled(on: boolean): void;
   dispose(): void;
 }
 
@@ -593,6 +596,19 @@ export async function createWorldApp(
     if (paused || disposed) return;
     const now = performance.now();
     const dt = Math.min(0.1, engine.getDeltaTime() / 1000);
+
+    /* keyboard walking (round C a11y): a held direction becomes a walk
+       target refreshed every frame, through the SAME resolveWalkTarget
+       clamps a tap uses — rim, keep-outs and locked islands all hold */
+    const kb = worldInput.keyboardStep();
+    if (kb && !onboard.active()) {
+      const resolved = resolveWalkTarget(
+        presencePos.x + kb.x * 7,
+        presencePos.z + kb.z * 7,
+        (zone) => islands.zones().some((z) => z.id === zone && !z.unlocked),
+      );
+      walkTarget = { x: resolved.x, z: resolved.z };
+    }
 
     /* presence easing + camera follow — the clamp lives in
        walkStepToward (pure, unit-pinned): no first-frame lurch */
@@ -836,6 +852,9 @@ export async function createWorldApp(
         governor.reset();
         engine.resize();
       }
+    },
+    setKeyboardEnabled(on: boolean): void {
+      worldInput.setKeyboardEnabled(on);
     },
     dispose(): void {
       if (disposed) return;
