@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_WALK_SPEED,
   WORLD_ISLANDS,
   WORLD_WALK_RADIUS,
   catmullRom2,
@@ -8,6 +9,7 @@ import {
   layoutIslands,
   nearestZone,
   pathPoints,
+  walkStepToward,
 } from '../world/WorldLayout';
 import { ZONES } from '../data/garden';
 
@@ -102,5 +104,62 @@ describe('WorldLayout', () => {
     ];
     const out = catmullRom2(ctrl, 10);
     expect(out.some((p) => Math.abs(p.x - 1) < 0.01 && Math.abs(p.z) < 0.01)).toBe(true);
+  });
+});
+
+describe('walkStepToward — calm walking, no lurch (critic round B, W4)', () => {
+  const from = { x: 0, z: 0 };
+  const far = { x: 13, z: 0 }; /* a cross-world walk */
+
+  it('the first frame of the longest walk never exceeds the speed cap', () => {
+    /* the old inline formula hit ~65 u/s here — one giant lurch */
+    const step = walkStepToward(from, far, 1 / 60);
+    const speed = step.x / (1 / 60);
+    expect(speed).toBeLessThanOrEqual(MAX_WALK_SPEED + 1e-9);
+  });
+
+  it('keeps the soft landing — speed eases out near the target', () => {
+    let pos = { x: 0, z: 0 };
+    /* walk most of the way with big steps */
+    for (let i = 0; i < 200 && Math.hypot(pos.x - far.x, pos.z) > 2; i++) {
+      pos = walkStepToward(pos, far, 1 / 30);
+    }
+    const nearTarget = { x: far.x - 0.5, z: 0 };
+    const step = walkStepToward(nearTarget, far, 1 / 60);
+    const speed = (step.x - nearTarget.x) / (1 / 60);
+    expect(speed).toBeLessThan(MAX_WALK_SPEED * 0.75);
+  });
+
+  it('always converges — a walk ends, never stalls and never overshoots', () => {
+    let pos = { x: 0, z: 0 };
+    let arrived = false;
+    for (let i = 0; i < 60_000; i++) {
+      const step = walkStepToward(pos, far, 1 / 60);
+      pos = { x: step.x, z: step.z };
+      if (step.arrived) {
+        arrived = true;
+        break;
+      }
+    }
+    expect(arrived).toBe(true);
+    expect(pos.x).toBeCloseTo(far.x, 6);
+    expect(Math.hypot(pos.x - far.x, pos.z)).toBeLessThanOrEqual(0.09 + 1e-9);
+  });
+
+  it('a dt spike (tab return) moves the child at most one bounded step', () => {
+    const step = walkStepToward(from, far, 10);
+    expect(Math.hypot(step.x, step.z)).toBeLessThanOrEqual(MAX_WALK_SPEED * 0.1 + 1e-9);
+  });
+
+  it('zero dt never moves the child', () => {
+    const step = walkStepToward(from, far, 0);
+    expect(step.x).toBe(0);
+    expect(step.z).toBe(0);
+    expect(step.arrived).toBe(false);
+  });
+
+  it('already-there targets arrive immediately', () => {
+    const step = walkStepToward(from, { x: 0.01, z: 0 }, 1 / 60);
+    expect(step.arrived).toBe(true);
   });
 });

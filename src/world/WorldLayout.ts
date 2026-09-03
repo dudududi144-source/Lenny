@@ -65,6 +65,37 @@ export function clampToWalkArea(x: number, z: number): { x: number; z: number } 
   return { x: x * k, z: z * k };
 }
 
+/* ---------- calm walking (critic round B, W4) ---------- */
+
+/** Peak walk speed — calm enough to watch the garden, brisk enough to keep a 5yo engaged. */
+export const MAX_WALK_SPEED = 3.4;
+
+/** Distance at which a walk target counts as reached. */
+export const WALK_ARRIVE_EPS = 0.09;
+
+/**
+ * One frame of a walk: the exponential ease is kept (it gives the soft
+ * landing) but the peak speed is CLAMPED — the old inline formula hit
+ * ~65 u/s on the first frame of a cross-world walk (one giant lurch).
+ * Pure so the lurch stays dead by unit test, never by screenshot.
+ */
+export function walkStepToward(
+  from: { x: number; z: number },
+  to: { x: number; z: number },
+  dt: number,
+  rate = 2.1,
+): { x: number; z: number; arrived: boolean } {
+  const dx = to.x - from.x;
+  const dz = to.z - from.z;
+  const d = Math.hypot(dx, dz);
+  if (d <= WALK_ARRIVE_EPS) return { x: to.x, z: to.z, arrived: true };
+  const safeDt = Math.max(0, Math.min(dt, 0.1));
+  const k = Math.min(1, safeDt * rate * (0.55 + Math.min(1, d / 2.5)));
+  const step = Math.min(d * k, MAX_WALK_SPEED * safeDt);
+  if (d - step <= WALK_ARRIVE_EPS) return { x: to.x, z: to.z, arrived: true };
+  return { x: from.x + (dx * step) / d, z: from.z + (dz * step) / d, arrived: false };
+}
+
 /**
  * True when the point sits inside an island platform — used to lift
  * walk markers onto platform height instead of sinking into them.

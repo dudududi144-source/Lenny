@@ -53,6 +53,7 @@ import {
   islandCenter,
   isInsideIsland,
   nearestZone,
+  walkStepToward,
   WORLD_ISLANDS,
 } from './WorldLayout';
 import { attachWorldInput } from './WorldInput';
@@ -75,6 +76,8 @@ export interface WorldAppEvents {
   onDistress?(): void;
   /** The presence point settled (walking finished). */
   onArrive?(zone: ZoneId | null): void;
+  /** A zone was passed THROUGH mid-walk — roaming counts as a visit. */
+  onZonePass?(zone: ZoneId): void;
   /** A tap tried to enter a fog island — the shell whispers gently. */
   onLockedTap?(zone: ZoneId): void;
   /** Onboarding flyover begins/ends (the shell records the flag). */
@@ -507,8 +510,6 @@ export async function createWorldApp(
   let near: ZoneId | null = null;
 
   const NEAR_DIST = 1.35;
-  const ARRIVE_EPS = 0.09;
-  const WALK_RATE = 2.1; /* exponential ease — calm, never teleporty */
   let lastMusicIntensity = -1;
   const prevPresence = { x: presencePos.x, z: presencePos.z };
   const vel = { x: 0, z: 0 };
@@ -535,26 +536,28 @@ export async function createWorldApp(
     const now = performance.now();
     const dt = Math.min(0.1, engine.getDeltaTime() / 1000);
 
-    /* presence easing + camera follow */
+    /* presence easing + camera follow — the clamp lives in
+       walkStepToward (pure, unit-pinned): no first-frame lurch */
     if (walkTarget) {
-      const dx = walkTarget.x - presencePos.x;
-      const dz = walkTarget.z - presencePos.z;
-      const d = Math.hypot(dx, dz);
-      if (d < ARRIVE_EPS) {
-        presencePos.x = walkTarget.x;
-        presencePos.z = walkTarget.z;
+      const step = walkStepToward(presencePos, walkTarget, dt);
+      presencePos.x = step.x;
+      presencePos.z = step.z;
+      destMat.alpha = Math.max(0.25, destMat.alpha - dt * 0.1);
+      if (step.arrived) {
         walkTarget = null;
         destMat.alpha = 0;
+        /* W9: the arrival zone is the SNAPPED spot's zone, never the
+           stale pre-snap one (a rim tap could report the old zone) */
+        const snapped = nearestZone(presencePos.x, presencePos.z, NEAR_DIST);
+        if ((snapped ? snapped.zone : null) !== near) {
+          near = snapped ? snapped.zone : null;
+          islands.setNear(near);
+        }
         try {
           events.onArrive?.(near);
         } catch {
           /* arrival handlers never crash the garden */
         }
-      } else {
-        const k = Math.min(1, dt * WALK_RATE * (0.55 + Math.min(1, d / 2.5)));
-        presencePos.x += (dx * k);
-        presencePos.z += (dz * k);
-        destMat.alpha = Math.max(0.25, destMat.alpha - dt * 0.1);
       }
     }
     const t = now / 1000;
@@ -580,6 +583,14 @@ export async function createWorldApp(
     if (zoneId !== near) {
       near = zoneId;
       islands.setNear(zoneId);
+      /* W4: a zone passed THROUGH mid-walk is a visit — roaming counts */
+      if (zoneId && walkTarget) {
+        try {
+          events.onZonePass?.(zoneId);
+        } catch {
+          /* pass handlers never crash the garden */
+        }
+      }
     }
 
     /* musical space: the arpeggio swells as a zone comes near */
@@ -692,6 +703,10 @@ export async function createWorldApp(
       if (disposed) return;
       if (value && !paused) {
         paused = true;
+        /* W9: a paused world forgets its errand — resuming never walks
+           the child somewhere they pointed at before the game */
+        walkTarget = null;
+        destMat.alpha = 0;
       } else if (!value && paused) {
         paused = false;
         governor.reset();

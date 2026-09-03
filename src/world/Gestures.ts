@@ -1,18 +1,22 @@
 /* ============================================================
  * Gestures — the physical contract of the world (pure, tested).
  *
- * Stage 7 spec, verbatim:
+ * Stage 7 spec, amended by critic round B (W5):
  *   - single-finger drag = orbit (the camera's own input)
- *   - a SHORT tap = walk there
+ *   - a tap = walk there
  *   - pinch = zoom (the camera's own input)
- *   - tap = total movement < 12px AND duration < 250ms
+ *   - tap = total movement ≤ 12px, ANY duration
+ *
+ * The old 250ms budget silently ate slow presses: a 4-year-old
+ * presses a spot, holds a beat, releases — and NOTHING happened.
+ * Distance is the only honest tap/drag boundary for this age;
+ * a still press of any length is a walk request.
  *
  * The classifier never touches the DOM — WorldApp feeds it
  * pointer lifecycle events and acts on the verdicts.
  * ============================================================ */
 
 export const TAP_MAX_PIXELS = 12;
-export const TAP_MAX_MS = 250;
 
 export interface PointerSnapshot {
   x: number;
@@ -28,15 +32,12 @@ export function pressStart(x: number, y: number, t: number): PointerSnapshot {
 }
 
 /**
- * Classify a pointer release. Returns 'tap' only when the whole
- * gesture stayed inside both budgets (distance + duration); 'drag'
- * once it exceeded the distance budget; null otherwise.
+ * Classify a pointer release. Distance decides: inside the budget
+ * is a tap however long the child took; beyond it is a drag.
  */
-export function pressEnd(start: PointerSnapshot, x: number, y: number, t: number): GestureVerdict {
+export function pressEnd(start: PointerSnapshot, x: number, y: number, _t: number): GestureVerdict {
   const dist = Math.hypot(x - start.x, y - start.y);
-  if (dist > TAP_MAX_PIXELS) return 'drag';
-  if (t - start.t <= TAP_MAX_MS && dist <= TAP_MAX_PIXELS) return 'tap';
-  return null;
+  return dist <= TAP_MAX_PIXELS ? 'tap' : 'drag';
 }
 
 /**

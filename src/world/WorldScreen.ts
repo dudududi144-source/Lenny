@@ -204,6 +204,22 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
      Their new flowers open with the bloom-in payoff on return. */
   let prevCounts: Record<string, number> | null = null;
 
+  /* ---------- visit freshness (critic round B, W4): one bubble + one
+     diary row per zone per window — re-tapping the feet or passing
+     through mid-walk never spams the parent's lens. The shelf stays
+     honest: a final arrival ALWAYS offers what the zone has. */
+  let lastVisitZone: string | null = null;
+  let lastVisitAt = 0;
+  const VISIT_DEBOUNCE_MS = 4000;
+
+  function visitFresh(zone: string): boolean {
+    const now = performance.now();
+    if (zone === lastVisitZone && now - lastVisitAt < VISIT_DEBOUNCE_MS) return false;
+    lastVisitZone = zone;
+    lastVisitAt = now;
+    return true;
+  }
+
   /* ---------- the world diary: honest minutes, local only ---------- */
 
   let sessionMark = 0;
@@ -274,20 +290,31 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         onLockedTap: () => {
           callbacks.toast(GARDEN_TEXT.lockedSoon);
         },
-        onArrive: (zone) => {
+        onZonePass: (zone) => {
+          /* entered a zone's radius mid-walk — a visit, not an arrival:
+             greet + count it, but never slide the shelf mid-stride */
+          if (!visitFresh(zone)) return;
           const line = bubbleLineFor(zone);
           if (line) showBubble(line);
-          /* arriving at an OPEN zone slides in the game shelf — once
-             per arrival; closing it and staying put never re-opens it */
-          if (zone) {
+          diary.noteArrival(zone);
+        },
+        onArrive: (zone) => {
+          if (!zone) return;
+          const fresh = visitFresh(zone);
+          if (fresh) {
+            const line = bubbleLineFor(zone);
+            if (line) showBubble(line);
             diary.noteArrival(zone);
-            const unlocked = isUnlocked(loadGarden(), zone);
-            if (unlocked && !shelf.isOpen()) {
-              shelfZone = zone;
-              shelf.open(zone, null);
-              diary.noteShelfOpen();
-              phase = 'shelf-open';
-            }
+          }
+          /* arriving at an OPEN zone slides in the game shelf — a final
+             arrival is always an offer; the shelf never re-spams while
+             it is already open */
+          const unlocked = isUnlocked(loadGarden(), zone);
+          if (unlocked && !shelf.isOpen()) {
+            shelfZone = zone;
+            shelf.open(zone, null);
+            diary.noteShelfOpen();
+            phase = 'shelf-open';
           }
         },
         onPhase: (p) => {
