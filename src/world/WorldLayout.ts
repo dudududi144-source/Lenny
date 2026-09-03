@@ -66,6 +66,17 @@ export function clampToWalkArea(x: number, z: number): { x: number; z: number } 
 }
 
 /**
+ * True when the point sits inside an island platform — used to lift
+ * walk markers onto platform height instead of sinking into them.
+ */
+export function isInsideIsland(x: number, z: number): boolean {
+  for (const p of WORLD_ISLANDS) {
+    if (Math.hypot(x - p.x, z - p.z) < p.radius) return true;
+  }
+  return false;
+}
+
+/**
  * The zone whose island contains (or is closest within `maxDist` to)
  * the given point — the "near zone" the child is visiting right now.
  */

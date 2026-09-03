@@ -28,7 +28,6 @@ import { Matrix, Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight';
 import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
-import { Ray } from '@babylonjs/core/Culling/ray.js'; /* Ray's module also patches the scene's ray machinery */
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
 import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
@@ -43,19 +42,20 @@ import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
 import { buildLennyStar, type LennyStarHandle } from './LennyStar';
 import type { GardenData } from '../games/core/ProgressStore';
 import {
-  blendPose,
-  capturePose,
   createWorldCamera,
   CHILD_CAMERA as CHILD_CAMERA_START,
-  FLYOVER_MS,
-  FLYOVER_SETTLE_MS,
-  flyoverPose,
   type CameraPose,
 } from './WorldCamera';
 import { FpsGovernor } from './FpsGovernor';
 import { buildIslands, type IslandsHandle } from './WorldIslands';
-import { islandCenter, nearestZone, resolveWalkTarget, WORLD_ISLANDS } from './WorldLayout';
-import { pressEnd, pressStart, isDragDistance, type PointerSnapshot } from './Gestures';
+import {
+  islandCenter,
+  isInsideIsland,
+  nearestZone,
+  WORLD_ISLANDS,
+} from './WorldLayout';
+import { attachWorldInput } from './WorldInput';
+import { createWorldOnboard } from './WorldOnboard';
 import type { ZoneId } from '../data/garden';
 import type { CreatureCounts } from './WorldCreatures';
 
@@ -422,11 +422,7 @@ export async function createWorldApp(
     }
   }, 2000);
 
-  /* ---------- first-visit flyover (commit 6) ---------- */
-  let onboarding = options.onboard === true;
-  let skipRequested = false;
-  let skipAt = 0;
-  let skipFrom: CameraPose | null = null;
+  /* ---------- first-visit flyover (WorldOnboard owns the tour) ---------- */
 
   /* the journey starts at the first island — that is where the eye rests */
   const home = islandCenter('light-path');
@@ -440,13 +436,19 @@ export async function createWorldApp(
   const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z));
   scene.activeCamera = camera;
 
-  /* flyover start: high, far, and sweeping (the camera input sleeps) */
-  if (onboarding) {
-    const start = flyoverPose(0, home.x, home.z);
-    camera.alpha = start.alpha;
-    camera.beta = start.beta;
-    camera.radius = start.radius;
-    camera.setTarget(new Vector3(start.tx, 0.6, start.tz));
+  const bootAt = performance.now();
+  const onboard = createWorldOnboard(options.onboard === true, playPose, bootAt, {
+    onDone: () => {
+      try {
+        events.onPhase?.('exploring');
+      } catch {
+        /* phase listeners never crash the garden */
+      }
+    },
+  });
+  if (onboard.active()) {
+    /* flyover start: high, far, and sweeping (the camera input sleeps) */
+    onboard.tick(bootAt, camera);
     camera.detachControl();
     try {
       events.onPhase?.('onboarding');
@@ -496,13 +498,11 @@ export async function createWorldApp(
   const presencePos = { x: home.x, z: home.z };
   let walkTarget: { x: number; z: number } | null = null;
   let near: ZoneId | null = null;
-  let lockedToastAt = 0;
 
   const NEAR_DIST = 1.35;
   const ARRIVE_EPS = 0.09;
   const WALK_RATE = 2.1; /* exponential ease — calm, never teleporty */
   let lastMusicIntensity = -1;
-  const bootAt = performance.now();
   const prevPresence = { x: presencePos.x, z: presencePos.z };
   const vel = { x: 0, z: 0 };
 
@@ -557,27 +557,9 @@ export async function createWorldApp(
     presenceRing.scaling.x = ringPulse;
     presenceRing.scaling.z = ringPulse;
 
-    /* camera: flyover owns it; afterwards the target follows presence */
-    if (onboarding) {
-      const elapsed = now - (skipRequested ? skipAt - FLYOVER_MS : 0) - bootAt;
-      const k = Math.min(1, Math.max(0, elapsed / FLYOVER_MS));
-      const pose = skipRequested && skipFrom
-        ? blendPose(skipFrom, playPose, Math.min(1, (now - skipAt) / FLYOVER_SETTLE_MS))
-        : flyoverPose(k, home.x, home.z);
-      camera.alpha = pose.alpha;
-      camera.beta = pose.beta;
-      camera.radius = pose.radius;
-      camera.setTarget(new Vector3(pose.tx, 0.6, pose.tz));
-      const done = skipRequested ? now - skipAt >= FLYOVER_SETTLE_MS : k >= 1;
-      if (done) {
-        onboarding = false;
-        camera.attachControl();
-        try {
-          events.onPhase?.('exploring');
-        } catch {
-          /* phase listeners never crash the garden */
-        }
-      }
+    /* camera: the flyover owns it; afterwards the target follows presence */
+    if (onboard.active()) {
+      onboard.tick(now, camera);
     } else {
       const camT = camera.target;
       camT.x += (presencePos.x - camT.x) * Math.min(1, dt * 1.9);
@@ -647,71 +629,33 @@ export async function createWorldApp(
   };
   window.addEventListener('resize', onResize);
 
-  /* ---------- tap-to-move (commit 3): the physical gesture contract ---------- */
+  /* ---------- tap-to-move: the physical gesture contract lives in
+     WorldInput; the world only reacts to its verdicts ---------- */
 
-  let press: PointerSnapshot | null = null;
-  let dragAborted = false;
-
-  const onPointerDown = (ev: PointerEvent): void => {
-    if (onboarding && !skipRequested) {
-      /* ETHICS: the child is always in control — one tap skips the tour */
-      skipRequested = true;
-      skipAt = performance.now();
-      skipFrom = capturePose(camera);
-    }
-    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-    press = pressStart(ev.offsetX, ev.offsetY, performance.now());
-    dragAborted = false;
-  };
-
-  const onPointerMove = (ev: PointerEvent): void => {
-    if (!press || dragAborted) return;
-    if (isDragDistance(press, ev.offsetX, ev.offsetY)) {
-      dragAborted = true; /* this press is an orbit now — the camera eats it */
-    }
-  };
-
-  const onPointerUp = (ev: PointerEvent): void => {
-    if (!press) return;
-    const start = press;
-    press = null;
-    if (dragAborted) return; /* this press became an orbit — the camera ate it */
-    if (pressEnd(start, ev.offsetX, ev.offsetY, performance.now()) !== 'tap') return;
-    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-    if (onboarding) return; /* walking unlocks after the tour */
-
-    /* ray-based pick: a REAL Ray use keeps the ray module in the bundle
-       (its side effect patches the scene's ray machinery), CSS coords in,
-       walkable-surface predicate on */
-    const ray = new Ray(Vector3.Zero(), Vector3.Zero());
-    scene.createPickingRayToRef(ev.offsetX, ev.offsetY, Matrix.Identity(), ray, camera);
-    const pick = scene.pickWithRay(ray, (m) => m.isPickable && (m.name === 'ground' || m.name.startsWith('plat-mesh-')));
-    if (!pick || !pick.hit || !pick.pickedPoint) return;
-
-    const zoneLock = new Set(islands.zones().filter((z) => !z.unlocked).map((z) => z.id));
-    const resolved = resolveWalkTarget(pick.pickedPoint.x, pick.pickedPoint.z, (zone) => zoneLock.has(zone));
-    walkTarget = { x: resolved.x, z: resolved.z };
-    destRing.position.set(resolved.x, 0.14, resolved.z);
-    destMat.alpha = 0.75;
-    if (resolved.blocked && resolved.blockedZone) {
-      const now = performance.now();
-      if (now - lockedToastAt > 2600) {
-        lockedToastAt = now;
+  const worldInput = attachWorldInput(
+    canvas,
+    scene,
+    camera,
+    (zone) => islands.zones().some((z) => z.id === zone && !z.unlocked),
+    {
+      onWalkTarget: (resolved) => {
+        walkTarget = { x: resolved.x, z: resolved.z };
+        /* the destination ring floats on platforms, never sinks into them */
+        const ringY = isInsideIsland(resolved.x, resolved.z) ? islands.islandTopY() + 0.04 : 0.14;
+        destRing.position.set(resolved.x, ringY, resolved.z);
+        destMat.alpha = 0.75;
+      },
+      onLockedTap: (zone) => {
         try {
-          events.onLockedTap?.(resolved.blockedZone);
+          events.onLockedTap?.(zone);
         } catch {
           /* a toast never crashes the garden */
         }
-      }
-    }
-  };
-
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', () => {
-    press = null;
-  });
+      },
+      onSkipTap: () => onboard.requestSkip(performance.now(), camera),
+      isOnboarding: () => onboard.active(),
+    },
+  );
 
   return {
     fps: () => governor.fps(performance.now()),
@@ -721,7 +665,7 @@ export async function createWorldApp(
     zones: () => islands.zones(),
     skyPhase: () => phase,
     life: () => creatures.counts(),
-    worldPhase: () => (onboarding ? 'onboarding' : 'exploring'),
+    worldPhase: () => (onboard.active() ? 'onboarding' : 'exploring'),
     lennyScreen: () => {
       const vf = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
       const p = Vector3.Project(lenny.worldPos(), Matrix.Identity(), scene.getTransformMatrix(), vf);
@@ -751,9 +695,7 @@ export async function createWorldApp(
       window.clearInterval(shadowProbe);
       shadows?.dispose();
       window.removeEventListener('resize', onResize);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
+      worldInput.detach();
       engine.stopRenderLoop();
       lenny.dispose();
       creatures.dispose();
