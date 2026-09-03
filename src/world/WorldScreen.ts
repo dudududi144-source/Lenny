@@ -72,6 +72,8 @@ declare global {
       renderer(): string | null;
       sky(): string | null;
       life(): { butterflies: number; fireflies: number; fish: number } | null;
+      /** Lit path lanterns — the journey made visible. */
+      lanterns(): number;
     };
   }
 }
@@ -252,6 +254,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     renderer: () => app?.rendererKind() ?? null,
     sky: () => app?.skyPhase() ?? null,
     life: () => app?.life() ?? null,
+    lanterns: () => app?.lanterns() ?? 0,
   };
 
   async function boot(): Promise<void> {
@@ -384,8 +387,11 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   function refresh(): void {
     const data = loadGarden();
     lightCount.textContent = String(data.lights || 0);
-    /* the world re-reads progress too: unlock fog + bloom fields */
+    /* the world re-reads progress too: unlock fog + bloom + lanterns */
+    const litBefore = app?.lanterns() ?? 0;
     app?.refresh(data, growthDiff(data));
+    const litAfter = app?.lanterns() ?? 0;
+    if (litAfter > litBefore) showBubble(GARDEN_TEXT.lanternLit);
   }
 
   /* ---------- distress → one gentle grown-up note, ever ---------- */

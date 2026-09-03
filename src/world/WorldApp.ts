@@ -48,6 +48,7 @@ import {
 } from './WorldCamera';
 import { FpsGovernor } from './FpsGovernor';
 import { buildIslands, type IslandsHandle } from './WorldIslands';
+import { buildLanterns, lanternsFor, type LanternHandle } from './WorldLanterns';
 import {
   islandCenter,
   isInsideIsland,
@@ -320,6 +321,8 @@ export interface WorldApp {
   skyPhase(): DayPhase;
   /** Ambient life report (bridge). */
   life(): CreatureCounts;
+  /** How many path lanterns are currently lit (bridge). */
+  lanterns(): number;
   /** Lenny's bubble anchor on the canvas (0..1 fractions). */
   lennyScreen(): { x: number; y: number; on: boolean };
   /** 'onboarding' until the flyover finishes (or is skipped). */
@@ -355,6 +358,10 @@ export async function createWorldApp(
 
   const islands: IslandsHandle = buildIslands(scene);
   islands.refresh(data);
+
+  /* the journey made visible: earned lights light the path lanterns */
+  const lanterns: LanternHandle = buildLanterns(scene);
+  lanterns.setLit(lanternsFor(data.lights || 0), false);
 
   const creatures: CreaturesHandle = buildCreatures(scene);
   creatures.setPhase(phase);
@@ -665,6 +672,7 @@ export async function createWorldApp(
     zones: () => islands.zones(),
     skyPhase: () => phase,
     life: () => creatures.counts(),
+    lanterns: () => lanterns.lit(),
     worldPhase: () => (onboard.active() ? 'onboarding' : 'exploring'),
     lennyScreen: () => {
       const vf = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
@@ -676,7 +684,10 @@ export async function createWorldApp(
         on,
       };
     },
-    refresh: (fresh: GardenData, grewZones?: ReadonlySet<string>) => islands.refresh(fresh, grewZones),
+    refresh: (fresh: GardenData, grewZones?: ReadonlySet<string>) => {
+      islands.refresh(fresh, grewZones);
+      lanterns.setLit(lanternsFor(fresh.lights || 0), true);
+    },
     setPaused(value: boolean): void {
       if (disposed) return;
       if (value && !paused) {
@@ -699,6 +710,7 @@ export async function createWorldApp(
       engine.stopRenderLoop();
       lenny.dispose();
       creatures.dispose();
+      lanterns.dispose();
       islands.dispose();
       ground.dispose();
       sky.dispose();
