@@ -16,8 +16,8 @@ functions; it is not really accessible." The round's ledger:
   an engine a spec differs by knobs — EXCEPT the 50 specs of five
   flagship engines that now change the mechanic at tier 1+ (wind
   memory, first-sound letters, rotated neutral shadows, descending
-  sorts, situation emotions). Tier 0 stays byte-still (pinned by
-  unit tests); the validator whitelists variants per kind and
+  sorts, situation emotions). Tier 0 keeps its exact gameplay (pinned by
+  unit tests); the validator whitelists variants per kind, enforces tier floors, and
   rejects a tier-0 variant. The stale "GAMES has no consumers"
   comment in src/data/games.ts (a lie since stage 6) was corrected.
 - **EmotionFace for pre-readers** (9-d #10, the P1 remainder):

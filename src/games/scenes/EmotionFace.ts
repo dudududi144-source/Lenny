@@ -324,8 +324,13 @@ export class EmotionFaceScene extends GameScene {
       sheen.y = -9;
       const txt = this.label(LABELS[emo], 16, COLORS.cream, '600');
       txt.x = 16;
+      /* the mini face sits on the leading side, the label on the other —
+         sharing the center made the Hebrew text collide with it
+         (critic round C #4) */
+      const face = miniFace(emo);
+      face.x = -26;
 
-      tile.addChild(glass, sheen, miniFace(emo), txt);
+      tile.addChild(glass, sheen, face, txt);
       tile.alpha = 0;
       this.optionLayer.addChild(tile);
       this.optionViews.push(tile);
@@ -402,7 +407,10 @@ export class EmotionFaceScene extends GameScene {
       this.wrongSinceLastCorrect++;
       this.score.miss({ x, y });
       audio.play('softError');
-      this.fx.flash(EMOTION_HEX[this.current], 140, 0.1);
+      /* situation mode: a wrong pick never flashes the ANSWER's color —
+         each option's mini face is stroked in its own emotion hex, so
+         the flash would name the correct tile (critic round C #3) */
+      this.fx.flash(this.situationMode ? COLORS.coral : EMOTION_HEX[this.current], 140, 0.1);
       /* a wrong pick is NOT a round loss (the round is one named
          emotion, judged in the correct branch above). It feeds
          LearningSignals and the visible hint ladder instead. */

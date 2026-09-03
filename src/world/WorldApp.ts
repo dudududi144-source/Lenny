@@ -591,6 +591,7 @@ export async function createWorldApp(
   let paused = false;
   let disposed = false;
   let distressFired = false;
+  let kbWalking = false;
 
   engine.runRenderLoop(() => {
     if (paused || disposed) return;
@@ -599,15 +600,27 @@ export async function createWorldApp(
 
     /* keyboard walking (round C a11y): a held direction becomes a walk
        target refreshed every frame, through the SAME resolveWalkTarget
-       clamps a tap uses — rim, keep-outs and locked islands all hold */
+       clamps a tap uses — rim, keep-outs and locked islands all hold.
+       Releasing the keys stops the walk at once: a keyboard errand is
+       held, not fired (critic round C #1). */
     const kb = worldInput.keyboardStep();
     if (kb && !onboard.active()) {
+      kbWalking = true;
       const resolved = resolveWalkTarget(
         presencePos.x + kb.x * 7,
         presencePos.z + kb.z * 7,
         (zone) => islands.zones().some((z) => z.id === zone && !z.unlocked),
       );
       walkTarget = { x: resolved.x, z: resolved.z };
+      /* the destination ring follows the keyboard too (was tap-only) */
+      const ringY = isInsideIsland(resolved.x, resolved.z) ? islands.islandTopY() + 0.04 : 0.14;
+      destRing.position.set(resolved.x, ringY, resolved.z);
+      destMat.alpha = 0.75;
+    } else if (kbWalking) {
+      /* the keys were released — a keyboard errand never outlives them */
+      kbWalking = false;
+      walkTarget = null;
+      destMat.alpha = 0;
     }
 
     /* presence easing + camera follow — the clamp lives in

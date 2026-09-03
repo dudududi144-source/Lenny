@@ -208,16 +208,22 @@ export class KiteMatchScene extends GameScene {
     const diamond = new Graphics();
     shapePath(diamond, shape);
     diamond.fill({ color });
-    /* lighter overlay = the original two-pass lightening (same path) */
-    shapePath(diamond, shape);
-    diamond.fill({ color: shade(color, 1.25), alpha: 0.5 });
-    /* cross lines only on the diamond (the original kite) */
     if (shape === 'diamond') {
+      /* the ORIGINAL two-tone: the right half overlaid lighter (a full
+         second pass flattened the classic kite — critic round C #5) */
+      diamond.moveTo(0, -KITE_HALF_H);
+      diamond.lineTo(KITE_HALF_W, 0);
+      diamond.lineTo(0, KITE_HALF_H);
+      diamond.closePath();
+      diamond.fill({ color: shade(color, 1.25), alpha: 0.5 });
       diamond.moveTo(0, -KITE_HALF_H);
       diamond.lineTo(0, KITE_HALF_H);
       diamond.moveTo(-KITE_HALF_W, 0);
       diamond.lineTo(KITE_HALF_W, 0);
       diamond.stroke({ color: COLORS.cream, width: 1.5, alpha: 0.4 });
+    } else {
+      shapePath(diamond, shape);
+      diamond.fill({ color: shade(color, 1.25), alpha: 0.5 });
     }
     view.addChild(diamond);
 

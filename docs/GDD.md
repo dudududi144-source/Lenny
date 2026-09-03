@@ -48,7 +48,8 @@ higher tiers**:
 
 The other engines stay "classic" at every tier — knobs change, the
 mechanic does not, and the docs say so. Tier 0 never carries a
-variant: the seed specs the e2e suite grew on stay byte-still.
+variant: the seed specs and e2e ground keep their exact gameplay
+params and logic (unit-pinned).
 
 Levels: seed, sprout, tree, blossom (roughly ages 3-7).
 

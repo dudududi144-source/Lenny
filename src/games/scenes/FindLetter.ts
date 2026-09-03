@@ -146,6 +146,10 @@ export class FindLetterScene extends GameScene {
       const partner = this.CONFUSABLES[target];
       if (level >= 0.5 && partner && partner !== target) {
         chosen.push(partner);
+        /* the partner must leave the pool — or the fill-loop can draw
+           it twice (critic round C #2) */
+        const pi = pool.indexOf(partner);
+        if (pi !== -1) pool.splice(pi, 1);
       }
       while (chosen.length < optionCount) {
         const idx = Math.floor(Math.random() * pool.length);

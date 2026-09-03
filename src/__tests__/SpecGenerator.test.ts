@@ -209,5 +209,11 @@ describe('tier mechanic variants — a tier changes HOW, not just HOW MUCH (roun
     );
     tier0.params.extra = { variant: 'wind' };
     expect(validateSpec(tier0)).toContain('tier-0');
+    /* the tier floor: match-shadow's variant waits for tier 2 */
+    const floor = JSON.parse(
+      JSON.stringify(SPEC_CATALOG.find((s) => s.kind === 'match-shadow' && s.baseTier === 1)!),
+    );
+    floor.params.extra = { variant: 'rotated-shapes' };
+    expect(validateSpec(floor)).toContain('waits for tier 2');
   });
 });

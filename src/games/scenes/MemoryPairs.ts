@@ -425,7 +425,8 @@ export class MemoryPairsScene extends GameScene {
       this.flipTo(a, false);
       this.flipTo(b, false);
       /* the wind variant: once the seen cards are face-down again,
-         two unseen positions trade contents (tier-1+ catalog specs) */
+         two resting positions trade contents (the just-seen pair
+         itself may be among them — that is the re-encoding work) */
       if (this.windMode) {
         this.anim.after(FLIP_MS * 2 + 40, () => {
           if (!this.tornDown) this.windSwap();
@@ -465,8 +466,10 @@ export class MemoryPairsScene extends GameScene {
 
   /* ---------------- the wind (round C variant) ----------------
    * After a miss, two face-down cards trade kinds: what the child
-   * just memorized may no longer be there. One swap per miss — hard
-   * enough to demand re-encoding, gentle enough to stay fair. */
+   * just memorized may no longer be where they saw it. One swap per
+   * miss — hard enough to demand re-encoding, gentle enough to stay
+   * fair; the kind multiset never changes, so the board stays
+   * winnable. */
 
   /** Re-draw a slot's face for a new kind (its front is hidden). */
   private applySuit(slot: SlotView, kind: CardType): void {
