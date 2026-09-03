@@ -11,7 +11,10 @@ Governed by docs/ETHICS.md. Any change conflicting with the Ethics Charter is re
   (WebGPU -> WebGL2 -> classic) keeps every child playing.
 - Games are data: the 144-spec catalog (src/content/SpecGenerator.ts) derives
   from 11 builder templates (src/games/builder/, frozen) and resolves through
-  src/games/scenes/registry.ts to 12 hand-built PixiJS scenes + a coming-soon guard.
+  src/games/scenes/registry.ts to 12 hand-built PixiJS scenes + a coming-soon
+  guard. Fifty of the 144 carry a tier mechanic variant (variantFor): wind
+  memory, first-sound letters, rotated shape shadows, descending sorts,
+  situation emotions — tier 0 never does (the e2e ground stays byte-still).
 - All config lives in data modules (src/data/garden.ts is the only voice for
   zone copy; src/data/games.ts seeds the 144 names).
 - Nothing is hidden from the child. All encouragement is visible (ETHICS 5).

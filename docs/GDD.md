@@ -12,7 +12,7 @@ A calm, beautiful play-space for children aged 4-7. It invites a gentle, focused
 - It is NOT a medical device, therapy, or a scientifically-proven learning tool.
 - It makes NO claims about brainwave entrainment, IQ, or developmental outcomes.
 
-## The 144-Game Matrix
+## The 144-Game Matrix — and what "144" honestly means
 
 9 categories x 16 games (4 levels x 4 games each).
 
@@ -28,9 +28,29 @@ A calm, beautiful play-space for children aged 4-7. It invites a gentle, focused
 | rhythm | timing, movement, music |
 | breath | slow breathing, calming |
 
-Levels: seed, sprout, tree, blossom (roughly ages 3-7). Honest note:
-tiers scale the challenge within each mechanic (board sizes, counts,
-paces, variants) - they do not yet introduce new mechanics per tier.
+The honest count (claims-vs-reality, round C): the 144 names derive
+into 144 specs that play on **12 hand-built game engines** (11 builder
+kinds + the legacy path scene). Within an engine, a spec differs by
+difficulty knobs (counts, paces, rounds), narrative and skill tags —
+and, since round C, **50 of the 144 change the MECHANIC itself at
+higher tiers**:
+
+- memory, tier 1+: `wind` — after a miss the wind swaps two face-down
+  cards; the child re-encodes positions, not just recalls them
+- language, tier 1+: `first-sound` — hear a word, pick the letter it
+  starts with (the phonemic step the literacy chain was missing)
+- spatial, tier 2+: `rotated-shapes` — shadows lose their color and
+  gain rotations; matching is by silhouette under rotation
+- logic, tier 1+: `descending` — arrange big -> small; the planning
+  direction inverts
+- emotion, tier 1+: `situation` — hear a vignette, infer the feeling,
+  then the true face is revealed (empathy practice, not face reading)
+
+The other engines stay "classic" at every tier — knobs change, the
+mechanic does not, and the docs say so. Tier 0 never carries a
+variant: the seed specs the e2e suite grew on stay byte-still.
+
+Levels: seed, sprout, tree, blossom (roughly ages 3-7).
 
 ## Honesty about progress
 
