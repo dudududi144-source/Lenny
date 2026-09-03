@@ -35,13 +35,13 @@ describe('WORLD_SIGNPOSTS — the journey the child can read', () => {
 });
 
 describe('FRIENDS — named faces beside the road', () => {
-  it('has four friends, each with a name and a line', () => {
-    expect(FRIENDS.length).toBe(4);
+  it('has seven friends, each with a name and a line', () => {
+    expect(FRIENDS.length).toBe(7);
     for (const f of FRIENDS) {
       expect(f.name.length).toBeGreaterThan(2);
       expect(f.line.length).toBeGreaterThan(8);
     }
-    expect(new Set(FRIENDS.map((f) => f.id)).size).toBe(4);
+    expect(new Set(FRIENDS.map((f) => f.id)).size).toBe(7);
   });
 
   it('each friend stands inside the garden, off every island rim', () => {

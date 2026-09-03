@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MAX_WALK_SPEED,
+  HUB_JOURNEY,
   WORLD_ISLANDS,
   WORLD_WALK_RADIUS,
   catmullRom2,
@@ -25,12 +26,16 @@ describe('WorldLayout', () => {
     expect(WORLD_ISLANDS).toEqual(layoutIslands());
   });
 
-  it('starts the journey near the center and ends at the calm far end', () => {
+  it('starts the journey near the center — and reaches the regions (stage 12)', () => {
     const islands = layoutIslands();
     expect(islands[0].zone).toBe('light-path');
     expect(islands[0].dist).toBeLessThan(12);
+    /* the calm breath-pool waits in the hub garden's corner */
     expect(islands[9].zone).toBe('breath-pool');
-    expect(islands[9].dist).toBeGreaterThan(40);
+    expect(islands[9].dist).toBeLessThan(25);
+    /* the unlock chain is now GEOGRAPHY: far stages are really far */
+    const maxDist = Math.max(...islands.map((i) => i.dist));
+    expect(maxDist).toBeGreaterThan(180);
   });
 
   it('keeps every island fully inside the walkable world', () => {
@@ -83,14 +88,15 @@ describe('WorldLayout', () => {
     const inside = clampToWalkArea(3, 4);
     expect(inside.x).toBe(3);
     expect(inside.z).toBe(4);
-    const outside = clampToWalkArea(51, 51);
+    const outside = clampToWalkArea(400, 400);
     expect(Math.hypot(outside.x, outside.z)).toBeCloseTo(WORLD_WALK_RADIUS, 6);
   });
 
-  it('the path polyline flows through every island in order', () => {
+  it('the hub path flows through the three hub islands in journey order', () => {
     const pts = pathPoints();
-    expect(pts.length).toBeGreaterThan(100);
-    for (const p of WORLD_ISLANDS) {
+    expect(pts.length).toBeGreaterThan(20);
+    for (const zone of HUB_JOURNEY) {
+      const p = WORLD_ISLANDS.find((i) => i.zone === zone)!;
       const has = pts.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 1.2);
       expect(has).toBe(true);
     }

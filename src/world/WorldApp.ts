@@ -30,6 +30,7 @@ import { DirectionalLight } from '@babylonjs/core/Lights/directionalLight';
 import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
+import { VertexBuffer } from '@babylonjs/core/Buffers/buffer';
 import { GlowLayer } from '@babylonjs/core/Layers/glowLayer';
 import '@babylonjs/core/Layers/effectLayerSceneComponent';
 import { ShadowGenerator } from '@babylonjs/core/Lights/Shadows/shadowGenerator';
@@ -86,6 +87,7 @@ import {
   type LandmarkDef,
   WORLD_ISLANDS,
 } from './WorldLayout';
+import { buildRegions, regionAt, terrainHeight, type RegionDef, type RegionsHandle } from './WorldRegions';
 import { attachWorldInput } from './WorldInput';
 import { createWorldOnboard } from './WorldOnboard';
 import type { ZoneId } from '../data/garden';
@@ -120,6 +122,8 @@ export interface WorldAppEvents {
   onSparkle?(id: string, sessionTotal: number): void;
   /** The child came close to a named friend (bubble words live in the shell). */
   onFriendNear?(friend: FriendDef): void;
+  /** The child walked into a far region's patch (stage 12). */
+  onRegionNear?(region: RegionDef): void;
   /** A rare restful find appeared beside the walker in the meadow. */
   onMeadowFind?(kind: Exclude<MeadowFindKind, 'none'>): void;
 }
@@ -329,16 +333,26 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 
   tex.wrapU = Texture.WRAP_ADDRESSMODE;
   tex.wrapV = Texture.WRAP_ADDRESSMODE;
-  tex.uScale = 52;
-  tex.vScale = 52;
+  tex.uScale = 99;
+  tex.vScale = 99;
 
   const mat = new StandardMaterial('grass-mat', scene);
   mat.diffuseTexture = tex;
   mat.specularColor = new Color3(0.02, 0.03, 0.02);
 
-  /* stage 11: the ground grew with the journey — the meadow walker
-     never sees grass end (the fog owns the horizon) */
-  const ground = MeshBuilder.CreateGround('ground', { width: 380, height: 380, subdivisions: 2 }, scene);
+  /* stage 12: the ground IS the continent — the flat hub garden blends
+     into rolling hills (terrainHeight is flat inside r<148), so the
+     walker feels the land rise underfoot on the way to the regions */
+  const ground = MeshBuilder.CreateGround('ground', { width: 720, height: 720, subdivisions: 32 }, scene);
+  {
+    const pos = ground.getVerticesData(VertexBuffer.PositionKind);
+    if (pos) {
+      for (let v = 0; v < pos.length; v += 3) {
+        pos[v + 1] = terrainHeight(pos[v], pos[v + 2]);
+      }
+      ground.updateVerticesData(VertexBuffer.PositionKind, pos);
+    }
+  }
   ground.material = mat;
   ground.isPickable = true;
   ground.receiveShadows = true;
@@ -399,6 +413,8 @@ export interface WorldApp {
   requestJump(): void;
   /** Sparkles gathered this session (the ledger lives in the shell). */
   sparklesFound(): number;
+  /** The daily journey's three targets keep their beacons (stage 12). */
+  setDailyTargets(ids: ReadonlyArray<string>): void;
   dispose(): void;
 }
 
@@ -421,7 +437,9 @@ export async function createWorldApp(
 
   const scene = new Scene(engine);
   scene.fogMode = Scene.FOGMODE_EXP2;
-  scene.fogDensity = 0.0105;
+  /* stage 12: the fog receded with the world — regions ghost in from
+     afar (wayfinding by silhouette), the mountains haunt the horizon */
+  scene.fogDensity = 0.0034;
 
   /* the day the child walks into (visual only — hour never touches play) */
   let phase: DayPhase = phaseNow();
@@ -449,6 +467,8 @@ export async function createWorldApp(
   /* stage 11 — the great journey: a real walker, the endless
      meadow beyond the ring, the road furniture, the friends, and
      the cottages that make every game a place */
+  /* stage 12 — the continent: six regions, six roads, the vista */
+  const regions: RegionsHandle = buildRegions(scene);
   const fox: FoxHandle = buildFox(scene);
   const meadow: MeadowHandle = buildMeadow(scene, new Set(options.sparkles ?? []));
   const friends: FriendsHandle = buildFriends(scene);
@@ -623,13 +643,16 @@ export async function createWorldApp(
   let facing = 0;
   let sparklesSession = 0;
   let jumpQueued = false; /* requestJump() — the touch button's queue */
+  let nearRegionId: string | null = null;
 
-  /** ground height under the feet: platform tops, then grass */
+  /** ground height under the feet: platform tops, then the land itself */
   function groundY(): number {
     for (const p of WORLD_ISLANDS) {
-      if (Math.hypot(presencePos.x - p.x, presencePos.z - p.z) < p.radius - 0.12) return islands.islandTopY();
+      if (Math.hypot(presencePos.x - p.x, presencePos.z - p.z) < p.radius - 0.12) {
+        return terrainHeight(p.x, p.z) + islands.islandTopY();
+      }
     }
-    return 0;
+    return terrainHeight(presencePos.x, presencePos.z);
   }
 
   /* ---------- fps governor (spec: soften below 25, distress below 15×5s) ---------- */
@@ -819,10 +842,11 @@ export async function createWorldApp(
     }
 
     creatures.update(t, dt);
-    landmarks.update(t, dt);
+    landmarks.update(t, dt, presencePos.x, presencePos.z);
+    regions.update(t, dt, presencePos.x, presencePos.z);
     questProps.update(t, now);
     friends.update(t, dt);
-    road.update(t, dt);
+    road.update(t, dt, presencePos.x, presencePos.z);
     meadow.update(t, dt, presencePos.x, presencePos.z);
 
     /* landmark proximity — the wandering child discovers the garden */
@@ -849,6 +873,20 @@ export async function createWorldApp(
       if (slide.arrived && walkTarget) {
         walkTarget = null;
         destMat.alpha = 0;
+      }
+    }
+
+    /* stage 12: region discovery — crossing into a far region's patch */
+    const rg = regionAt(presencePos.x, presencePos.z);
+    const rgId = rg ? rg.id : null;
+    if (rgId !== nearRegionId) {
+      nearRegionId = rgId;
+      if (rg) {
+        try {
+          events.onRegionNear?.(rg);
+        } catch {
+          /* a discovery never crashes the garden */
+        }
       }
     }
 
@@ -947,8 +985,9 @@ export async function createWorldApp(
       onWalkTarget: (resolved) => {
         if (onboard.active()) return;
         walkTarget = { x: resolved.x, z: resolved.z };
-        /* the destination ring floats on platforms, never sinks into them */
-        const ringY = isInsideIsland(resolved.x, resolved.z) ? islands.islandTopY() + 0.04 : 0.14;
+        /* the destination ring rides the land (platforms lift it higher) */
+        const onIsland = isInsideIsland(resolved.x, resolved.z);
+        const ringY = terrainHeight(resolved.x, resolved.z) + (onIsland ? islands.islandTopY() + 0.04 : 0.14);
         destRing.position.set(resolved.x, ringY, resolved.z);
         destMat.alpha = 0.75;
       },
@@ -1006,7 +1045,7 @@ export async function createWorldApp(
       if (spec) {
         /* props sit on the surface under the child — a platform top,
            never sunk into it; and flowers bloom toward the camera */
-        const sy = isInsideIsland(presencePos.x, presencePos.z) ? islands.islandTopY() : 0;
+        const sy = groundY();
         if (spec.kind === 'counting') {
           const cp = camera.globalPosition;
           const fx = cp.x - presencePos.x;
@@ -1055,6 +1094,7 @@ export async function createWorldApp(
       if (!disposed && !paused) jumpQueued = true;
     },
     sparklesFound: () => sparklesSession,
+    setDailyTargets: (ids) => landmarks.setDailyTargets(ids),
     dispose(): void {
       if (disposed) return;
       disposed = true;
@@ -1069,6 +1109,7 @@ export async function createWorldApp(
       lenny.dispose();
       fox.dispose();
       meadow.dispose();
+      regions.dispose();
       friends.dispose();
       road.dispose();
       cottages.dispose();

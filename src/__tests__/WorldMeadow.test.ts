@@ -10,7 +10,7 @@ import {
   chunkSparkles,
   isMeadowPoint,
 } from '../world/WorldMeadow';
-import { WANDER_RADIUS, WORLD_WALK_RADIUS } from '../world/WorldLayout';
+import { WANDER_RADIUS, WORLD_WALK_RADIUS, HUB_RADIUS } from '../world/WorldLayout';
 
 describe('WorldMeadow — the almost-infinite ring is a place, not noise', () => {
   it('chunk keys and centers round-trip through chunkOf', () => {
@@ -63,8 +63,11 @@ describe('WorldMeadow — the almost-infinite ring is a place, not noise', () =>
   });
 
   it('the meadow begins beyond the curated garden and ends at the wander edge', () => {
-    expect(MEADOW_START).toBeGreaterThan(WORLD_WALK_RADIUS);
+    /* stage 12: the wilds begin just beyond the HUB ring — the regions
+       and the roads between them are meadow land too */
+    expect(MEADOW_START).toBeGreaterThan(HUB_RADIUS);
     expect(WANDER_RADIUS).toBeGreaterThan(MEADOW_START * 2);
+    expect(WANDER_RADIUS).toBeGreaterThan(WORLD_WALK_RADIUS);
     expect(isMeadowPoint(0, 0)).toBe(false);
     expect(isMeadowPoint(MEADOW_START + 4, 0)).toBe(true);
   });

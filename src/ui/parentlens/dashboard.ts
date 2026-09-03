@@ -173,7 +173,14 @@ function worldCard(data: LensData): HTMLElement {
     if (foundLine) {
       lines.push(h('p', { class: 'parent-line' }, foundLine));
     }
+    if (w.regionsFound > 0) {
+      lines.push(h('p', { class: 'parent-line' }, `${w.regionsFound} מִתּוֹךְ 6 אֲזוֹרִים בְּעוֹלָם הַגָּדוֹל כְּבָר הִתְגַּלּוּ.`));
+    }
   }
+  /* stage 12: the honest horizon — this is a world that grows with the
+     child for years (new regions, roads, and a fresh daily journey),
+     not a pastime of a few minutes */
+  lines.push(h('p', { class: 'parent-line parent-world-vision' }, 'הָעוֹלָם גָּדֵל עִם הַיֶּלֶד — אֲזוֹרִים, דְּרָכִים וּמַסַּע הַיּוֹם מְחַכִּים בְּכָל בִּיקּוּר, לְשָׁנִים.'));
   /* the spiral is the map — all 10 islands always show, even the quiet ones */
   return h(
     'section',

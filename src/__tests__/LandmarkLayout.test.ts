@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LANDMARKS, WORLD_WALK_RADIUS, landmarkRimPoint, landmarkVisitPoint, nearestLandmark, slideAroundLandmark } from '../world/WorldLayout';
-import { WORLD_ISLANDS, pathPoints, resolveWalkTarget } from '../world/WorldLayout';
+import { WORLD_ISLANDS, pathPoints, resolveWalkTarget, HUB_RADIUS } from '../world/WorldLayout';
+import { REGION_ROADS } from '../world/WorldRegions';
 
 describe('LANDMARKS — the places beyond the path (critic round B, W1)', () => {
   const path = pathPoints();
@@ -16,16 +17,16 @@ describe('LANDMARKS — the places beyond the path (critic round B, W1)', () => 
     return m;
   };
 
-  it('has eight named places, each with a Hebrew name and a narration line', () => {
-    expect(LANDMARKS.length).toBe(16);
+  it('has twenty-four named places, each with a Hebrew name and a narration line', () => {
+    expect(LANDMARKS.length).toBe(24);
     for (const l of LANDMARKS) {
       expect(l.name.length).toBeGreaterThan(2);
       expect(l.line.length).toBeGreaterThan(8);
       expect(l.keep).toBeGreaterThan(0.8);
-      expect(l.keep).toBeLessThan(2.2);
+      expect(l.keep).toBeLessThanOrEqual(2.2);
     }
     const ids = new Set(LANDMARKS.map((l) => l.id));
-    expect(ids.size).toBe(16);
+    expect(ids.size).toBe(24);
   });
 
   it('every landmark sits inside the walkable world with a margin', () => {
@@ -38,6 +39,17 @@ describe('LANDMARKS — the places beyond the path (critic round B, W1)', () => 
     for (const l of LANDMARKS) {
       expect(islandDist(l.x, l.z)).toBeGreaterThanOrEqual(1.5);
       expect(pathDist(l.x, l.z)).toBeGreaterThanOrEqual(1.2);
+    }
+  });
+
+  it('region heroes never crowd a region road (≥6 from every sample)', () => {
+    for (const l of LANDMARKS) {
+      if (Math.hypot(l.x, l.z) <= HUB_RADIUS + 4) continue; /* hub landmarks answer to the spiral */
+      for (const road of REGION_ROADS) {
+        for (const p of road.points) {
+          expect(Math.hypot(p.x - l.x, p.z - l.z)).toBeGreaterThanOrEqual(6);
+        }
+      }
     }
   });
 

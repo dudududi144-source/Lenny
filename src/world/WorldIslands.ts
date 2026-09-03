@@ -33,6 +33,7 @@ import type { Scene } from '@babylonjs/core/scene';
 import { ZONES, type ZoneId } from '../data/garden';
 import { finishedCount, isUnlocked, type GardenData } from '../games/core/ProgressStore';
 import { WORLD_ISLANDS, PATH_WIDTH, pathPoints } from './WorldLayout';
+import { terrainHeight } from './WorldRegions';
 
 const MAX_BLOOM = 8;
 const LOCKED_ALPHA = 0.5;
@@ -431,7 +432,8 @@ export function buildIslands(scene: Scene): IslandsHandle {
   const parts: IslandParts[] = ZONES.map((zoneDef, i) => {
     const place = WORLD_ISLANDS[i];
     const root = new TransformNode(`island-${zoneDef.id}`, scene);
-    root.position.set(place.x, 0, place.z);
+    /* stage 12: far islands stand on the rolling hills */
+    root.position.set(place.x, terrainHeight(place.x, place.z), place.z);
     root.parent = islandsRoot;
 
     const tint = islandTint(zoneDef.uiColor);

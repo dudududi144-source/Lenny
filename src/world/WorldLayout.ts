@@ -1,16 +1,19 @@
 /* ============================================================
- * WorldLayout — the pure geometry of the 3D garden (unit-tested).
+ * WorldLayout — the pure geometry of the 3D world (unit-tested).
  *
- * STAGE 11 — the great journey (Croc-scale, still zero assets):
- *   - The curated garden ring grew ~×10 in area: ten zone islands
- *     along one golden-angle spiral, from שְׁבִיל הָאוֹר near the
- *     center to בְּרֵכַת הַנְּשִׁימָה at the calm far end.
- *   - Beyond the curated ring: the ENDLESS MEADOW — procedural
- *     streamed chunks out to WANDER_RADIUS, seeded and
- *     deterministic (WorldMeadow). "כמעט אין סופי" with a way home.
- *   - SIXTEEN named landmarks off the spiral (the eight beloved
- *     places + eight new ones), FOUR named friends along the road,
- *     and signpost waypoints that make the journey legible.
+ * STAGE 12 — the GREAT WIDE WORLD (the owner's verdict on stage 11:
+ * "עדיין מכונס בתוך עצמו" — still folded into itself):
+ *   - The ten zone islands no longer share one small spiral. THREE
+ *     stay in the hub garden (the first steps of the journey) and
+ *     SEVEN travel to the far REGIONS (WorldRegions) — reaching the
+ *     next stage of the unlock chain is a real journey now, along a
+ *     road, with signposts and a compass.
+ *   - The curated world grew ~×34 in area (WALK_RADIUS 51 → 300):
+ *     the hub ring, the six region patches, the roads between them.
+ *   - TWENTY-FOUR named landmarks (the 16 beloved + 8 region heroes),
+ *     SEVEN named friends, and signposts that make it all legible.
+ *   - Beyond the curated world: the endless meadow, now at
+ *     continent scale (WANDER_RADIUS 330), terrain-aware.
  *
  * Pure math only: positions, distances, proximity. No Babylon,
  * no DOM — the unit tests pin every number the world depends on.
@@ -29,25 +32,43 @@ export interface IslandPlacement {
   dist: number;
 }
 
-const GOLDEN_ANGLE = 2.39996;
-const START_RADIUS = 8.5;
-const RADIUS_STEP = 4.35;
 const ISLAND_RADIUS = 2.6;
 
-/** The spiral path that connects the islands (the ribbon on the grass). */
+/** The spiral path that connects the HUB islands (the ribbon on the grass). */
 export const PATH_WIDTH = 0.85;
+
+/**
+ * Where each zone island stands on the continent (stage 12).
+ * The journey order (data/garden.ts unlock chain) is now GEOGRAPHY:
+ * the first steps in the hub garden, then every next stage waits in
+ * its own far region — a road leads to each.
+ */
+const ISLAND_TABLE: Record<ZoneId, [number, number]> = {
+  'light-path': [0, -8.2],
+  'memory-hill': [-16.8, -3.4],
+  'breath-pool': [13.5, 11.5],
+  'attention-stream': [-136, -110],
+  'thinking-forest': [-172, -152],
+  'space-sky': [-196, 42],
+  'words-valley': [-42, 190],
+  'feelings-garden': [82, 186],
+  'creativity-meadow': [118, 232],
+  'rhythm-square': [196, 82],
+};
+
+/** The islands that share the hub's golden spiral ribbon (in journey order). */
+export const HUB_JOURNEY: ZoneId[] = ['light-path', 'memory-hill', 'breath-pool'];
 
 export function layoutIslands(): IslandPlacement[] {
   return ZONES.map((zone, i) => {
-    const angle = -Math.PI / 2 + i * GOLDEN_ANGLE; /* first island "north" */
-    const dist = START_RADIUS + i * RADIUS_STEP;
+    const [x, z] = ISLAND_TABLE[zone.id];
     return {
       zone: zone.id,
       index: i,
-      x: Math.cos(angle) * dist,
-      z: Math.sin(angle) * dist,
+      x,
+      z,
       radius: ISLAND_RADIUS,
-      dist,
+      dist: Math.hypot(x, z),
     };
   });
 }
@@ -60,13 +81,16 @@ export function islandCenter(zone: ZoneId): { x: number; z: number } {
   return { x: p.x, z: p.z };
 }
 
-/* ---------- the two rings of the world ---------- */
+/* ---------- the rings of the world ---------- */
 
-/** The curated garden: islands, landmarks, friends, the road. */
-export const WORLD_WALK_RADIUS = 51;
+/** The hub garden ring (the flat stage-11 world): its own curated place. */
+export const HUB_RADIUS = 51;
 
-/** Beyond the garden — the endless meadow (WorldMeadow chunks). */
-export const WANDER_RADIUS = 168;
+/** The curated continent: hub + regions + roads + landmarks. */
+export const WORLD_WALK_RADIUS = 300;
+
+/** Beyond the curated continent — the endless meadow (WorldMeadow chunks). */
+export const WANDER_RADIUS = 330;
 
 /** Clamp a target point into the whole wanderable world (the child stays in the world, the world never ends visibly). */
 export function clampToWanderArea(x: number, z: number): { x: number; z: number } {
@@ -86,8 +110,9 @@ export function clampToWalkArea(x: number, z: number): { x: number; z: number } 
 
 /* ---------- calm walking (critic round B, W4) ---------- */
 
-/** Peak walk speed — calm enough to watch the garden, brisk enough to keep a 5yo engaged on a big map. */
-export const MAX_WALK_SPEED = 4.4;
+/** Peak walk speed — brisk enough that a region-to-region journey is an
+    adventure (30–60s of scenery), never a chore on a continent this big. */
+export const MAX_WALK_SPEED = 7.2;
 
 /** Distance at which a walk target counts as reached. */
 export const WALK_ARRIVE_EPS = 0.09;
@@ -157,7 +182,16 @@ export type LandmarkKind =
   | 'balloon'
   | 'sunflower'
   | 'crystal-cave'
-  | 'campfire';
+  | 'campfire'
+  /* stage 12 — the region heroes, tall enough to find from afar */
+  | 'giant-tree'
+  | 'wood-hut'
+  | 'ice-tower'
+  | 'watermill'
+  | 'mega-flower'
+  | 'obelisk'
+  | 'oasis'
+  | 'stone-arch';
 
 export interface LandmarkDef {
   id: LandmarkKind;
@@ -298,6 +332,71 @@ export const LANDMARKS: LandmarkDef[] = [
     z: -2.47,
     keep: 1.3,
   },
+  /* ---- stage 12: the region heroes (tall silhouettes for wayfinding) ---- */
+  {
+    id: 'giant-tree',
+    name: 'עֵץ הָעָנָק',
+    line: 'עֵץ הָעָנָק! הַצִּמֶרֶת שֶׁלּוֹ נוֹגַעַת כְּמַעַט בָּעֲנָנִים.',
+    x: -186,
+    z: -132,
+    keep: 2.0,
+  },
+  {
+    id: 'wood-hut',
+    name: 'בִּקְתַּת הַיַּעַר',
+    line: 'בִּקְתָּה! מִי גָּר כָּאן? אוּלַי נַמֵּר צָנוּעַ.',
+    x: -142,
+    z: -172,
+    keep: 1.5,
+  },
+  {
+    id: 'ice-tower',
+    name: 'מִגְדַּל הַקֶּרַח',
+    line: 'מִגְדַּל קֶרַח! הוּא מְנַצְנֵץ כְּמוֹ מַגְדָּל שֶׁל כּוֹכָבִים.',
+    x: -228,
+    z: 44,
+    keep: 2.0,
+  },
+  {
+    id: 'watermill',
+    name: 'טַחֲנַת הַמַּיִם',
+    line: 'טַחֲנַת מַיִם! הַגַּלְגִּל מִסְתּוֹבֵב עִם הַזְּרִימָה.',
+    x: -84,
+    z: 240,
+    keep: 2.0,
+  },
+  {
+    id: 'mega-flower',
+    name: 'הַפֶּרַח הֶעָנָק',
+    line: 'פֶּרַח עָנָק! הַדְּבוֹרוֹת נוֹחֲתוֹת עָלָיו כְּמוֹ בְּמֵעִית.',
+    x: 112,
+    z: 224,
+    keep: 1.8,
+  },
+  {
+    id: 'obelisk',
+    name: 'מַצֵּבַת הַחוֹל',
+    line: 'מַצֵּבָה! אִישׁ אֵינוֹ יוֹדֵעַ מִי הִצִּיב אוֹתָהּ כָּאן.',
+    x: 228,
+    z: 112,
+    keep: 2.0,
+  },
+  {
+    id: 'oasis',
+    name: 'נָוֶה קָטָן',
+    line: 'נָוֶה! מַיִם בְּתוֹךְ הַחוֹל — מַתָּנָה קְטַנָּה שֶׁל הַמִּדְבָּר.',
+    x: 188,
+    z: 52,
+    keep: 1.4,
+  },
+  {
+    id: 'stone-arch',
+    name: 'קֶשֶׁת הָאֲבָנִים',
+    line: 'קֶשֶׁת אֲבָנִים! מִי בָּנָה פֹּה שַׁעַר לְפָנִים רַבּוֹת?',
+    x: 184,
+    z: -146,
+    keep: 2.2,
+  },
 ];
 
 /** The walkable spot at the landmark's rim, on the world-center side. */
@@ -310,7 +409,10 @@ export function landmarkVisitPoint(l: LandmarkDef): { x: number; z: number } {
 export function landmarkRimPoint(l: LandmarkDef, fromX: number, fromZ: number): { x: number; z: number } {
   const d = Math.hypot(fromX - l.x, fromZ - l.z);
   const ang = d < 0.01 ? Math.atan2(-l.z, -l.x) : Math.atan2(fromZ - l.z, fromX - l.x);
-  return clampToWalkArea(l.x + Math.cos(ang) * (l.keep + 0.3), l.z + Math.sin(ang) * (l.keep + 0.3));
+  /* stage 12: the child stands CLOSER to the place — at the doorstep
+     (keep + 0.15) the rim spot stays outside every keep-out while the
+     arrival tolerance (keep + 0.8 discovery) reads as "you arrived" */
+  return clampToWalkArea(l.x + Math.cos(ang) * (l.keep + 0.15), l.z + Math.sin(ang) * (l.keep + 0.15));
 }
 
 /**
@@ -458,17 +560,18 @@ export function resolveWalkTarget(
 }
 
 /**
- * Control points for the path: the world center, then every island,
- * with arc midpoints between consecutive islands so the ribbon
- * follows the spiral instead of cutting straight chords.
+ * Control points for the HUB path: the world center, then the three
+ * hub islands in journey order, with arc midpoints so the ribbon
+ * follows a spiral instead of cutting straight chords. The far
+ * regions have their own roads (WorldRegions.REGION_ROADS).
  */
 export function pathControlPoints(): Array<{ x: number; z: number }> {
   const pts: Array<{ x: number; z: number }> = [{ x: 0, z: 0 }];
-  for (let i = 0; i < WORLD_ISLANDS.length; i++) {
-    const p = WORLD_ISLANDS[i];
+  const hub = HUB_JOURNEY.map((z) => WORLD_ISLANDS.find((i) => i.zone === z)!);
+  for (let i = 0; i < hub.length; i++) {
+    const p = hub[i];
     if (i > 0) {
-      /* arc midpoint between island i-1 and i (golden-angle step) */
-      const prev = WORLD_ISLANDS[i - 1];
+      const prev = hub[i - 1];
       const a0 = Math.atan2(prev.z, prev.x);
       const a1 = Math.atan2(p.z, p.x);
       const mid = a0 + (a1 - a0) / 2;
@@ -572,7 +675,7 @@ export const WORLD_SIGNPOSTS: SignpostDef[] = signposts();
 
 /* ---------- friends: the named faces of the garden (stage 11) ---------- */
 
-export type FriendKind = 'bee' | 'snail' | 'frog' | 'bunny';
+export type FriendKind = 'bee' | 'snail' | 'frog' | 'bunny' | 'hedgehog' | 'penguin' | 'lizard';
 
 export interface FriendDef {
   id: FriendKind;
@@ -615,6 +718,28 @@ export const FRIENDS: FriendDef[] = [
     line: 'קִפִּיף, קִפִּיף! הַגַּן גָּדוֹל וּמְלֵא הַפְּתָעוֹת.',
     x: 4.0,
     z: -20.3,
+  },
+  /* ---- stage 12: friends out in the regions ---- */
+  {
+    id: 'hedgehog',
+    name: 'קוּצִי הַקִפּוֹד',
+    line: 'פִּיף, פִּיף! בַּיַּעַר כָּל קוּץ מְגַן — וְכָל פֶּרַח מְנַשֶּׁב.',
+    x: -152,
+    z: -122,
+  },
+  {
+    id: 'penguin',
+    name: 'פֶּנְגּוּ הַפִּנְגּוִין',
+    line: 'אִיִּיח! הַקֶּרַח כָּאן מַחֲלִיק — רוֹצֶה לְנַסּוֹת?',
+    x: -206,
+    z: 74,
+  },
+  {
+    id: 'lizard',
+    name: 'שָׁמִישׁ הַלִטְפָּן',
+    line: 'צְּצְצְ... חַם פֹּה! אֲנִי אוֹהֵב לְהִשָּׁקֵט עַל הַאֲבָנִים.',
+    x: 226,
+    z: 70,
   },
 ];
 

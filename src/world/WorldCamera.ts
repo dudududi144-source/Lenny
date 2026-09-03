@@ -22,13 +22,13 @@ export const CHILD_CAMERA = {
   betaMin: 0.15,
   betaMax: 1.25,
   radiusMin: 3.4,
-  radiusMax: 26,
+  radiusMax: 34,
   inertia: 0.92,
   /** default angular sensibility 1000 → slower = bigger value */
   angularSensibility: Math.round(1000 / 0.6),
   startAlpha: -Math.PI / 2,
   startBeta: 1.02,
-  startRadius: 14,
+  startRadius: 15,
 } as const;
 
 export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamera {
@@ -57,7 +57,8 @@ export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamer
   camera.pinchDeltaPercentage = 0.01;
 
   camera.minZ = 0.4;
-  camera.maxZ = 420;
+  /* stage 12: the continent + the mountain ring live far away */
+  camera.maxZ = 900;
 
   camera.attachControl();
 
