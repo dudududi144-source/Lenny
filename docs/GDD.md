@@ -28,13 +28,15 @@ A calm, beautiful play-space for children aged 4-7. It invites a gentle, focused
 | rhythm | timing, movement, music |
 | breath | slow breathing, calming |
 
-Levels: seed, sprout, tree, blossom (roughly ages 3-7).
+Levels: seed, sprout, tree, blossom (roughly ages 3-7). Honest note:
+tiers scale the challenge within each mechanic (board sizes, counts,
+paces, variants) - they do not yet introduce new mechanics per tier.
 
 ## Honesty about progress
 
 All 144 specs are playable today: every spec resolves to one of 11 real
-game kinds (14 hand-built scenes), seeded per zone with tier unlocks
-(×3 per tier). The 3D world (stage 7) is the garden's default for real
+game kinds (12 hand-built scenes + a coming-soon guard), seeded per zone
+with tier unlocks (×3 per tier). The 3D world (stage 7) is the garden's default for real
 visitors; the classic 2D map remains a complete fallback — one chip
 away, and the automatic fallback whenever the world cannot run.
 
