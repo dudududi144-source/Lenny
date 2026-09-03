@@ -52,6 +52,8 @@ interface SlotView {
   back: Container;
   front: Container;
   dim: Graphics;
+  /** the suit drawing on the card's face — rebuildable for the wind */
+  suitG: Graphics;
   bobPhase: number;
   enterTween?: TweenHandle;
 }
@@ -84,6 +86,10 @@ export class MemoryPairsScene extends GameScene {
   private transitioning = false;
   private peekSeen = false;
   private lastHint: 'none' | 'gentle' | 'clear' | 'show' = 'none';
+  /* round C 'wind' variant: after a miss, the wind swaps two face-down
+     cards — the child must re-encode positions, not just recall them */
+  private windMode = false;
+  private windSaid = 0;
   private aura: { sprite: Sprite; cancel: () => void } | null = null;
   private constellation = new Container();
   private constellationTitle: Text | null = null;
@@ -102,6 +108,7 @@ export class MemoryPairsScene extends GameScene {
 
     const specPairs = spec?.params.itemCount ? Math.min(spec.params.itemCount, 8) : null;
     this.totalPairs = specPairs ?? [3, 4, 6, 6][this.dda.tier()];
+    this.windMode = spec?.params.extra?.variant === 'wind';
     const { rows, cols } = layoutFor(this.totalPairs);
 
     const kinds = selectPairTypes(this.totalPairs, level);
@@ -129,8 +136,12 @@ export class MemoryPairsScene extends GameScene {
     });
 
     const intro = spec?.narrative.intro ?? ['הַפַּרְפַּר שָׁכַח אֵיפֹה הַפְּרָחִים שֶׁלּוֹ.', 'בּוֹא נִמְצָא אֶת הַזּוּגוֹת!'];
-    this.say(intro);
-    this.ctx.hud.mission?.(`מְצְאִי אֶת כָּל ${this.totalPairs} הַזּוּגוֹת`);
+    this.say(this.windMode ? [...intro, 'הָרוּחַ בַּגַּן מְזִיזָה כַּרְטִיסִים בְּכָל טָעוּת — עֵינַיִם פְּקוּחוֹת!'] : intro);
+    this.ctx.hud.mission?.(
+      this.windMode
+        ? `מְצְאִי אֶת כָּל ${this.totalPairs} הַזּוּגוֹת — הָרוּחַ מְזִיזָה!`
+        : `מְצְאִי אֶת כָּל ${this.totalPairs} הַזּוּגוֹת`,
+    );
     this.ctx.hud.ringCounts(this.pairsFound, this.totalPairs);
 
     if (exposure.mode !== 'none') this.schedulePeek(exposure);
@@ -183,7 +194,8 @@ export class MemoryPairsScene extends GameScene {
     faceLight.height = h * 0.55;
     faceLight.y = -h * 0.24;
     front.addChild(faceLight);
-    front.addChild(this.drawSuit(kind, Math.min(w, h) * 0.44));
+    const suitG = this.drawSuit(kind, Math.min(w, h) * 0.44);
+    front.addChild(suitG);
 
     front.visible = false;
     view.addChild(back, front);
@@ -197,7 +209,7 @@ export class MemoryPairsScene extends GameScene {
     const slot: SlotView = {
       index, x, y, w, h, kind,
       state: 'down', matched: false, failed: false,
-      view, back, front, dim,
+      view, back, front, dim, suitG,
       bobPhase: Math.random() * Math.PI * 2,
     };
     slot.enterTween = this.anim.to(view, { scale: 1 }, { durationMs: 480, delayMs: index * 55, ease: ease.outBack });
@@ -412,6 +424,13 @@ export class MemoryPairsScene extends GameScene {
     this.anim.after(FLIP_MS * 2 + 80, () => {
       this.flipTo(a, false);
       this.flipTo(b, false);
+      /* the wind variant: once the seen cards are face-down again,
+         two unseen positions trade contents (tier-1+ catalog specs) */
+      if (this.windMode) {
+        this.anim.after(FLIP_MS * 2 + 40, () => {
+          if (!this.tornDown) this.windSwap();
+        });
+      }
     });
 
     const hint = this.suggestHint(this.consecutiveMiss);
@@ -442,6 +461,41 @@ export class MemoryPairsScene extends GameScene {
         (s) => s !== slot && s.kind.suit === slot.kind.suit && s.kind.tone === slot.kind.tone,
       ) ?? null
     );
+  }
+
+  /* ---------------- the wind (round C variant) ----------------
+   * After a miss, two face-down cards trade kinds: what the child
+   * just memorized may no longer be there. One swap per miss — hard
+   * enough to demand re-encoding, gentle enough to stay fair. */
+
+  /** Re-draw a slot's face for a new kind (its front is hidden). */
+  private applySuit(slot: SlotView, kind: CardType): void {
+    slot.kind = kind;
+    const u = Math.min(slot.w, slot.h) * 0.44;
+    slot.suitG.destroy();
+    slot.suitG = this.drawSuit(kind, u);
+    slot.front.addChild(slot.suitG);
+  }
+
+  private windSwap(): void {
+    const candidates = this.slots.filter((s) => !s.matched && s.state === 'down');
+    if (candidates.length < 2) return;
+    const i = Math.floor(Math.random() * candidates.length);
+    let j = Math.floor(Math.random() * candidates.length);
+    while (j === i) j = Math.floor(Math.random() * candidates.length);
+    const a = candidates[i];
+    const b = candidates[j];
+    const aKind = a.kind;
+    this.applySuit(a, b.kind);
+    this.applySuit(b, aKind);
+    audio.play('whoosh');
+    for (const s of [a, b]) {
+      this.sparkle(s.x, s.y, [COLORS.glowSoft, 0xffffff]);
+    }
+    if (this.windSaid < 2) {
+      this.windSaid++;
+      this.say(['הָרוּחַ הִזִּיזָה כַּרְטִיסִים! זְכְרוּ לְאָן הֵן עָפוּ.']);
+    }
   }
 
   private showAura(target: SlotView): void {
@@ -495,6 +549,7 @@ export class MemoryPairsScene extends GameScene {
   debugState(): Record<string, unknown> {
     return {
       kind: 'memory-pairs',
+      variant: this.windMode ? 'wind' : 'classic',
       pairsFound: this.pairsFound,
       totalPairs: this.totalPairs,
       mistakes: this.mistakes,

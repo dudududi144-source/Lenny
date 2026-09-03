@@ -246,6 +246,57 @@ const NARRATIVES: Record<GameKind, NarrativeRecipe> = {
   },
 };
 
+/* ---------- tier mechanic variants (claims-vs-reality round C) ----------
+ *
+ * The hostile audit's first question: "the description says 144 games,
+ * how many actually play differently?" Until now a tier changed HOW
+ * MUCH (counts/speed/rounds) but never HOW a game plays. These
+ * variants change the MECHANIC itself at higher tiers:
+ *
+ *   memory-pairs  tier>=1  'wind'            — after every miss the wind
+ *                                            swaps two face-down cards:
+ *                                            re-encode positions, not just
+ *                                            recall them
+ *   letter-find   tier>=1  'first-sound'    — hear a WORD, pick the letter
+ *                                            it starts with (phonemic
+ *                                            awareness, pre-reading)
+ *   match-shadow  tier>=2  'rotated-shapes' — shadows go neutral dark AND
+ *                                            rotated: match by silhouette
+ *                                            under rotation (color can no
+ *                                            longer key the answer)
+ *   sort-order    tier>=1  'descending'     — arrange big -> small: the
+ *                                            planning direction inverts
+ *   emotion-name  tier>=1  'situation'      — hear a situation vignette,
+ *                                            infer the feeling (empathy /
+ *                                            perspective taking), then the
+ *                                            true face is revealed
+ *
+ * Tier 0 NEVER carries a variant: the seed specs and the e2e ground
+ * stay byte-still. The other engines honestly stay 'classic' — the
+ * README and docs say so. Deterministic and pure.
+ */
+
+export type SpecVariant =
+  | 'wind'
+  | 'first-sound'
+  | 'rotated-shapes'
+  | 'descending'
+  | 'situation';
+
+const VARIANTS: Partial<Record<GameKind, { name: SpecVariant; fromTier: number }>> = {
+  'memory-pairs': { name: 'wind', fromTier: 1 },
+  'letter-find': { name: 'first-sound', fromTier: 1 },
+  'match-shadow': { name: 'rotated-shapes', fromTier: 2 },
+  'sort-order': { name: 'descending', fromTier: 1 },
+  'emotion-name': { name: 'situation', fromTier: 1 },
+};
+
+/** The mechanic variant a derived spec of this kind+tier plays, if any. */
+export function variantFor(kind: GameKind, tier: number): SpecVariant | undefined {
+  const v = VARIANTS[kind];
+  return v && tier >= v.fromTier ? v.name : undefined;
+}
+
 /* ---------- derivation ---------- */
 
 function kindForIndex(cat: GameCategory, i: number): GameKind {
@@ -273,6 +324,7 @@ export function deriveSpecs(): { specs: GameSpec[]; names: Record<string, string
       const kind = kindForIndex(cat, i);
       const tier = def.level; /* 0..3 straight from the seed layout */
       const recipe = NARRATIVES[kind];
+      const variant = variantFor(kind, tier);
       const spec: GameSpec = {
         id: idFor(cat, kind, i),
         kind,
@@ -284,7 +336,9 @@ export function deriveSpecs(): { specs: GameSpec[]; names: Record<string, string
           win: recipe.win[i % recipe.win.length],
           encourage: recipe.encourage[i % recipe.encourage.length],
         } satisfies GameNarrative,
-        params: PARAMS[kind](tier),
+        params: variant
+          ? { ...PARAMS[kind](tier), extra: { variant } }
+          : PARAMS[kind](tier),
         baseTier: tier,
         openEnded: kind === 'open-create' || kind === 'paint-fill',
       };

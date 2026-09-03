@@ -19,6 +19,7 @@ import {
   catalogMeta,
   KINDS_FOR_CATEGORY,
   ZONE_FOR_CATEGORY,
+  variantFor,
 } from '../content/SpecGenerator';
 import { validateSpec, validateCatalog } from '../content/SpecValidator';
 import { ZONES } from '../data/garden';
@@ -141,5 +142,72 @@ describe('derived param spread — tiers feel different', () => {
     });
     expect(speeds[0]).toBe(78); /* seed parity */
     expect(speeds).toEqual([78, 86, 94, 102]);
+  });
+});
+
+describe('tier mechanic variants — a tier changes HOW, not just HOW MUCH (round C)', () => {
+  it('tier-0 never carries a variant (the e2e ground stays byte-still)', () => {
+    for (const spec of SPEC_CATALOG.filter((s) => s.baseTier === 0)) {
+      expect(spec.params.extra?.variant, spec.id).toBeUndefined();
+    }
+  });
+
+  it('the five variant families sit exactly where the docs say', () => {
+    const of = (kind: string, tier: number) =>
+      SPEC_CATALOG.filter((s) => s.kind === kind && s.baseTier === tier);
+    for (const t of [1, 2, 3]) {
+      for (const s of of('memory-pairs', t)) expect(s.params.extra?.variant, s.id).toBe('wind');
+      for (const s of of('letter-find', t)) expect(s.params.extra?.variant, s.id).toBe('first-sound');
+      for (const s of of('sort-order', t)) expect(s.params.extra?.variant, s.id).toBe('descending');
+      for (const s of of('emotion-name', t)) expect(s.params.extra?.variant, s.id).toBe('situation');
+    }
+    for (const t of [2, 3]) {
+      for (const s of of('match-shadow', t)) expect(s.params.extra?.variant, s.id).toBe('rotated-shapes');
+    }
+    /* exactly 50 of the 144 play a genuinely different mechanic */
+    const carrying = SPEC_CATALOG.filter((s) => s.params.extra?.variant !== undefined);
+    expect(carrying).toHaveLength(50);
+  });
+
+  it('no other kind ever carries a variant (the docs stay honest)', () => {
+    const variantKinds = new Set([
+      'memory-pairs',
+      'letter-find',
+      'match-shadow',
+      'sort-order',
+      'emotion-name',
+    ]);
+    for (const spec of SPEC_CATALOG) {
+      if (!variantKinds.has(spec.kind)) {
+        expect(spec.params.extra?.variant, spec.id).toBeUndefined();
+      }
+    }
+  });
+
+  it('match-shadow waits for tier 2 — the classic color game stays intact below', () => {
+    for (const spec of SPEC_CATALOG.filter((s) => s.kind === 'match-shadow')) {
+      const v = spec.params.extra?.variant;
+      if (spec.baseTier < 2) expect(v, spec.id).toBeUndefined();
+      else expect(v, spec.id).toBe('rotated-shapes');
+    }
+  });
+
+  it('variantFor is the single source of truth', () => {
+    expect(variantFor('memory-pairs', 0)).toBeUndefined();
+    expect(variantFor('memory-pairs', 1)).toBe('wind');
+    expect(variantFor('match-shadow', 1)).toBeUndefined();
+    expect(variantFor('match-shadow', 2)).toBe('rotated-shapes');
+    expect(variantFor('find-target', 3)).toBeUndefined();
+  });
+
+  it('the validator rejects a variant on the wrong kind and a tier-0 variant', () => {
+    const wrong = JSON.parse(JSON.stringify(SPEC_CATALOG.find((s) => s.kind === 'rhythm-tap')!));
+    wrong.params.extra = { variant: 'wind' };
+    expect(validateSpec(wrong)).toContain('unknown variant');
+    const tier0 = JSON.parse(
+      JSON.stringify(SPEC_CATALOG.find((s) => s.kind === 'memory-pairs' && s.baseTier === 0)!),
+    );
+    tier0.params.extra = { variant: 'wind' };
+    expect(validateSpec(tier0)).toContain('tier-0');
   });
 });

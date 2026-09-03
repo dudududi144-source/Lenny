@@ -67,6 +67,9 @@ export class AcornSortScene extends GameScene {
   private rejectsThisRound = 0;
   private consecutiveMiss = 0;
   private lastHint: Hint = 'none';
+  /* round C 'descending' variant: the slots run big -> small, the
+     planning direction inverts (tier-1+ catalog specs) */
+  private descending = false;
 
   /* tap-pick / drag shared state */
   private held: Acorn | null = null;
@@ -92,11 +95,15 @@ export class AcornSortScene extends GameScene {
     this.acornCount = spec?.params.itemCount
       ? Math.min(spec.params.itemCount, 5)
       : Math.min(4 + Math.floor(this.dda.level() * 6), 8);
+    this.descending = spec?.params.extra?.variant === 'descending';
 
     this.say([
       'הַסְּנַאי צָרִיךְ לְסַדֵּר אֶת הַבְּלוּטִים.',
-      'גִּרְרוּ כָּל בְּלוּט לָעִגוּל שֶׁבַּגֹּדֶל שֶׁלּוֹ!',
+      this.descending
+        ? 'הַפַּעַם מֵהַגָּדוֹל אֶל הַקָּטָן — גִּרְרוּ בִּזְהִירוּת!'
+        : 'גִּרְרוּ כָּל בְּלוּט לָעִגוּל שֶׁבַּגֹּדֶל שֶׁלּוֹ!',
     ]);
+    this.ctx.hud.mission?.(this.descending ? 'מֵהַגָּדוֹל אֶל הַקָּטָן!' : 'מֵהַקָּטָן אֶל הַגָּדוֹל');
     this.spawnRound();
   }
 
@@ -131,16 +138,20 @@ export class AcornSortScene extends GameScene {
       this.acorns.push(this.buildAcorn('acorn-' + s, s, this.w * xs[s - 1], this.h * 0.28));
     }
 
-    /* drop circles along the bottom, left -> right = small -> large;
-       radius shrinks with high counts so slots never overlap */
+    /* drop circles along the bottom; classic: left -> right = small ->
+       large; 'descending': left -> right = large -> small — the SAME
+       size-matched slots, a DIFFERENT planning direction (round C) */
     const spacing = this.w * (this.acornCount > 1 ? 0.72 / (this.acornCount - 1) : 0.5);
     const slotR = Math.max(24, Math.min(44, Math.floor(spacing * 0.45)));
+    const slotXFor = (k: number): number => {
+      const pos = this.descending ? this.acornCount + 1 - k : k;
+      return this.w * (0.14 + (this.acornCount > 1 ? ((pos - 1) * 0.72) / (this.acornCount - 1) : 0.5));
+    };
     for (let k = 1; k <= this.acornCount; k++) {
-      const sx = 0.14 + (this.acornCount > 1 ? ((k - 1) * 0.72) / (this.acornCount - 1) : 0.5);
       this.slots.push({
         id: 'slot-' + k,
         sizeIndex: k,
-        x: this.w * sx,
+        x: slotXFor(k),
         y: this.h * 0.66,
         radius: slotR,
         filled: false,
@@ -403,9 +414,13 @@ export class AcornSortScene extends GameScene {
     this.lastHint = hint;
     this.say([
       hint === 'show'
-        ? 'כָּל עִגוּל מְבַקֵּשׁ בְּלוּט גָּדוֹל מִשֶּׁל הָעִגּוּל שֶׁלִּפְנָיו'
+        ? this.descending
+          ? 'כָּל עִגוּל מְבַקֵּשׁ בְּלוּט קָטָן מִשֶּׁל הָעִגּוּל שֶׁלִּפְנָיו'
+          : 'כָּל עִגוּל מְבַקֵּשׁ בְּלוּט גָּדוֹל מִשֶּׁל הָעִגּוּל שֶׁלִּפְנָיו'
         : hint === 'clear'
-          ? 'סַדְּרוּ אֶת הַבְּלוּטִים מֵהַקָּטָן אֶל הַגָּדוֹל'
+          ? this.descending
+            ? 'סַדְּרוּ אֶת הַבְּלוּטִים מֵהַגָּדוֹל אֶל הַקָּטָן'
+            : 'סַדְּרוּ אֶת הַבְּלוּטִים מֵהַקָּטָן אֶל הַגָּדוֹל'
           : 'נַסּוּ שׁוּב — אֵיזֶה עִגוּל מַתְאִים?',
     ]);
 
@@ -447,6 +462,7 @@ export class AcornSortScene extends GameScene {
   debugState(): Record<string, unknown> {
     return {
       kind: 'acorn-sort',
+      variant: this.descending ? 'descending' : 'classic',
       round: this.round,
       totalRounds: this.totalRounds,
       acorns: this.acorns.map((a) => ({
