@@ -17,7 +17,8 @@ type SfxName =
   | 'splash'
   | 'shuffle'
   | 'unlock'
-  | 'star';
+  | 'star'
+  | 'croak'; /* stage 16-b: the sound-hunt frog */
 
 import { music } from '../../audio/MusicEngine';
 
@@ -196,6 +197,14 @@ export class AudioEngine {
         const base = 523.25 + variant * 120;
         this.tone(base, 200, { type: 'triangle', vol: 0.26 });
         this.tone(base * 1.26, 180, { vol: 0.16, delayMs: 70 });
+        break;
+      }
+      case 'croak': {
+        /* a friendly pond croak: two ribbity down-slides + a wet tick */
+        const base = 170 + variant * 14;
+        this.tone(base, 110, { type: 'square', vol: 0.1, slideTo: base * 0.72 });
+        this.tone(base * 1.12, 130, { type: 'square', vol: 0.09, slideTo: base * 0.7, delayMs: 130 });
+        this.noise(60, { vol: 0.06, freq: 500, q: 0.8, delayMs: 20 });
         break;
       }
     }

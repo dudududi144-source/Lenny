@@ -43,10 +43,12 @@ import {
   paletteForPhase,
   paintSkyCanvas,
   skyStarRng,
+  type SkyQuality,
   type WorldPalette,
 } from './WorldSky';
 import type { QualityTier } from './FpsGovernor';
 import { buildWorldFx, type WorldFxHandle } from './WorldFx';
+import { buildWorldSignposts } from './WorldSignposts';
 import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
 import { buildLennyStar, type LennyStarHandle } from './LennyStar';
 import {
@@ -100,7 +102,7 @@ import {
 import { buildRegions, regionAt, terrainHeight, type RegionDef, type RegionsHandle } from './WorldRegions';
 import { buildClearings, type ClearingsHandle } from './WorldClearings';
 import { buildFlora, type FloraHandle } from './WorldFlora';
-import { nearestStation, STATIONS, STATION_NEAR_RADIUS, type StationBand } from './WorldStations';
+import { ALL_STATIONS, nearestStation, STATION_NEAR_RADIUS, type StationBand } from './WorldStations';
 import { attachWorldInput } from './WorldInput';
 import { createWorldOnboard } from './WorldOnboard';
 import type { ZoneId } from '../data/garden';
@@ -263,8 +265,10 @@ async function createEngine(
 
 /** Painted sky dome — the stage 15-D multi-stop gradient, sun halo,
  *  moon glow and deterministic star field, all painted by WorldSky
- *  (one source of truth; the dome itself is unchanged). */
-function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalette): void; dispose(): void } {
+ *  (one source of truth; the dome itself is unchanged). Stage 16-c:
+ *  the paint takes the quality tier — weak is the historical sky,
+ *  standard+ earns the denser star field + moon halo. */
+function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalette, quality?: SkyQuality): void; dispose(): void } {
   const size = 512;
   const tex = new DynamicTexture('sky-tex', { width: size, height: size }, scene, true);
   const ctx = tex.getContext() as CanvasRenderingContext2D;
@@ -286,8 +290,8 @@ function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalett
   dome.applyFog = false;
 
   return {
-    repaint(p: WorldPalette): void {
-      paintSkyCanvas(ctx, size, p, skyStarRng(20260915));
+    repaint(p: WorldPalette, quality: SkyQuality = 'weak'): void {
+      paintSkyCanvas(ctx, size, p, skyStarRng(20260915), quality);
       tex.update();
     },
     dispose(): void {
@@ -324,8 +328,10 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 
   tex.wrapU = Texture.WRAP_ADDRESSMODE;
   tex.wrapV = Texture.WRAP_ADDRESSMODE;
-  tex.uScale = 99;
-  tex.vScale = 99;
+  /* 16-a: the grass tiling rides the wider plate (same texel density:
+     ~7.3 world units per tile, exactly the stage-12 look) */
+  tex.uScale = 418;
+  tex.vScale = 418;
 
   const mat = new StandardMaterial('grass-mat', scene);
   mat.diffuseTexture = tex;
@@ -333,8 +339,16 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 
   /* stage 12: the ground IS the continent — the flat hub garden blends
      into rolling hills (terrainHeight is flat inside r<148), so the
-     walker feels the land rise underfoot on the way to the regions */
-  const ground = MeshBuilder.CreateGround('ground', { width: 720, height: 720, subdivisions: 32 }, scene);
+     walker feels the land rise underfoot on the way to the regions.
+     16-a: the ground follows the WIDER continent — it must carry the
+     far ring (hearts ~1245) AND every tap in between: the whole
+     wanderable world now stands on real, pickable ground (the old
+     720u plate left the outer wilds tap-blind). Subdivision note:
+     the plate is ONE always-submitted mesh, so on software GL every
+     vertex is paid every frame — 72 keeps the hills reading smooth
+     under fog at walking distance (42u quads) at 4x less vertex
+     load than the first 16-a cut; the fps floor holds. */
+  const ground = MeshBuilder.CreateGround('ground', { width: 3040, height: 3040, subdivisions: 72 }, scene);
   {
     const pos = ground.getVerticesData(VertexBuffer.PositionKind);
     if (pos) {
@@ -363,6 +377,9 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 export interface WorldApp {
   fps(): number;
   rendererKind(): WorldRendererKind;
+  /** Scene load snapshot (bridge/diagnostics): total meshes and how
+   *  many the frustum actually submitted this frame. */
+  perf(): { meshes: number; active: number } | null;
   /** bridge (commit 3 fills presence; islands fill zones now) */
   presencePos(): { x: number; z: number } | null;
   /** the live walk errand (null = none) — e2e/diagnostics. */
@@ -515,6 +532,11 @@ export async function createWorldApp(
      meshes; its masters start disabled on the boot tier (weak). */
   const fx: WorldFxHandle = buildWorldFx(scene);
 
+  /* stage 16-c — silent wayfinding: fork/gate arrow posts + region
+     totems (ALL tiers — wayfinding is not decoration; frozen static
+     thin instances, 3 draw calls, distance-culled internally) */
+  const signposts = buildWorldSignposts(scene);
+
   /* the quality tier (stage 15-D): boot 'weak' — EXACTLY today's world.
      Everything the tier unlocks is applied in applyTier (below). */
   let tier: QualityTier = 'weak';
@@ -522,10 +544,36 @@ export async function createWorldApp(
   const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
   const sun = new DirectionalLight('sun', new Vector3(...palette.sunDir), scene);
 
+  /* stage 16-c — region-graded fog (standard+): while the child walks
+     a region's patch the air picks up a whisper (22%) of that region's
+     own hue, easing back to the hour's base fog outside. Zero per-
+     frame allocations; weak returns instantly (its fog is constant). */
+  const baseFog = new Color3();
+  const fogTarget = new Color3();
+  const fogScratch = new Color3();
+  const regionFogTints = new Map<string, Color3>();
+  const gradeRegionFog = (rg: RegionDef | null, dt: number): void => {
+    if (tier === 'weak') return;
+    let target = baseFog;
+    if (rg) {
+      let tint = regionFogTints.get(rg.id);
+      if (!tint) {
+        tint = Color3.FromHexString(rg.tint);
+        regionFogTints.set(rg.id, tint);
+      }
+      fogTarget.r = baseFog.r + (tint.r - baseFog.r) * 0.22;
+      fogTarget.g = baseFog.g + (tint.g - baseFog.g) * 0.22;
+      fogTarget.b = baseFog.b + (tint.b - baseFog.b) * 0.22;
+      target = fogTarget;
+    }
+    Color3.LerpToRef(scene.fogColor, target, Math.min(1, dt * 1.4), fogScratch);
+    scene.fogColor.copyFrom(fogScratch);
+  };
+
   /* apply the hour's light — called at boot and whenever the day turns */
   const applyPalette = (p: WorldPalette): void => {
     palette = p;
-    sky.repaint(p);
+    sky.repaint(p, tier);
     ground.retint(p);
     hemi.intensity = p.hemiIntensity;
     hemi.diffuse = Color3.FromHexString(p.hemiSky);
@@ -540,6 +588,7 @@ export async function createWorldApp(
     scene.fogDensity = tier === 'weak' ? 0.0034 : p.fogDensity;
     /* the clouds ride the hour too (weak keeps the white sky) */
     flora.setCloudTint(tier === 'weak' ? null : p.cloudTint);
+    baseFog.copyFrom(scene.fogColor);
   };
   applyPalette(palette);
 
@@ -620,7 +669,16 @@ export async function createWorldApp(
     tx: home.x,
     tz: home.z,
   };
-  const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z));
+  /* stage 16: any touch device gets the steady-palm camera — vertical
+     orbit needs a deliberate mouse; a kid's thumb never flees the sky */
+  const steadyTouch = (() => {
+    try {
+      return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    } catch {
+      return false;
+    }
+  })();
+  const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z), { steadyTouch });
   scene.activeCamera = camera;
 
   /* ---------- stage 13 — the balloon vista (נוף) ----------
@@ -671,6 +729,7 @@ export async function createWorldApp(
     creatures.setAtmosphere(next !== 'weak');
     lanterns.setAtmosphere(next !== 'weak');
     balloon.setSway(next !== 'weak');
+    flora.setAtmosphere(next !== 'weak'); /* 16-c: the high parallax deck */
     /* the hour's air + cloud tint follow the palette on standard+ */
     applyPalette(palette);
     /* a richer shadow map is a rebuild — done lazily: drop the old
@@ -749,6 +808,14 @@ export async function createWorldApp(
   let lastMusicIntensity = -1;
   const prevPresence = { x: presencePos.x, z: presencePos.z };
   const vel = { x: 0, z: 0 };
+  /* stage 16 camera stability: the eye glides, never snaps — the
+     look-ahead reads a SMOOTHED velocity (the raw per-frame velocity
+     snaps to zero the frame a walk ends, yanking the target back),
+     and the target's height chases the ground under an honest speed
+     cap (a pad rim or a hill crest can lift the view, never fling
+     it). The balloon ride bypasses the cap: its ascent IS the view. */
+  const velS = { x: 0, z: 0 };
+  const CAM_Y_MAX_SPEED = 2.4; /* world units per second, walking */
 
   /* the jump: a small, honest arc — up, gravity, landing squash */
   const JUMP_V = 4.3;
@@ -1006,11 +1073,21 @@ export async function createWorldApp(
       onboard.tick(now, camera);
     } else {
       const camT = camera.target;
-      const lookX = presencePos.x + vel.x * 0.22;
-      const lookZ = presencePos.z + vel.z * 0.22;
+      const vf = Math.min(1, dt * 3.2);
+      velS.x += (vel.x - velS.x) * vf;
+      velS.z += (vel.z - velS.z) * vf;
+      const lookX = presencePos.x + velS.x * 0.22;
+      const lookZ = presencePos.z + velS.z * 0.22;
       camT.x += (lookX - camT.x) * Math.min(1, dt * 2.2);
       camT.z += (lookZ - camT.z) * Math.min(1, dt * 2.2);
-      camT.y += (gy + 0.5 + rideAlt - camT.y) * Math.min(1, dt * 1.6);
+      const camYGoal = gy + 0.5 + rideAlt;
+      const camYDelta = (camYGoal - camT.y) * Math.min(1, dt * 1.6);
+      if (rideK !== null) {
+        camT.y += camYDelta;
+      } else {
+        const maxStep = CAM_Y_MAX_SPEED * dt;
+        camT.y += camYDelta > maxStep ? maxStep : camYDelta < -maxStep ? -maxStep : camYDelta;
+      }
       /* airborne: the eye steps back — the continent deserves the view */
       if (rideK !== null) {
         camera.radius += (30 - camera.radius) * Math.min(1, dt * 0.9);
@@ -1143,6 +1220,8 @@ export async function createWorldApp(
     /* stage 12: region discovery — crossing into a far region's patch */
     const rg = regionAt(presencePos.x, presencePos.z);
     const rgId = rg ? rg.id : null;
+    /* 16-c: the air carries a whisper of the region's hue (standard+) */
+    gradeRegionFog(rg, dt);
     if (rgId !== nearRegionId) {
       nearRegionId = rgId;
       if (rg) {
@@ -1304,9 +1383,21 @@ export async function createWorldApp(
       },
       onStationTap: (zone, band) => {
         /* a pad is a door, not a teleport: far away the tap SENDS the
-           child there; up close it opens that band's games (stage 14) */
+           child there; up close it opens that band's games (stage 14).
+           16-a: far pads key on their REGION (no zone collision) — the
+           zone match runs first, then the region match. */
         if (onboard.active() || rideStart !== null) return;
-        const spot = STATIONS.find((s) => s.zone === zone && s.band === band);
+        const zonePads = ALL_STATIONS.filter((s) => s.zone === zone && s.band === band);
+        const regionPads = ALL_STATIONS.filter((s) => s.region === zone && s.band === band);
+        const matches = zonePads.length > 0 ? zonePads : regionPads;
+        const spot =
+          matches.length <= 1
+            ? matches[0]
+            : matches.reduce((a, b) =>
+                Math.hypot(presencePos.x - a.x, presencePos.z - a.z) <= Math.hypot(presencePos.x - b.x, presencePos.z - b.z)
+                  ? a
+                  : b,
+              );
         if (!spot) return;
         const d = Math.hypot(presencePos.x - spot.x, presencePos.z - spot.z);
         if (d > STATION_NEAR_RADIUS * 0.95) {
@@ -1316,7 +1407,9 @@ export async function createWorldApp(
           return;
         }
         try {
-          events.onStationTap?.({ zone: zone as ZoneId, band: band as StationBand });
+          /* far pads forward their THEME zone (the shelf borrows that
+             zone's catalog; 'cloud'/'star' never reach the shell) */
+          events.onStationTap?.({ zone: spot.zone as ZoneId, band: band as StationBand });
         } catch {
           /* a clearing tap never crashes the garden */
         }
@@ -1350,6 +1443,21 @@ export async function createWorldApp(
   return {
     fps: () => governor.fps(performance.now()),
     rendererKind: () => kind,
+    perf: () => {
+      try {
+        const active = scene.getActiveMeshes();
+        const camY = camera.target.y;
+        return {
+          meshes: scene.meshes.length,
+          active: active.length,
+          camY: Math.round(camY * 100) / 100,
+          camBeta: Math.round(camera.beta * 1000) / 1000,
+          camRadius: Math.round(camera.radius * 100) / 100,
+        };
+      } catch {
+        return null;
+      }
+    },
     presencePos: () => ({ x: presencePos.x, z: presencePos.z }),
     errand: () => (walkTarget ? { ...walkTarget } : null),
     riding: () => rideStart !== null,
@@ -1446,6 +1554,7 @@ export async function createWorldApp(
       shadows?.dispose();
       glow?.dispose();
       fx.dispose();
+      signposts.dispose();
       window.removeEventListener('resize', onResize);
       worldInput.detach();
       balloon.dispose();

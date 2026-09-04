@@ -27,6 +27,11 @@ const KINDS = new Set([
   'breath-guide',
   'open-create',
   'sequence-echo',
+  /* stage 16-b — the games flood: four new hand-written kinds */
+  'count-tap',
+  'trace-path',
+  'sound-hunt',
+  'rhyme-pick',
 ] as const);
 
 const ZONE_IDS = new Set(ZONES.map((z) => z.id as string));

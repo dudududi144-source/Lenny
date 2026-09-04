@@ -191,7 +191,11 @@ export function buildRoad(scene: Scene): RoadHandle {
      and the honest number of child-steps. Reaching the next stage
      of the unlock chain is a JOURNEY now, and the road makes it
      legible: environmental print, the wayfinding skill. */
-  const REGION_PLANK_STEP = 2.2;
+  /* 16-a: 2.2 → 2.6 — the twelve roads got 20% longer with the far
+     lands; the boardwalk rhythm survives (1.3-deep plank, 1.3 gap)
+     and ~700 fewer boxes ride the merged road meshes (SwiftShader
+     transforms every vertex of every visible road, every frame) */
+  const REGION_PLANK_STEP = 2.6;
   const regionRoadMeshes: Array<{ region: string; mesh: Mesh }> = [];
   for (const road of REGION_ROADS) {
     const region = regionById(road.region);

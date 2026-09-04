@@ -340,6 +340,30 @@
   backdrop-filter: var(--wz-panel-blur);
 }
 
+.screen--world .sound-toggle:hover {
+  background: #fffdf4;
+  transform: translateY(-1px);
+}
+
+/* ---------- keyboard a11y (16-c): one honest ring, everywhere ----------
+   The generic :focus-visible ring in global.css loses to every class
+   that sets its own box-shadow (chips, cards, closes). An OUTLINE
+   can't be overridden by shadows: one dark ring for light panels,
+   the gold for the two dark-surface chips. Kept visible on the day
+   sky AND on the frosted cream panels. */
+.screen--world :is(button, [role='button'], input, select, a):focus-visible {
+  outline: 3px solid rgba(58, 43, 18, 0.62);
+  outline-offset: 2px;
+}
+
+.screen--world .world-chip:focus-visible {
+  outline-color: var(--wz-gold);
+}
+
+.screen--world .quest-chip:focus-visible {
+  outline-color: #6b4a2c;
+}
+
 /* ============ the grown-up corner (bottom, inline edges) ============ */
 
 .world-foot {
@@ -388,22 +412,28 @@
   transform: scale(0.96);
 }
 
-/* the classic garden's chip to the world (lives in the 2D garden) */
+/* the classic garden's chip to the world (lives in the 2D garden).
+   NOTE: this chip is FRAME-level DOM (a sibling of the screens, not
+   a child of .screen--world), so the --wz-* tokens are NOT in scope
+   here — var() in calc() went invalid and the chip lost its bottom
+   anchor entirely, floating up over the garden's brand (the owner's
+   "banners sit on one another"). Literal values + env() keep it
+   self-sufficient on any screen it ever appears on. */
 .world-chip {
   position: absolute;
-  bottom: calc(var(--wz-s3) + var(--wz-safe-bottom));
-  inset-inline-end: var(--wz-s3);
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: 12px;
   z-index: 6;
   appearance: none;
   border: 1px solid rgba(255, 215, 106, 0.8);
   background: rgba(24, 34, 28, 0.55);
-  backdrop-filter: var(--wz-panel-blur);
-  color: var(--wz-gold);
+  backdrop-filter: blur(10px);
+  color: #ffd76a;
   font: inherit;
-  font-size: var(--wz-fs-xs);
+  font-size: 13px;
   font-weight: 700;
   padding: 6px 12px;
-  border-radius: var(--wz-r-full);
+  border-radius: 999px;
   cursor: pointer;
   min-height: 44px;
   box-shadow: 0 4px 14px rgba(10, 20, 14, 0.35);
@@ -474,7 +504,7 @@
   content: '';
   position: absolute;
   bottom: -7px;
-  right: 22%;
+  inset-inline-end: 22%; /* logical: the tail flips with the document direction */
   width: 12px;
   height: 12px;
   background: inherit;
@@ -1233,6 +1263,16 @@
   display: none;
 }
 
+/* 16-c overlap kill: the desktop keyboard hint shares the bottom-
+   center slot — while the quest panel (or a sheet) owns that slot
+   the hint steps aside. The hint also hid during shelf-open (a
+   stage-15 rule); these are its missing siblings. */
+.screen--world.quest-open .world-controls .world-controls-hint,
+.screen--world.entry-open .world-controls .world-controls-hint,
+.screen--world.well-open .world-controls .world-controls-hint {
+  display: none;
+}
+
 /* the grown-up corner rests too — the sheet's own close button is
    the way out (nothing stays clickable-but-covered) */
 .screen--world.entry-open .world-foot,
@@ -1259,13 +1299,55 @@
   }
 }
 
-/* phones: the compass lifts above the thumb controls — the joystick
-   tops out at ~174px and the jump at ~142px, so the bottom-center
-   pill would paint over them at ≤375px widths (overlaps are dead,
-   stage 15-A). Sits after the base compass rule — cascade is law. */
+/* phones (stage 16, the owner's verdict): the bottom-center is the
+   THUMB ZONE — nothing fixed lives there anymore.
+   - The wayfinding compass pill is OFF on phones: the in-world
+     signposts (arrows, totems) and the lit road do the pointing in
+     the scene itself; a DOM pill just crowded the play space.
+   - The quest offer is a compact banner that DESCENDS from under the
+     top bar, stays thumb-free, and LIFTS away when answered or
+     deferred — a message that pops, never a sign that sits. */
 @media (max-width: 640px) {
   .screen--world .zone-compass {
-    inset-block-end: calc(190px + var(--wz-safe-bottom));
+    display: none;
+  }
+
+  .screen--world .world-quest {
+    inset-block-end: auto;
+    inset-block-start: calc(88px + var(--wz-safe-top));
+    width: min(94%, 400px);
+    padding: var(--wz-s2) var(--wz-s3);
+    animation: quest-drop 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+
+  .screen--world .world-quest-line {
+    font-size: var(--wz-fs-sm);
+    line-height: 1.35;
+  }
+
+  .screen--world .world-quest .quest-chip {
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 1.1rem;
+  }
+
+  /* the key hint is a desktop instrument — a pre-literate thumb zone
+     reads the joystick itself, and the pill crowded the bottom-center
+     (and brushed the joystick at ≤375px). Touch loses nothing: the
+     wheel and the ⬆ button ARE the instruction. */
+  .screen--world .world-controls.world-touch .world-controls-hint {
+    display: none;
+  }
+}
+
+@keyframes quest-drop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-24px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
   }
 }
 
@@ -1273,6 +1355,12 @@
    DESKTOP WORLD (≥1024px) — the HUD grows into its room: larger
    type scale, roomier chips, bigger answer chips. The canvas is
    already full-viewport; the instruments stop whispering.
+
+   16-c — ONE DESIGNED BAR: the three instrument groups share one
+   46px height, one gap rhythm and one 24px frame from the screen
+   edges (head, foot and the entry side-card all land on the same
+   inset), so the HUD reads as a single composed instrument strip —
+   generous margins, aligned edges, nothing floating loose.
    ============================================================ */
 
 @media (min-width: 1024px) {
@@ -1284,12 +1372,25 @@
   }
 
   .world-head {
-    inset-inline: var(--wz-s4);
+    inset-inline: var(--wz-s5);
+    inset-block-start: calc(var(--wz-s4) + var(--wz-safe-top));
+  }
+
+  .world-status {
+    gap: var(--wz-s3);
   }
 
   .world-status .light-chip {
-    min-height: 44px;
+    min-height: 46px;
     padding: 6px 16px;
+  }
+
+  .screen--world .sound-toggle {
+    min-height: 46px;
+  }
+
+  .world-menu {
+    gap: var(--wz-s3);
   }
 
   .world-menu .ui-btn,
@@ -1298,15 +1399,32 @@
     padding: 10px 18px;
   }
 
+  /* the signature joins the bar: same 46px height, centered ink */
+  .world-brand {
+    min-height: 46px;
+    padding: 6px 18px;
+  }
+
+  .world-brand .brand-star {
+    width: 20px;
+    height: 20px;
+  }
+
   .world-foot {
-    inset-inline: var(--wz-s4);
+    inset-inline: var(--wz-s5);
+    inset-block-end: calc(var(--wz-s4) + var(--wz-safe-bottom));
+  }
+
+  .world-parents-link,
+  .world-classic-link {
+    min-height: 40px;
   }
 
   /* the offered quest: roomier panel, bigger answer chips —
      a 4-7 year-old at a desk answers with the whole hand */
   .world-quest {
     width: min(92%, 560px);
-    bottom: calc(72px + var(--wz-safe-bottom));
+    bottom: calc(88px + var(--wz-safe-bottom));
   }
 
   .world-quest-line {

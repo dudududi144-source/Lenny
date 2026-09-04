@@ -15,7 +15,7 @@
 import { freshGarden, LocalProgressStore, isUnlocked, consumeNewZones, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT, QUEST_TEXT, getZone, type ZoneId } from '../data/garden';
 import { FRIENDS, LANDMARKS, WORLD_ISLANDS, zoneHint, type LandmarkDef } from './WorldLayout';
-import { STATIONS } from './WorldStations';
+import { ALL_STATIONS, stationId } from './WorldStations';
 import { REGIONS, type RegionDef } from './WorldRegions';
 import { WorldDaily } from './worldDaily';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
@@ -122,6 +122,7 @@ declare global {
       fps(): number;
       phase(): WorldPhase;
       renderer(): string | null;
+      perf(): { meshes: number; active: number; camY?: number; camBeta?: number; camRadius?: number } | null;
       sky(): string | null;
       life(): { butterflies: number; fireflies: number; fish: number } | null;
       /** Lit path lanterns — the journey made visible. */
@@ -253,7 +254,12 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         if (!app || bubble.classList.contains('hidden')) return;
         const p = app.lennyScreen();
         bubble.style.left = `${Math.round(p.x * 100)}%`;
-        bubble.style.top = `${Math.round(Math.max(0.04, p.y - 0.075) * 100)}%`;
+        /* stage 16: also bounded from below — a bubble chasing Lenny
+           toward the screen's bottom edge used to dive into the
+           bottom band (thumb controls, quest slot, foot links). The
+           bubble parks at 60% height and points down at her. */
+        const top = Math.min(0.6, Math.max(0.04, p.y - 0.075));
+        bubble.style.top = `${Math.round(top * 100)}%`;
       }, 120);
     }
   }
@@ -815,6 +821,49 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   function hideQuestPanel(): void {
     questPanel.classList.add('hidden');
     root.classList.remove('quest-open');
+    /* stage 16: the soft auto-defer — on phones the offer is a
+       transient banner (the owner's verdict: messages pop and go,
+       nothing sits on the play space). Unanswered for 22s it quietly
+       steps aside (the same free "אַחֲרֵי כָּךְ" path) and re-asks
+       later. Desktop keeps the patient panel. */
+    if (questIdleTimer !== null) {
+      window.clearTimeout(questIdleTimer);
+      questIdleTimer = null;
+    }
+  }
+
+  /* phones only: an offer that nobody touches drifts away on its own.
+     A child actively WALKING the journey keeps the banner (it is
+     thumb-free up top now); stillness for 22s quietly steps aside. */
+  let questIdleTimer: number | null = null;
+  const QUEST_IDLE_MS = 22_000;
+  const narrowViewport = (): boolean =>
+    typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 640px)').matches;
+  function armQuestIdle(): void {
+    if (questIdleTimer !== null) {
+      window.clearInterval(questIdleTimer);
+      questIdleTimer = null;
+    }
+    if (!narrowViewport()) return;
+    let stillFor = 0;
+    questIdleTimer = window.setInterval(() => {
+      if (!currentQuest) {
+        if (questIdleTimer !== null) window.clearInterval(questIdleTimer);
+        questIdleTimer = null;
+        return;
+      }
+      /* engaged sessions (counting taps, pattern chips, an active
+         walk) are never interrupted — only standing still counts */
+      const engaged =
+        questStage === 'counting' || questStage === 'pattern' || questStage === 'answering' || app?.errand();
+      if (engaged) stillFor = 0;
+      else stillFor += 5_000;
+      if (stillFor >= QUEST_IDLE_MS) {
+        if (questIdleTimer !== null) window.clearInterval(questIdleTimer);
+        questIdleTimer = null;
+        deferQuest();
+      }
+    }, 5_000);
   }
 
   function scheduleQuestOffer(ms: number): void {
@@ -845,6 +894,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     /* stage 15-A: the quest owns the bottom-center — the compass
        rests while an offer is live (one surface at a time) */
     root.classList.add('quest-open');
+    /* stage 16: on phones the offer drifts away by itself (transient
+       message, never a fixed sign); on desktop it keeps waiting */
+    armQuestIdle();
 
     if (q.family === 'wayfinding') {
       /* a target away from where the child stands — a real LITTLE
@@ -1194,6 +1246,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     fps: () => app?.fps() ?? 0,
     phase: () => phase,
     renderer: () => app?.rendererKind() ?? null,
+    perf: () => app?.perf() ?? null,
     sky: () => app?.skyPhase() ?? null,
     life: () => app?.life() ?? null,
     lanterns: () => app?.lanterns() ?? 0,
@@ -1207,8 +1260,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     acorns: () => acornWallet,
     stations: () => {
       const data = loadGarden();
-      return STATIONS.map((s) => ({
-        id: `${s.zone}:${s.band}`,
+      /* 16-a: ALL clearings (zone pads + the far ring); far pads carry
+         their own stable key so ids stay unique */
+      return ALL_STATIONS.map((s) => ({
+        id: stationId(s),
         zone: s.zone,
         band: s.band,
         x: s.x,
