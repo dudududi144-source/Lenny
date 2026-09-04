@@ -13,6 +13,25 @@
  *     the old 15x5s floor kept killing healthy worlds on those
  *     devices ~11s after every entry.
  *
+ * Stage 15-D adds the QUALITY TIER model on top (weak/standard/rich):
+ *   - `weak`  — the device has proven nothing: the CURRENT visuals
+ *     exactly (this is the CI floor + distress path, byte for byte),
+ *     and the resolution lever may soften all the way to 3.6.
+ *   - `standard` — fps held well above the floor: the governor-gated
+ *     decorations (glow, shadows — their own >40/<30 gates unchanged)
+ *     plus the cheap extras (cloud layers, more flowers, road
+ *     sparkles, birds). Resolution cap tightens to 2.4.
+ *   - `rich`  — desktop/strong GPU with real headroom: bigger shadow
+ *     map, boosted glow, the fullest flora/fx budgets. Cap 1.3 —
+ *     near-native pixels.
+ *   - Tiers are EARNED by measured fps headroom with hysteresis and
+ *     hold times, booting at `weak`: a device must PROVE itself for
+ *     seconds before any new decoration is forced on, so a fast
+ *     first frame (warm shader cache, empty scene) can never flip
+ *     the model on. The tier NEVER touches the distress logic and
+ *     the resolution scaling keeps working on ALL tiers — only the
+ *     cap on "how soft may the pixels go" moves.
+ *
  * Pure: the caller feeds frame times, the governor only decides.
  * WorldApp applies the decisions to the real engine.
  * ============================================================ */
@@ -56,6 +75,84 @@ const DEFAULTS = {
   windowMs: 1500,
 };
 
+/* ---------- the stage 15-D quality tier model ---------- */
+
+export type QualityTier = 'weak' | 'standard' | 'rich';
+
+/**
+ * Tier thresholds (all measured on the governor's trailing fps):
+ *
+ *   boot            → 'weak' (proven nothing; current visuals exactly)
+ *   weak → standard : fps ≥ 26 held for 2.5s   (well clear of the floor)
+ *   standard → rich : fps ≥ 52 held for 4.0s   (real headroom, not a fluke)
+ *   rich → standard : fps < 40                 (instant, headroom is gone)
+ *   standard → weak : fps < 17 held for 3.0s   (shed the extras, recover)
+ *
+ * Hysteresis by design: the enter/exit bands never overlap
+ * (26↔17, 52↔40), so a device sitting on a threshold cannot flap
+ * its tier — and every transition is downward-cheap / upward-earned.
+ */
+export const TIER_THRESHOLDS = {
+  standardFps: 26,
+  standardHoldMs: 2500,
+  richFps: 52,
+  richHoldMs: 4000,
+  richExitFps: 40,
+  weakExitFps: 17,
+  weakHoldMs: 3000,
+} as const;
+
+/** The hardware-scaling cap per tier — "how soft may the pixels go".
+ *  weak keeps the historical 3.6 (the CI floor's proven lever);
+ *  stronger tiers earn tighter (sharper) caps. */
+export function maxScaleForTier(tier: QualityTier, weakMax: number): number {
+  if (tier === 'rich') return Math.min(1.3, weakMax);
+  if (tier === 'standard') return Math.min(2.4, weakMax);
+  return weakMax;
+}
+
+/**
+ * The pure tier decision (unit-pinned). `candidate`/`candidateSince`
+ * carry the hold-time state between calls; returns the next tier and
+ * the updated hold state.
+ */
+export function nextQualityTier(
+  current: QualityTier,
+  fps: number,
+  candidate: QualityTier,
+  candidateSince: number | null,
+  now: number,
+): { tier: QualityTier; candidate: QualityTier; candidateSince: number | null } {
+  /* fps 0 = no data (boot/warmup) — hold everything */
+  if (fps <= 0) return { tier: current, candidate, candidateSince };
+
+  const T = TIER_THRESHOLDS;
+  let want: QualityTier | null = null;
+
+  if (current === 'weak') {
+    if (fps >= T.standardFps) want = 'standard';
+  } else if (current === 'standard') {
+    if (fps >= T.richFps) want = 'rich';
+    else if (fps < T.weakExitFps) want = 'weak';
+  } else {
+    /* rich */
+    if (fps < T.richExitFps) want = 'standard';
+  }
+
+  if (want === null || want === current) {
+    /* the candidate ledger clears as soon as fps leaves its band */
+    return { tier: current, candidate: current, candidateSince: null };
+  }
+  if (candidate !== want || candidateSince === null) {
+    return { tier: current, candidate: want, candidateSince: now };
+  }
+  const hold = want === 'rich' ? T.richHoldMs : want === 'standard' ? T.standardHoldMs : T.weakHoldMs;
+  if (now - candidateSince >= hold) {
+    return { tier: want, candidate: want, candidateSince: now };
+  }
+  return { tier: current, candidate: want, candidateSince };
+}
+
 export class FpsGovernor {
   private readonly softFps: number;
   private readonly minFps: number;
@@ -75,6 +172,11 @@ export class FpsGovernor {
   private prevDecisionFps = 0;
   /** a known-heavy spectacle (the balloon vista) is airborne */
   private spectacle = false;
+
+  /* the quality tier (stage 15-D) — boot weak, earned upward */
+  private tier: QualityTier = 'weak';
+  private tierCandidate: QualityTier = 'weak';
+  private tierCandidateSince: number | null = null;
 
   constructor(opts: GovernorOptions = {}) {
     const o = { ...DEFAULTS, ...opts };
@@ -112,12 +214,34 @@ export class FpsGovernor {
     return (1000 * n) / dtSum;
   }
 
+  /** The current quality tier (changes only inside evaluateTier). */
+  qualityTier(): QualityTier {
+    return this.tier;
+  }
+
+  /**
+   * Advance the quality tier from measured fps (call at decision
+   * cadence — the same interval that drives evaluate()). Hysteresis
+   * + hold times per TIER_THRESHOLDS; boot tier is 'weak'.
+   */
+  evaluateTier(now: number): QualityTier {
+    const fps = this.fps(now);
+    const next = nextQualityTier(this.tier, fps, this.tierCandidate, this.tierCandidateSince, now);
+    this.tier = next.tier;
+    this.tierCandidate = next.candidate;
+    this.tierCandidateSince = next.candidateSince;
+    return this.tier;
+  }
+
   /**
    * Decide once per `decisionMs`. Returns the scale to apply and a
    * one-shot distress flag (false again until the fps recovers above
    * `minFps` and the budget is spent anew).
+   *
+   * `tier` (stage 15-D) only tightens the scaling CAP — pass nothing
+   * (or 'weak') for the exact historical behavior.
    */
-  evaluate(now: number, currentScale: number): GovernorDecision {
+  evaluate(now: number, currentScale: number, tier: QualityTier = 'weak'): GovernorDecision {
     let newScale = currentScale;
     let distress = false;
 
@@ -125,16 +249,32 @@ export class FpsGovernor {
 
     const fps = this.fps(now);
     this.lastDecision = now;
+    const tierCap = maxScaleForTier(tier, this.maxScale);
 
     if (fps > 0) {
       if (fps < this.softFps) {
-        newScale = Math.min(this.maxScale, currentScale * this.scaleStep);
+        /* the first softening steps are BIG: a wide desktop viewport
+           needs the pixel floor within a couple of decisions, not a
+           12-rung 1.15 ladder (stage 15: the world grew, the ladder
+           had to keep up) */
+        const step = currentScale < 2 ? Math.max(this.scaleStep, 1.4) : this.scaleStep;
+        newScale = Math.min(tierCap, currentScale * step);
       } else if (fps > 55 && currentScale > this.baseScale) {
         newScale = Math.max(this.baseScale, currentScale * 0.94);
       }
+      /* a tier that climbed while the pixels were soft walks the
+         resolution back toward its (tighter) cap one gentle step at
+         a time — never a single-frame pixel-count jump */
+      if (newScale > tierCap) {
+        newScale = Math.max(tierCap, newScale / this.scaleStep);
+      }
     }
 
-    if (!this.spectacle && fps > 0 && fps < this.minFps && this.firstFrameAt !== null && now - this.firstFrameAt >= this.distressGraceMs) {
+    /* stage 15: distress arms only when the pixels are ALREADY as soft
+       as the tier allows — softening is the kind lever, and a wide
+       desktop viewport needs a beat on the floor before the verdict */
+    const atResolutionFloor = newScale >= tierCap - 1e-6;
+    if (!this.spectacle && atResolutionFloor && fps > 0 && fps < this.minFps && this.firstFrameAt !== null && now - this.firstFrameAt >= this.distressGraceMs) {
       /* recovery-aware distress (audit 9-b follow-up): a weak device that
          is CLIMBING out of the hole (wide canvas booted 4→10→13fps and was
          still killed mid-recovery) gets its budget paused while the trend
@@ -173,7 +313,8 @@ export class FpsGovernor {
     this.spectacle = on;
   }
 
-  /** Forget history (used on resume after a pause — the engine is warm). */
+  /** Forget history (used on resume after a pause — the engine is warm).
+   *  The quality tier keeps: a paused world resumes on the same device. */
   reset(): void {
     this.frames = [];
     this.lastDecision = 0;

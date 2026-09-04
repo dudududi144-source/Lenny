@@ -473,19 +473,20 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     compass,
     loading,
     buildTouchControls(),
-    /* stage 14-B top bar: instruments on the journey's side, actions
-       on the other; the Lenny signature rides top-center — one
-       elegant wordmark, never a wrapping column of text */
-    h(
-      'div',
-      { class: 'world-brand', 'aria-hidden': 'true' },
-      starIcon(),
-      h('span', { class: 'brand-name' }, 'לני'),
-    ),
+    /* stage 14-B top bar, stage 15-A layout: ONE flex row — instruments
+       on the journey's side, the Lenny signature centered in the row
+       (a flex child, never absolutely stacked over the chips), actions
+       on the other edge. Nothing can overlap at any width. */
     h(
       'header',
       { class: 'world-head' },
       h('div', { class: 'world-status' }, acornChip, dailyChip),
+      h(
+        'div',
+        { class: 'world-brand', 'aria-hidden': 'true' },
+        starIcon(),
+        h('span', { class: 'brand-name' }, 'לני'),
+      ),
       h(
         'div',
         { class: 'world-menu' },
@@ -530,6 +531,43 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   let app: WorldApp | null = null;
   let opening: Promise<void> | null = null;
+  /* stage 15 phone hardening — the first-frame watchdog: a device
+     whose engine boots but never paints (half-alive WebGPU, a context
+     that died young) must never leave a child in an eternal loading
+     veil. 30s of silence = the shell's classic garden, the same floor
+     fps-distress uses. E2E's hold flag (lenny-world-hold=1) disables
+     it exactly like the fps distress — CI's slow software-GL boots
+     are legitimate, not distress. */
+  let firstFrameTimer: number | null = null;
+  let firstFrameSeen = false;
+  const armFirstFrameWatchdog = (): void => {
+    let held = false;
+    try {
+      held = localStorage.getItem('lenny-world-hold') === '1';
+    } catch {
+      held = false;
+    }
+    if (held) return;
+    firstFrameSeen = false;
+    if (firstFrameTimer !== null) window.clearTimeout(firstFrameTimer);
+    firstFrameTimer = window.setTimeout(() => {
+      firstFrameTimer = null;
+      if (firstFrameSeen) return; /* the engine is alive and painting */
+      if (phase === 'closed' || opening === null) return; /* already home */
+      try {
+        console.warn('[lenny] world never painted its first frame — shell fallback');
+      } catch {
+        /* console is a luxury, not a requirement */
+      }
+      callbacks.onWorldFailed();
+    }, 30000);
+  };
+  const cancelFirstFrameWatchdog = (): void => {
+    if (firstFrameTimer !== null) {
+      window.clearTimeout(firstFrameTimer);
+      firstFrameTimer = null;
+    }
+  };
   let phase: WorldPhase = 'closed';
   let shelfZone: string | null = null;
 
@@ -776,6 +814,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   function hideQuestPanel(): void {
     questPanel.classList.add('hidden');
+    root.classList.remove('quest-open');
   }
 
   function scheduleQuestOffer(ms: number): void {
@@ -803,6 +842,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     questPicked = 0;
     pickedFlowers.clear();
     questPanel.classList.remove('hidden');
+    /* stage 15-A: the quest owns the bottom-center — the compass
+       rests while an offer is live (one surface at a time) */
+    root.classList.add('quest-open');
 
     if (q.family === 'wayfinding') {
       /* a target away from where the child stands — a real LITTLE
@@ -1156,7 +1198,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     life: () => app?.life() ?? null,
     lanterns: () => app?.lanterns() ?? 0,
     landmarks: () =>
-      LANDMARKS.map((l) => ({ id: l.id, found: foundIds.includes(l.id), x: l.x, z: l.z })),
+      LANDMARKS.map((l) => ({ id: l.id, found: foundIds.includes(l.id), x: l.x, z: l.z, keep: l.keep })),
     regions: () =>
       REGIONS.map((r) => ({ id: r.id, name: r.name, x: r.x, z: r.z, found: foundIds.includes(`region:${r.id}`) })),
     daily: () => ({ targets: dailyTargetsNow, done: dailyDoneNow }),
@@ -1210,6 +1252,12 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     app = await createWorldApp(
       canvas,
       {
+        /* the engine's first painted frame disarms the boot watchdog —
+           the device has proven it can show the garden */
+        onFirstFrame: () => {
+          firstFrameSeen = true;
+          cancelFirstFrameWatchdog();
+        },
         onDistress: () => {
           /* stage 14: an explicit, documented QA hold. The distress
              fallback is the child's safety net and stays exactly as
@@ -1438,6 +1486,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     if (opening) return opening;
     loading.classList.remove('hidden');
     root.dataset.worldPhase = 'loading';
+    /* stage 15 phone hardening: the clock starts with the opening —
+       cancelled the moment the engine paints its first frame */
+    armFirstFrameWatchdog();
     opening = boot()
       .then(() => {
         loading.classList.add('hidden');
@@ -1456,6 +1507,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       })
       .catch(() => {
         /* engine refused — the shell shows the classic garden instead */
+        cancelFirstFrameWatchdog();
         app = null;
         phase = 'closed';
         callbacks.onWorldFailed();
@@ -1468,6 +1520,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   function close(): void {
     stopHeartbeat();
+    cancelFirstFrameWatchdog();
     if (shelf.isOpen()) shelf.close();
     shelfZone = null;
     /* quests pause with the world — an active offer resumes on return */

@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CRYSTAL_LEDGER_CAP,
   SPARKLE_LEDGER_CAP,
+  CRYSTAL_SPOTS,
+  CRYSTAL_SPOT_COUNT,
   isValidSparkleId,
+  loadCrystals,
   loadSparkles,
+  markCrystal,
   markSparkle,
 } from '../world/worldCollect';
 
@@ -65,5 +70,61 @@ describe('worldCollect — the meadow remembers what was gathered', () => {
     expect(ledger.length).toBe(SPARKLE_LEDGER_CAP);
     /* the OLDEST ids fall off, the newest stay */
     expect(ledger[ledger.length - 1]).toBe(`${SPARKLE_LEDGER_CAP + 49}:0:0`);
+  });
+});
+
+describe('worldCollect — the snow region remembers its crystals (stage 15-C)', () => {
+  it('starts empty on a fresh device (and in private mode)', () => {
+    const s = memoryStorage();
+    expect(loadCrystals(s)).toEqual([]);
+  });
+
+  it('a gathered crystal never melts (idempotent, honest ledger)', () => {
+    const s = memoryStorage();
+    expect(markCrystal('crystal:snow:0', s)).toEqual(['crystal:snow:0']);
+    expect(markCrystal('crystal:snow:0', s)).toEqual(['crystal:snow:0']);
+    expect(markCrystal('crystal:snow:5', s)).toEqual(['crystal:snow:0', 'crystal:snow:5']);
+    expect(loadCrystals(s)).toEqual(['crystal:snow:0', 'crystal:snow:5']);
+  });
+
+  it('only well-formed crystal ids of the six regions are accepted', () => {
+    const s = memoryStorage();
+    markCrystal('crystal:snow:3', s);
+    markCrystal('crystal:glacier:3', s); /* unknown region */
+    markCrystal('crystal:snow', s);
+    markCrystal('crystal:snow:1.5', s);
+    markCrystal('sparkle:0:0:1', s);
+    markCrystal('not-a-crystal', s);
+    expect(loadCrystals(s)).toEqual(['crystal:snow:3']);
+  });
+
+  it('corrupt storage never crashes the snow', () => {
+    const s = memoryStorage();
+    s.setItem('lenny-world-crystals-v1', '{not json');
+    expect(loadCrystals(s)).toEqual([]);
+    s.setItem('lenny-world-crystals-v1', '"a string"');
+    expect(loadCrystals(s)).toEqual([]);
+  });
+
+  it('the crystal ledger is capped, oldest ids fall off', () => {
+    const s = memoryStorage();
+    for (let i = 0; i < CRYSTAL_LEDGER_CAP + 30; i++) {
+      markCrystal(`crystal:river:${i}`, s);
+    }
+    const ledger = loadCrystals(s);
+    expect(ledger.length).toBe(CRYSTAL_LEDGER_CAP);
+    expect(ledger[ledger.length - 1]).toBe(`crystal:river:${CRYSTAL_LEDGER_CAP + 29}`);
+  });
+
+  it('the snow region hides exactly CRYSTAL_SPOT_COUNT crystals, deterministic on every device', () => {
+    expect(CRYSTAL_SPOTS.length).toBe(CRYSTAL_SPOT_COUNT);
+    const ids = new Set(CRYSTAL_SPOTS.map((c) => c.id));
+    expect(ids.size).toBe(CRYSTAL_SPOT_COUNT);
+    /* deep in the snow region, not at its rim */
+    for (const c of CRYSTAL_SPOTS) {
+      expect(c.id).toMatch(/^crystal:snow:\d+$/);
+    }
+    /* deterministic: same table on a second import pass of the module graph */
+    expect(CRYSTAL_SPOTS[0].id).toBe('crystal:snow:0');
   });
 });

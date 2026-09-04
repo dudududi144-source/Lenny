@@ -1,15 +1,18 @@
 /* ============================================================
- * WorldRegions — the continent beyond the garden (stage 12, 14-C).
+ * WorldRegions — the continent beyond the garden (stage 12 → 15-B).
  *
- * STAGE 11 built a journey-scale garden ring. The owner's verdict:
- * still condensed — "השביל מכונס בתוך עצמו" (the path folds into
- * itself). STAGE 12 opened the world. STAGE 14-C made it VAST —
- * the owner asked five times and got incremental nudges; this is
- * the real one:
+ * STAGE 11 built a journey-scale garden ring. STAGE 12 opened the
+ * world. STAGE 14-C made it vast. STAGE 15-B makes it the honest
+ * VAST CONTINENT the owner counted five times and never got:
  *
- *   - SIX named REGIONS 340–450 units out (radii 112–130): each is
- *     a DESTINATION with an interior worth exploring — its own gate
+ *   - TEN named REGIONS at hearts 644–935 units out (radii
+ *     185–200, ~36° apart around the whole compass): each is a
+ *     DESTINATION with an interior worth exploring — its own gate
  *     on a real road, its own scenery palette, landmarks, friends.
+ *     The six old lands moved out; FOUR new lands joined —
+ *     יער הלילה (the night woods, south), גבעות הבדוליות (the
+ *     crystal foothills, west), גבעות הקשת (the rainbow hills,
+ *     east) and חוף הברכות (the lake-shore tide pools, north-west).
  *   - The zone ISLANDS (the game stages) live inside the regions —
  *     reaching the next stage is a JOURNEY now, with a road,
  *     signposts and a compass (Croc-style stage geography).
@@ -40,7 +43,7 @@ const hex = (s: string): Color3 => Color3.FromHexString(s);
  * THE PURE HALF — every number here is unit-pinned.
  * ============================================================ */
 
-export type RegionId = 'forest' | 'snow' | 'river' | 'flower' | 'dunes' | 'rocky';
+export type RegionId = 'forest' | 'snow' | 'river' | 'flower' | 'dunes' | 'rocky' | 'night' | 'crystal' | 'rainbow' | 'shore';
 
 export interface RegionDef {
   id: RegionId;
@@ -53,62 +56,99 @@ export interface RegionDef {
   tint: string;
 }
 
-/** The six regions of the continent — ~60° apart, 340–450 units out
- *  (stage 14-C: regions are DESTINATIONS now, patches with interiors). */
+/** The TEN regions of the continent — ~36° apart around the whole
+ *  compass, hearts 644–935 out (stage 15-B: the vast continent for
+ *  real; radii 185–200 so every patch has an interior to roam). */
 export const REGIONS: RegionDef[] = [
   {
     id: 'forest',
     name: 'יַעַר הַקְּסָמִים',
     line: 'יַעַר הַקְּסָמִים! הַצֵּל הַצִּנּוֹן וְהַפְּטְרִיּוֹת — כָּאן מִתְחַבֵּא כָּל מִינֵי קְסָמִים.',
-    x: -330,
-    z: -290,
-    radius: 130,
+    x: -578,
+    z: -647,
+    radius: 200,
     tint: '#2f6b3f',
+  },
+  {
+    id: 'crystal',
+    name: 'גִּבְעוֹת הַבִּדּוּלִיּוֹת',
+    line: 'גִּבְעוֹת הַבִּדּוּלִיּוֹת! כֻּלָּן מְנַצְנְצוֹת — כְּמוֹ שֶׁלֶג שֶׁזוֹכֵר אוֹר.',
+    x: -900,
+    z: -250,
+    radius: 185,
+    tint: '#b9d9e8',
   },
   {
     id: 'snow',
     name: 'אֶרֶץ הַשֶּׁלֶג',
     line: 'אֶרֶץ הַשֶּׁלֶג! רְכּוּת, קוֹר, וְנַחַת רַגְלַיִם שֶׁל שְׁתִיקָה לְבֵנָה.',
-    x: -335,
-    z: 90,
-    radius: 118,
+    x: -630,
+    z: 220,
+    radius: 185,
     tint: '#e6eef5',
+  },
+  {
+    id: 'shore',
+    name: 'חוֹף הַבְּרֵכוֹת',
+    line: 'חוֹף הַבְּרֵכוֹת! מַיִם קְטַנִּים וְקוֹנְכִיּוֹת — הַיָּם מְשַׂחֵק פֹּה בְּעִדִּינוּת.',
+    x: -538,
+    z: 659,
+    radius: 185,
+    tint: '#7fc4b8',
   },
   {
     id: 'river',
     name: 'עֵמֶק הַנָּהָר',
     line: 'עֵמֶק הַנָּהָר! הַמַּיִם יוֹדְעִים אֶת הַדֶּרֶךְ — הֵם שָׁרִים בַּדֶּרֶךְ.',
-    x: -100,
-    z: 390,
-    radius: 122,
+    x: -54,
+    z: 780,
+    radius: 185,
     tint: '#4b97ad',
   },
   {
     id: 'flower',
     name: 'גִּבְעוֹת הַפְּרָחִים',
     line: 'גִּבְעוֹת הַפְּרָחִים! כָּל גִּבְעָה בְּצֶבַע אַחֵר — תִּפְתְּחוּ אֶת הָעֵינַיִם.',
-    x: 195,
-    z: 395,
-    radius: 122,
+    x: 472,
+    z: 682,
+    radius: 185,
     tint: '#d97fae',
   },
   {
     id: 'dunes',
     name: 'דְּיוּנוֹת הַחוֹל',
     line: 'דְּיוּנוֹת הַחוֹל! הָרוּחַ מְצַיֶּרֶת פֹּה גַּלִּים חֲדָשִׁים כָּל יוֹם.',
-    x: 350,
-    z: 150,
-    radius: 112,
+    x: 670,
+    z: 242,
+    radius: 185,
     tint: '#e3c184',
+  },
+  {
+    id: 'rainbow',
+    name: 'גִּבְעוֹת הַקֶּשֶׁת',
+    line: 'גִּבְעוֹת הַקֶּשֶׁת! גִּבְעָה אַחַת בְּכָל צֶבַע — הָעֵינַיִם שָׂמֵחוֹת פֹּה.',
+    x: 889,
+    z: -251,
+    radius: 185,
+    tint: '#e8a0b4',
   },
   {
     id: 'rocky',
     name: 'הַרֵי הַסֶּלַע',
     line: 'הַרֵי הַסֶּלַע! אֲבָנִים עַתִּיקוֹת שׁוֹמְרוֹת פֹּה סוֹדִים יְשָׁנִים.',
-    x: 370,
-    z: -245,
-    radius: 126,
+    x: 476,
+    z: -662,
+    radius: 200,
     tint: '#93907f',
+  },
+  {
+    id: 'night',
+    name: 'יַעַר הַלַּיְלָה',
+    line: 'יַעַר הַלַּיְלָה! גַּם בַּחֹשֶׁךְ יֵשׁ פֹּה אוֹר — גְּחָלִים, יָרֵחַ וּפַעֲמוֹן.',
+    x: -64,
+    z: -890,
+    radius: 185,
+    tint: '#3b4a6b',
   },
 ];
 
@@ -173,17 +213,20 @@ export function terrainHeight(x: number, z: number): number {
 /** Water surface of the river (the ribbon sits in the carved valley). */
 export const RIVER_WATER_Y = -1.15;
 
-/** The river's control polyline — enters from the far north, flows
-    through the river region (beside its heart, so the road's end
-    stays dry), and fades out toward the hub ramp. */
+/** The river's control polyline — enters from the far north of the
+    vast continent, flows through the river region (beside its heart,
+    so the road's end stays dry) and past the old watermill, then
+    fades out toward the hub ramp. */
 export const RIVER_CONTROL: Array<{ x: number; z: number }> = [
-  { x: 30, z: 620 },
-  { x: -20, z: 545 },
-  { x: -62, z: 462 },
-  { x: -72, z: 388 },
-  { x: -52, z: 320 },
-  { x: -20, z: 262 },
-  { x: 4, z: 224 },
+  { x: 66, z: 1120 },
+  { x: 26, z: 1000 },
+  { x: 2, z: 900 },
+  { x: 26, z: 812 },
+  { x: -6, z: 700 },
+  { x: -26, z: 560 },
+  { x: -6, z: 420 },
+  { x: 14, z: 300 },
+  { x: 22, z: 232 },
 ];
 
 /** Sampled river polyline (Catmull-Rom, 10 per segment) — the water ribbon. */
@@ -207,14 +250,19 @@ function roadControl(region: RegionDef): Array<{ x: number; z: number }> {
   const theta = Math.atan2(region.z, region.x);
   const toHubX = -region.x / dist;
   const toHubZ = -region.z / dist;
-  /* per-region wiggle so the six roads never read as bare spokes */
+  /* per-region wiggle so the ten roads never read as bare spokes
+     (alternating bends: neighbours lean AWAY from each other) */
   const wig: Record<RegionId, [number, number]> = {
-    forest: [-0.09, 0.05],
+    forest: [0.09, 0.05],
     snow: [-0.08, 0.05],
-    river: [0.1, -0.06],
-    flower: [-0.09, 0.05],
-    dunes: [0.08, -0.05],
+    river: [-0.09, 0.05],
+    flower: [0.1, -0.06],
+    dunes: [-0.08, 0.06],
     rocky: [0.08, -0.06],
+    night: [0.1, -0.06],
+    crystal: [0.08, -0.05],
+    rainbow: [-0.09, 0.05],
+    shore: [0.08, -0.05],
   };
   const [w1, w2] = wig[region.id];
   const start = { x: Math.cos(theta) * 56, z: Math.sin(theta) * 56 };
@@ -301,9 +349,10 @@ export interface RegionsHandle {
 }
 
 /** How far from the walker a region stays visible (draw-call stewardship).
- *  14-C: raised 155 → 330 — distant regions must SILHOUETTE on the
- *  horizon; that is what makes a world read vast. */
-const REGION_VISIBILITY = 330;
+ *  15-B: raised 330 → 470 — the regions tripled their reach, so a
+ *  region must be visible from its neighbour's rim (the widest gap
+ *  between neighbouring hearts is ~580) or the walks would feel empty. */
+const REGION_VISIBILITY = 470;
 
 interface BuiltRegion {
   def: RegionDef;
@@ -367,10 +416,26 @@ export function buildRegions(scene: Scene): RegionsHandle {
   cloudMat.emissiveColor = hex('#e8eef5').scale(0.35);
   cloudMat.alpha = 0.92;
   cloudMat.specularColor = new Color3(0.02, 0.02, 0.02);
+  /* stage 15-B: the four new lands — night-woods glow + crystal shine */
+  const nightGlowMat = new StandardMaterial('rg-night-glow', scene);
+  nightGlowMat.diffuseColor = hex('#cfe8a8');
+  nightGlowMat.emissiveColor = hex('#d8f0a0').scale(0.7);
+  nightGlowMat.specularColor = new Color3(0.02, 0.04, 0.02);
+  const crystalMat = new StandardMaterial('rg-crystal', scene);
+  crystalMat.diffuseColor = hex('#bfe3f5');
+  crystalMat.emissiveColor = hex('#a8d8f0').scale(0.45);
+  crystalMat.specularColor = new Color3(0.3, 0.35, 0.4);
+  const rainbowRedMat = new StandardMaterial('rg-rainbow-a', scene);
+  rainbowRedMat.diffuseColor = hex('#e0704f');
+  rainbowRedMat.specularColor = new Color3(0.04, 0.02, 0.02);
+  const rainbowVioletMat = new StandardMaterial('rg-rainbow-b', scene);
+  rainbowVioletMat.diffuseColor = hex('#9a7fd0');
+  rainbowVioletMat.specularColor = new Color3(0.03, 0.03, 0.05);
 
   const allMats = [
     woodMat, trunkMat, pineMat, pineSnowMat, whiteMat, rockMat, cactusMat, sandMat,
     waterMat, bushMat, flowerA, flowerB, flowerC, mountainMat, capMat, cloudMat,
+    nightGlowMat, crystalMat, rainbowRedMat, rainbowVioletMat,
   ];
   const regionColorMats = new Map<RegionId, StandardMaterial>();
   for (const r of REGIONS) {
@@ -442,7 +507,7 @@ export function buildRegions(scene: Scene): RegionsHandle {
     };
 
     if (region.id === 'forest') {
-      for (let i = 0; i < 44; i++) {
+      for (let i = 0; i < 92; i++) {
         const p = propAt();
         if (!p) continue;
         const h = 2.4 + rng() * 2.8;
@@ -453,14 +518,38 @@ export function buildRegions(scene: Scene): RegionsHandle {
         const crown2 = MeshBuilder.CreateCylinder(`rg-f-c2${i}`, { diameterTop: 0, diameterBottom: 1.2, height: 1.6, tessellation: 7 }, scene);
         put(crown2, pineMat, p.x, p.z, h + 1.7);
       }
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 30; i++) {
         const p = propAt();
         if (!p) continue;
         const cap = MeshBuilder.CreateSphere(`rg-f-mu${i}`, { diameter: 0.5 + rng() * 0.3, segments: 6, slice: 0.5 }, scene);
         put(cap, flowerA, p.x, p.z, 0.18);
       }
+    } else if (region.id === 'crystal') {
+      /* the crystal foothills: shining shards in the grass (stage 15-B) */
+      for (let i = 0; i < 26; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const h = 1.2 + rng() * 2.6;
+        const shard = MeshBuilder.CreateCylinder(`rg-c-sh${i}`, { diameterTop: 0, diameterBottom: 0.5 + rng() * 0.5, height: h, tessellation: 5 }, scene);
+        shard.rotation.z = (rng() - 0.5) * 0.5;
+        shard.rotation.x = (rng() - 0.5) * 0.5;
+        put(shard, crystalMat, p.x, p.z, h / 2);
+      }
+      for (let i = 0; i < 12; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const lump = MeshBuilder.CreateIcoSphere(`rg-c-l${i}`, { radius: 0.4 + rng() * 0.7, subdivisions: 1 }, scene);
+        put(lump, whiteMat, p.x, p.z, 0.18);
+      }
+      for (let i = 0; i < 10; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const boulder = MeshBuilder.CreateIcoSphere(`rg-c-b${i}`, { radius: 0.4 + rng() * 0.8, subdivisions: 1 }, scene);
+        boulder.scaling.y = 0.7 + rng() * 0.3;
+        put(boulder, rockMat, p.x, p.z, 0.2);
+      }
     } else if (region.id === 'snow') {
-      for (let i = 0; i < 34; i++) {
+      for (let i = 0; i < 62; i++) {
         const p = propAt();
         if (!p) continue;
         const h = 2.2 + rng() * 2.2;
@@ -469,7 +558,7 @@ export function buildRegions(scene: Scene): RegionsHandle {
         const crown = MeshBuilder.CreateCylinder(`rg-s-c${i}`, { diameterTop: 0, diameterBottom: 1.6, height: 2.4, tessellation: 7 }, scene);
         put(crown, pineSnowMat, p.x, p.z, h + 0.7);
       }
-      for (let i = 0; i < 13; i++) {
+      for (let i = 0; i < 24; i++) {
         const p = propAt();
         if (!p) continue;
         const lump = MeshBuilder.CreateSphere(`rg-s-l${i}`, { diameter: 0.9 + rng() * 0.9, segments: 7 }, scene);
@@ -482,8 +571,32 @@ export function buildRegions(scene: Scene): RegionsHandle {
       put(base, whiteMat, smx, smz, 0.42);
       const head = MeshBuilder.CreateSphere('rg-sm-h', { diameter: 0.7, segments: 8 }, scene);
       put(head, whiteMat, smx, smz, 1.22);
+    } else if (region.id === 'shore') {
+      /* the lake-shore tide pools: reeds, shells and little water rings */
+      for (let i = 0; i < 44; i++) {
+        const p = propAt();
+        if (!p) continue;
+        for (let k = 0; k < 3; k++) {
+          const reed = MeshBuilder.CreateCylinder(`rg-sh-re${i}-${k}`, { diameterTop: 0.02, diameterBottom: 0.06, height: 0.7 + rng() * 0.6, tessellation: 5 }, scene);
+          put(reed, bushMat, p.x + (rng() - 0.5) * 0.7, p.z + (rng() - 0.5) * 0.7, 0.35);
+        }
+      }
+      for (let i = 0; i < 14; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const pool = MeshBuilder.CreateTorus(`rg-sh-pool${i}`, { diameter: 1.1 + rng() * 0.9, thickness: 0.18, tessellation: 10 }, scene);
+        pool.scaling.y = 0.35;
+        put(pool, waterMat, p.x, p.z, 0.1);
+      }
+      for (let i = 0; i < 16; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const shell = MeshBuilder.CreateSphere(`rg-sh-s${i}`, { diameter: 0.3 + rng() * 0.35, segments: 5 }, scene);
+        shell.scaling.y = 0.55;
+        put(shell, whiteMat, p.x, p.z, 0.12);
+      }
     } else if (region.id === 'river') {
-      for (let i = 0; i < 26; i++) {
+      for (let i = 0; i < 48; i++) {
         const p = propAt();
         if (!p) continue;
         for (let k = 0; k < 3; k++) {
@@ -491,28 +604,28 @@ export function buildRegions(scene: Scene): RegionsHandle {
           put(reed, bushMat, p.x + (rng() - 0.5) * 0.7, p.z + (rng() - 0.5) * 0.7, 0.35);
         }
       }
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 22; i++) {
         const p = propAt();
         if (!p) continue;
         const pad = MeshBuilder.CreateCylinder(`rg-r-lily${i}`, { diameter: 0.6, height: 0.04, tessellation: 9 }, scene);
         put(pad, bushMat, p.x, p.z, 0.02);
       }
     } else if (region.id === 'flower') {
-      for (let i = 0; i < 48; i++) {
+      for (let i = 0; i < 90; i++) {
         const p = propAt();
         if (!p) continue;
         const bush = MeshBuilder.CreateSphere(`rg-fl-b${i}`, { diameter: 0.7 + rng() * 0.6, segments: 7 }, scene);
         const kind = rng();
-        put(bush, kind < 0.4 ? flowerA : kind < 0.75 ? flowerB : flowerC, p.x, p.z, 0.18);
+        put(bush, kind < 0.3 ? flowerA : kind < 0.55 ? flowerB : kind < 0.8 ? flowerC : rainbowVioletMat, p.x, p.z, 0.18);
       }
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 30; i++) {
         const p = propAt();
         if (!p) continue;
         const tuft = MeshBuilder.CreateCylinder(`rg-fl-t${i}`, { diameterTop: 0.04, diameterBottom: 0.12, height: 0.4, tessellation: 5 }, scene);
         put(tuft, bushMat, p.x, p.z, 0.2);
       }
     } else if (region.id === 'dunes') {
-      for (let i = 0; i < 26; i++) {
+      for (let i = 0; i < 48; i++) {
         const p = propAt();
         if (!p) continue;
         const h = 1.1 + rng() * 1.2;
@@ -523,22 +636,41 @@ export function buildRegions(scene: Scene): RegionsHandle {
           put(arm, cactusMat, p.x + 0.32, p.z, h * 0.55);
         }
       }
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 26; i++) {
         const p = propAt();
         if (!p) continue;
         const rock = MeshBuilder.CreateIcoSphere(`rg-d-r${i}`, { radius: 0.35 + rng() * 0.45, subdivisions: 1 }, scene);
         put(rock, sandMat, p.x, p.z, 0.14);
       }
-    } else {
-      /* rocky */
-      for (let i = 0; i < 30; i++) {
+    } else if (region.id === 'rainbow') {
+      /* the rainbow hills: bushes in every color the sky owns */
+      for (let i = 0; i < 84; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const bush = MeshBuilder.CreateSphere(`rg-rb-b${i}`, { diameter: 0.7 + rng() * 0.7, segments: 7 }, scene);
+        const kind = rng();
+        put(bush, kind < 0.2 ? flowerA : kind < 0.4 ? flowerB : kind < 0.6 ? flowerC : kind < 0.8 ? rainbowRedMat : rainbowVioletMat, p.x, p.z, 0.18);
+      }
+      for (let i = 0; i < 20; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const hill = MeshBuilder.CreateSphere(`rg-rb-h${i}`, { diameter: 2.4 + rng() * 2.4, segments: 6 }, scene);
+        hill.scaling.y = 0.32;
+        const kind = rng();
+        hill.material = kind < 0.34 ? rainbowRedMat : kind < 0.67 ? rainbowVioletMat : flowerA;
+        hill.position.set(p.x, terrainHeight(p.x, p.z) + 0.1, p.z);
+        hill.isPickable = false;
+        parts.push(hill);
+      }
+    } else if (region.id === 'rocky') {
+      for (let i = 0; i < 56; i++) {
         const p = propAt();
         if (!p) continue;
         const boulder = MeshBuilder.CreateIcoSphere(`rg-k-b${i}`, { radius: 0.5 + rng() * 0.9, subdivisions: 1 }, scene);
         boulder.scaling.y = 0.7 + rng() * 0.3;
         put(boulder, rockMat, p.x, p.z, 0.22);
       }
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 14; i++) {
         const p = propAt();
         if (!p) continue;
         /* a small cairn: three stacked stones */
@@ -546,6 +678,29 @@ export function buildRegions(scene: Scene): RegionsHandle {
           const st = MeshBuilder.CreateIcoSphere(`rg-k-c${i}-${k}`, { radius: 0.3 - k * 0.07, subdivisions: 1 }, scene);
           put(st, rockMat, p.x, p.z, 0.18 + k * 0.36);
         }
+      }
+    } else {
+      /* night — the firefly woods: dark pines and soft ground-lights */
+      for (let i = 0; i < 66; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const h = 2.4 + rng() * 2.6;
+        const trunk = MeshBuilder.CreateCylinder(`rg-n-tr${i}`, { diameterTop: 0.16, diameterBottom: 0.3, height: h, tessellation: 6 }, scene);
+        put(trunk, trunkMat, p.x, p.z, h / 2 - 0.12);
+        const crown = MeshBuilder.CreateCylinder(`rg-n-c${i}`, { diameterTop: 0, diameterBottom: 1.6, height: 2.2, tessellation: 7 }, scene);
+        put(crown, pineMat, p.x, p.z, h + 0.4);
+      }
+      for (let i = 0; i < 22; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const glow = MeshBuilder.CreateSphere(`rg-n-g${i}`, { diameter: 0.34 + rng() * 0.3, segments: 6 }, scene);
+        put(glow, nightGlowMat, p.x, p.z, 0.22);
+      }
+      for (let i = 0; i < 10; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const stone = MeshBuilder.CreateIcoSphere(`rg-n-s${i}`, { radius: 0.3 + rng() * 0.5, subdivisions: 1 }, scene);
+        put(stone, rockMat, p.x, p.z, 0.15);
       }
     }
 
@@ -609,15 +764,16 @@ export function buildRegions(scene: Scene): RegionsHandle {
   }
 
   /* ---------- the vista: mountain ring + drifting clouds ----------
-     14-C: pushed out with the continent — the mountains must haunt
-     the horizon of a 600-unit world. */
+     15-B: pushed out with the continent again — the mountains must
+     haunt the horizon BEYOND the regions (hearts out to ~935, so
+     the ring stands 1350–1600 out, well past the walkable edge). */
   const mountainParts: Mesh[] = [];
   const mrng = mulberry32(20260912);
-  for (let i = 0; i < 11; i++) {
-    const ang = (i / 11) * Math.PI * 2 + mrng() * 0.3;
-    const d = 780 + mrng() * 160;
-    const h = 150 + mrng() * 120;
-    const w = 150 + mrng() * 80;
+  for (let i = 0; i < 14; i++) {
+    const ang = (i / 14) * Math.PI * 2 + mrng() * 0.3;
+    const d = 1350 + mrng() * 250;
+    const h = 190 + mrng() * 150;
+    const w = 190 + mrng() * 100;
     const x = Math.cos(ang) * d;
     const z = Math.sin(ang) * d;
     const peak = MeshBuilder.CreateCylinder(`rg-mt-${i}`, { diameterTop: 0, diameterBottom: w, height: h, tessellation: 7 }, scene);
@@ -642,10 +798,10 @@ export function buildRegions(scene: Scene): RegionsHandle {
   }
 
   const cloudParts: Mesh[] = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 12; i++) {
     const ang = mrng() * Math.PI * 2;
-    const d = 120 + mrng() * 440;
-    const y = 60 + mrng() * 30;
+    const d = 220 + mrng() * 640;
+    const y = 60 + mrng() * 34;
     const cx = Math.cos(ang) * d;
     const cz = Math.sin(ang) * d;
     const s = 9 + mrng() * 11;

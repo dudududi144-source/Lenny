@@ -1,8 +1,9 @@
 /* ============================================================
    Garden of Light 2026 — Global base + shell components.
    RTL-native: logical properties only (no left/right in layout).
-   Mobile-first; the .frame keeps the 420x720 game proportion
-   on wide screens without ever clipping content.
+   Mobile-first; the .frame IS the viewport on every device —
+   stage 15-A killed the phone-aspect column: desktop is a true
+   fullscreen experience, phones keep their native layout.
    ============================================================ */
 
 *,
@@ -69,7 +70,12 @@ body {
   border: 0;
 }
 
-/* ---------- App frame (keeps the 420x720 game proportion) ---------- */
+/* ---------- App frame (the full viewport, every device) ----------
+   stage 15-A: the 420x720 phone-aspect cap is gone. The frame is
+   the viewport — dark side bars on desktop existed only because
+   this used to clamp to a phone column. Every screen lays itself
+   out inside the full frame; the PixiJS world unit + the Babylon
+   camera absorb the extra space (both resize-driven). */
 
 #app {
   position: fixed;
@@ -82,7 +88,7 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
-  max-width: min(100vw, calc(100dvh * 0.5833));
+  max-width: 100vw;
   overflow: hidden;
 }
 
@@ -239,13 +245,6 @@ body {
   .lenny-figure { width: clamp(120px, 24vmin, 170px); }
   .hero-title { font-size: clamp(2.6rem, 12vmin, 4.2rem); }
   .topbar { padding-block-start: var(--space-2); }
-}
-
-/* audit 9-b #2: stop the phone-column tunnel vision on real screens —
-   the 9:16 cap made 74% of a desktop a purple desert. Mobile keeps the
-   exact current layout (the e2e viewport never hits this query). */
-@media (min-width: 900px) {
-  .frame { max-width: min(94vw, 780px); }
 }
 
 .screen--hero {
@@ -1468,4 +1467,168 @@ body {
 .screen--world[data-world-phase='shelf-open'] .world-controls.world-touch .world-jump-btn,
 .screen--world[data-world-phase='shelf-open'] .world-controls .world-controls-hint {
   display: none;
+}
+
+/* ============================================================
+   DESKTOP (≥900px) — designed, not stretched phone.
+   The shell keeps the full-viewport frame; screens constrain
+   their CONTENT to a comfortable reading width and switch to
+   layouts that use the space (side-by-side CTAs, 2-col zone
+   map, wider shelves). Phone layout below 900px is untouched.
+   ============================================================ */
+
+@media (min-width: 900px) {
+  /* ---- hero: a proper landing, centered on the wide sky ---- */
+  .screen--hero .topbar,
+  .screen--hero .hero-center,
+  .screen--hero .hero-cta {
+    width: 100%;
+    max-width: 1140px;
+    margin-inline: auto;
+  }
+
+  .screen--hero .topbar {
+    padding-inline: var(--space-6);
+  }
+
+  .screen--hero .hero-center {
+    padding-inline: var(--space-6);
+  }
+
+  .lenny-figure {
+    width: clamp(220px, 34vmin, 320px);
+  }
+
+  .hero-title {
+    font-size: clamp(4.2rem, 11vmin, 6.5rem);
+  }
+
+  .subtitle {
+    font-size: clamp(1.3rem, 3.2vmin, 1.7rem);
+  }
+
+  .greeting {
+    max-width: 52ch;
+    font-size: 1.1rem;
+  }
+
+  .name-input {
+    width: min(300px, 60vw);
+    font-size: var(--font-size-lg);
+    padding: 12px 24px;
+  }
+
+  /* the two journey buttons side by side; the micro line wraps below */
+  .hero-cta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    max-width: 780px;
+    gap: var(--space-4);
+    padding-inline: 0;
+  }
+
+  .hero-cta .ui-btn {
+    width: auto;
+    min-width: min(320px, 38vw);
+  }
+
+  .hero-cta .micro {
+    flex-basis: 100%;
+  }
+
+  /* ---- classic garden map: two columns of zone cards ---- */
+  .garden-head,
+  .garden-greeting,
+  .garden-foot {
+    width: 100%;
+    max-width: 1160px;
+    margin-inline: auto;
+  }
+
+  .garden-head {
+    padding-inline: var(--space-6);
+  }
+
+  .garden-greeting {
+    padding-inline: var(--space-6);
+    font-size: var(--font-size-md);
+  }
+
+  .garden-title {
+    font-size: 1.6rem;
+  }
+
+  .garden-path {
+    padding-inline: var(--space-6);
+  }
+
+  .zone-list {
+    max-width: 1100px;
+    margin-inline: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+
+  /* the playful alternating offsets are a phone rhythm — the grid
+     owns the desktop map (the golden ribbon still runs beneath) */
+  .zone-list .zone-card:nth-child(odd),
+  .zone-list .zone-card:nth-child(even) {
+    align-self: stretch;
+  }
+
+  .zone-card {
+    width: 100%;
+    min-height: 88px;
+  }
+
+  .zone-name {
+    font-size: 1.2rem;
+  }
+
+  .zone-desc {
+    font-size: 0.9rem;
+  }
+
+  .garden-foot {
+    justify-content: center;
+    padding-block: var(--space-2) var(--space-6);
+  }
+
+  /* ---- parent lens: a real dashboard reading width ---- */
+  .parent-dashboard-body {
+    max-width: 1100px;
+    margin-inline: auto;
+  }
+
+  .parent-scroll {
+    padding-inline: var(--space-6);
+  }
+
+  /* ---- game screen: HUD breathes on the big canvas ---- */
+  .game-hud {
+    padding: var(--space-5) var(--space-6) max(var(--space-5), env(safe-area-inset-bottom));
+  }
+
+  .hud-dialogue-slot {
+    max-width: 460px;
+  }
+
+  .hud-zone {
+    font-size: var(--font-size-lg);
+  }
+
+  .hud-score {
+    font-size: 1.15rem;
+  }
+
+  .hud-mission {
+    font-size: 1rem;
+  }
+
+  .parent-gate-card {
+    max-width: 400px;
+  }
 }

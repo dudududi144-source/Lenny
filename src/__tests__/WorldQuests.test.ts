@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  OFFERED_FAMILIES,
   QUEST_FAMILIES,
   QUEST_TIER_MAX,
   WorldQuests,
   buildPatternQuest,
+  buildWalkCountQuest,
   coerceQuestData,
   countingCountFor,
   emptyQuestData,
@@ -11,6 +13,7 @@ import {
   pruneQuestDays,
   questDayKey,
   tierForCompletions,
+  WALK_THINGS,
   type WorldQuestData,
 } from '../world/worldQuests';
 
@@ -194,5 +197,76 @@ describe('pruneQuestDays — lexicographic day pruning', () => {
     };
     const pruned = pruneQuestDays(data, '2026-09-09');
     expect(Object.keys(pruned.days).sort()).toEqual(['2026-09-09', '2026-09-10']);
+  });
+});
+
+describe('worldQuests — the counting walk (stage 15-C)', () => {
+  it('the store knows four families; the rotation offers only the rendered three', () => {
+    expect(QUEST_FAMILIES).toEqual(['wayfinding', 'counting', 'patterns', 'walk-count']);
+    expect(OFFERED_FAMILIES).toEqual(['wayfinding', 'counting', 'patterns']);
+    expect(QUEST_FAMILIES).toContain('walk-count');
+    /* walk-count never leaks into the rotation before the shell renders it */
+    const d = emptyQuestData();
+    expect(OFFERED_FAMILIES).not.toContain('walk-count');
+    expect(nextFamily(d)).toBe('wayfinding');
+  });
+
+  it('walk-count storage is live: corrections, trials, completions and tiers', () => {
+    const storage = stubStorage();
+    const now = vi.fn(() => BASE);
+    const quests = new WorldQuests(storage as unknown as Storage, now as () => number);
+    quests.noteCorrection('walk-count');
+    quests.noteTrial('walk-count');
+    const snap = quests.snapshot();
+    expect(snap.families['walk-count']).toEqual({ completions: 0, trials: 1, corrections: 1, tier: 1 });
+    quests.complete('walk-count', 2, 1);
+    const after = quests.snapshot();
+    expect(after.families['walk-count'].completions).toBe(1);
+    expect(after.families['walk-count'].tier).toBe(1);
+    expect(after.days[questDayKey(BASE)]).toEqual({ completed: 1 });
+    expect(after.active).toBeNull();
+    expect(quests.isEmpty()).toBe(false);
+    /* three completions grow the family's tier, like every family */
+    quests.complete('walk-count', 0, 0);
+    quests.complete('walk-count', 0, 0);
+    quests.complete('walk-count', 0, 0);
+    expect(quests.snapshot().families['walk-count'].tier).toBe(2);
+  });
+
+  it('coercion keeps a walk-count stat from storage (schema-white, no free text)', () => {
+    const d = coerceQuestData({
+      families: { 'walk-count': { completions: 4, trials: 3, corrections: 2, tier: 9 } },
+    });
+    expect(d.families['walk-count']).toEqual({ completions: 4, trials: 3, corrections: 2, tier: QUEST_TIER_MAX });
+  });
+
+  it('content: deterministic (tier, seq), honest counts, chips always hold the truth', () => {
+    for (let seq = 0; seq < 60; seq++) {
+      for (let tier = 1; tier <= 3; tier++) {
+        const q = buildWalkCountQuest(tier, seq);
+        expect(WALK_THINGS.map((t) => t.id)).toContain(q.thing.id);
+        expect(q.thing.name.length).toBeGreaterThan(0);
+        expect(q.count).toBeGreaterThanOrEqual(3);
+        expect(q.count).toBeLessThanOrEqual(8);
+        expect(q.chips).toContain(q.count);
+        expect(new Set(q.chips).size).toBe(3);
+        for (const c of q.chips) expect(c).toBeGreaterThanOrEqual(1);
+      }
+    }
+    /* tier bands mirror the counting family */
+    for (let seq = 0; seq < 40; seq++) {
+      expect(buildWalkCountQuest(1, seq).count).toBeLessThanOrEqual(4);
+      const c2 = buildWalkCountQuest(2, seq).count;
+      expect(c2).toBeGreaterThanOrEqual(4);
+      expect(c2).toBeLessThanOrEqual(6);
+    }
+    /* same seq, same quest, every device */
+    expect(buildWalkCountQuest(2, 17)).toEqual(buildWalkCountQuest(2, 17));
+    /* the true chip is not always in the middle — the row is shuffled */
+    const positions = new Set<number>();
+    for (let seq = 0; seq < 50; seq++) {
+      positions.add(buildWalkCountQuest(1, seq).chips.indexOf(buildWalkCountQuest(1, seq).count));
+    }
+    expect(positions.size).toBeGreaterThan(1);
   });
 });

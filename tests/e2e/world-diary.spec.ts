@@ -55,8 +55,11 @@ test('a world session writes the diary: open, arrival, shelf — whitelisted key
   expect(zones['light-path']).toBeGreaterThanOrEqual(1);
   expect(Object.keys(zones)).toEqual(['light-path']); /* no wandering yet — honest counts */
 
-  /* the schema carries ONLY whitelisted keys — no identifiers, ever */
-  expect(Object.keys(today).sort()).toEqual(['arrivals', 'ms', 'opens', 'picks', 'shelfOpens', 'zones']);
+  /* the schema carries ONLY whitelisted keys — no identifiers, ever
+     (stage 15-C: +gathers +well, still counters only) */
+  expect(Object.keys(today).sort()).toEqual([
+    'arrivals', 'gathers', 'ms', 'opens', 'picks', 'shelfOpens', 'well', 'zones',
+  ]);
   expect(Object.keys(diary as Record<string, unknown>).sort()).toEqual(['days', 'v']);
   expect(errors).toEqual([]);
 });

@@ -34,8 +34,9 @@ test('unlock chain: finishing light-path once opens memory-hill', async ({ page 
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
 
   await expect(page.locator('.zone-card[data-zone="memory-hill"]')).not.toHaveClass(/locked/);
-  /* memory-hill holds 3 registry games: memory-pairs-1/2 + sequence-echo-1 */
-  await expect(page.locator('.zone-card[data-zone="memory-hill"] .ring-value')).toHaveText('0/3');
+  /* memory-hill holds 9 registry games: memory-pairs-1/2, sequence-echo-1,
+     star-threads-1/2/3 (stage 15-C) + wind-melody-1/2/3 (stage 15-C) */
+  await expect(page.locator('.zone-card[data-zone="memory-hill"] .ring-value')).toHaveText('0/9');
   await expect(page.locator('.zone-card[data-zone="attention-stream"]')).toHaveClass(/locked/);
 });
 

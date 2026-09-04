@@ -24,8 +24,8 @@ function memoryStorage(): Storage {
 }
 
 describe('worldWardrobe — the well keeps its promise', () => {
-  it('prices a year of wandering honestly (4 scarves, rising costs)', () => {
-    expect(SCARF_ITEMS.length).toBe(4);
+  it('prices a year of wandering honestly (7 scarves, rising costs)', () => {
+    expect(SCARF_ITEMS.length).toBe(7);
     for (let i = 1; i < SCARF_ITEMS.length; i++) {
       expect(SCARF_ITEMS[i].cost).toBeGreaterThan(SCARF_ITEMS[i - 1].cost);
     }

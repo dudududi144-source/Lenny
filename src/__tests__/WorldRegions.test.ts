@@ -13,21 +13,22 @@ import {
 import { WANDER_RADIUS, WORLD_WALK_RADIUS, WORLD_ISLANDS, WORLD_SIGNPOSTS, FRIENDS, LANDMARKS } from '../world/WorldLayout';
 import { HUB_RADIUS } from '../world/WorldLayout';
 
-describe('REGIONS — the continent beyond the garden (stage 12)', () => {
-  it('has six named regions with Hebrew names and arrival lines', () => {
-    expect(REGIONS).toHaveLength(6);
+describe('REGIONS — the continent beyond the garden (stage 15-B)', () => {
+  it('has ten named regions with Hebrew names and arrival lines', () => {
+    expect(REGIONS).toHaveLength(10);
     for (const r of REGIONS) {
       expect(r.name.length).toBeGreaterThan(2);
       expect(r.line.length).toBeGreaterThan(8);
-      expect(r.radius).toBeGreaterThan(50);
+      expect(r.radius).toBeGreaterThanOrEqual(185);
     }
-    expect(new Set(REGIONS.map((r) => r.id)).size).toBe(6);
+    expect(new Set(REGIONS.map((r) => r.id)).size).toBe(10);
   });
 
-  it('the regions sit far from the hub and never overlap each other', () => {
+  it('the regions sit far from the hub, around the whole compass, and never overlap', () => {
     for (const r of REGIONS) {
       const d = Math.hypot(r.x, r.z);
-      expect(d).toBeGreaterThan(140); /* a real journey out */
+      expect(d).toBeGreaterThan(640); /* a real journey out (15-B hearts 644–935) */
+      expect(d).toBeLessThanOrEqual(940);
       expect(d + r.radius).toBeLessThanOrEqual(WANDER_RADIUS); /* inside the world */
     }
     for (let i = 0; i < REGIONS.length; i++) {
@@ -36,6 +37,15 @@ describe('REGIONS — the continent beyond the garden (stage 12)', () => {
         const b = REGIONS[j];
         const gap = Math.hypot(a.x - b.x, a.z - b.z) - a.radius - b.radius;
         expect(gap).toBeGreaterThanOrEqual(0); /* patches never overlap */
+      }
+    }
+    /* ~36° apart: no two hearts share a bearing (no crowded compass) */
+    for (let i = 0; i < REGIONS.length; i++) {
+      for (let j = i + 1; j < REGIONS.length; j++) {
+        const a = Math.atan2(REGIONS[i].z, REGIONS[i].x);
+        const b = Math.atan2(REGIONS[j].z, REGIONS[j].x);
+        const sep = Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        expect(sep).toBeGreaterThan(0.5); /* ≥ ~28.6° between every pair of bearings */
       }
     }
   });
@@ -65,7 +75,7 @@ describe('REGIONS — the continent beyond the garden (stage 12)', () => {
   });
 
   it('the roads reach every region and stay inside the world', () => {
-    expect(REGION_ROADS).toHaveLength(6);
+    expect(REGION_ROADS).toHaveLength(10);
     for (const road of REGION_ROADS) {
       expect(road.points.length).toBeGreaterThan(20);
       const region = regionById(road.region);
@@ -79,7 +89,7 @@ describe('REGIONS — the continent beyond the garden (stage 12)', () => {
     }
   });
 
-  it('the six roads never braid into each other', () => {
+  it('the ten roads never braid into each other', () => {
     for (let i = 0; i < REGION_ROADS.length; i++) {
       for (let j = i + 1; j < REGION_ROADS.length; j++) {
         let min = Infinity;
@@ -120,7 +130,7 @@ describe('REGIONS — the continent beyond the garden (stage 12)', () => {
     for (const r of REGIONS) {
       const steps = regionSteps(r.id);
       expect(steps).toBeGreaterThan(30);
-      expect(steps).toBeLessThan(600);
+      expect(steps).toBeLessThan(1600); /* 15-B: the farthest road is ~1100 child-steps */
     }
   });
 });
@@ -134,8 +144,8 @@ describe('terrainHeight — the land itself (stage 12)', () => {
 
   it('rises gently into the wilds — walkable relief, never a wall', () => {
     let maxH = 0;
-    for (let x = -320; x <= 320; x += 8) {
-      for (let z = -320; z <= 320; z += 8) {
+    for (let x = -640; x <= 640; x += 16) {
+      for (let z = -640; z <= 640; z += 16) {
         const h = terrainHeight(x, z);
         expect(h).toBeGreaterThan(-6);
         expect(h).toBeLessThan(6);
@@ -147,8 +157,8 @@ describe('terrainHeight — the land itself (stage 12)', () => {
 
   it('is continuous — the fox never meets a cliff', () => {
     for (let i = 0; i < 400; i++) {
-      const x = (i * 37) % 600 - 300;
-      const z = (i * 91) % 600 - 300;
+      const x = (i * 37) % 1200 - 600;
+      const z = (i * 91) % 1200 - 600;
       const h0 = terrainHeight(x, z);
       const h1 = terrainHeight(x + 0.5, z + 0.5);
       expect(Math.abs(h1 - h0)).toBeLessThan(0.35);
@@ -176,10 +186,21 @@ describe('the stage-12 world geography is coherent', () => {
   });
 
   it('the region hero landmarks live inside their regions', () => {
-    const heroes = ['giant-tree', 'ice-tower', 'watermill', 'mega-flower', 'obelisk', 'stone-arch'];
-    for (const id of heroes) {
+    const heroes: Array<[string, string]> = [
+      ['giant-tree', 'forest'],
+      ['ice-tower', 'snow'],
+      ['watermill', 'river'],
+      ['mega-flower', 'flower'],
+      ['obelisk', 'dunes'],
+      ['stone-arch', 'rocky'],
+      ['lantern-tree', 'night'],
+      ['crystal-peak', 'crystal'],
+      ['rainbow-tower', 'rainbow'],
+      ['tide-pools', 'shore'],
+    ];
+    for (const [id, rid] of heroes) {
       const l = LANDMARKS.find((x) => x.id === id)!;
-      const home = REGIONS.find((r) => regionAt(l.x, l.z)?.id === r.id);
+      const home = REGIONS.find((r) => r.id === rid && regionAt(l.x, l.z)?.id === r.id);
       expect(home).toBeDefined();
       void l;
     }

@@ -18,6 +18,9 @@ import { dayKeyFor, type WorldDiaryData } from '../../world/worldDiary';
 import { WorldDiary } from '../../world/worldDiary';
 import { WorldQuests, type WorldQuestData } from '../../world/worldQuests';
 import { countRegionsFound, loadFound } from '../../world/worldFound';
+import { loadCrystals } from '../../world/worldCollect';
+import { loadAcornSave } from '../../world/worldAcorns';
+import { loadWardrobe } from '../../world/worldWardrobe';
 import { LANDMARKS } from '../../world/WorldLayout';
 import { ZONES } from '../../data/garden';
 
@@ -67,6 +70,16 @@ export interface WorldLens {
   /** how many of the six far regions the child has walked into (stage 12) */
   regionsFound: number;
   landmarksTotal: number;
+  /** stage 15-C: the snow region's ice crystals found (lifetime ledger) */
+  crystalsFound: number;
+  /** stage 15-C: acorns gathered on the way (lifetime ledger, not wallet) */
+  acornsGathered: number;
+  /** stage 15-C: scarves owned from the well's shop */
+  scarvesOwned: number;
+  /** stage 15-C: collectibles gathered over the last 7 days (diary) */
+  gathers7d: number;
+  /** stage 15-C: well purchases over the last 7 days (diary) */
+  well7d: number;
   hasData: boolean;
 }
 
@@ -91,13 +104,21 @@ function buildDdaTiers(): Record<string, number> {
 export function worldLensFromDiary(
   diary: WorldDiaryData,
   nowMs: number = Date.now(),
-  extras?: { quests?: WorldQuestData; foundCount?: number },
+  extras?: {
+    quests?: WorldQuestData;
+    foundCount?: number;
+    crystals?: number;
+    acorns?: number;
+    scarves?: number;
+  },
 ): WorldLens {
   const cutoff = dayKeyFor(nowMs - 7 * 86_400_000);
   let ms = 0;
   let opens = 0;
   let arrivals = 0;
   let picks = 0;
+  let gathers = 0;
+  let well = 0;
   const zones: Record<string, number> = {};
   for (const [key, stat] of Object.entries(diary.days)) {
     if (key < cutoff) continue;
@@ -105,6 +126,8 @@ export function worldLensFromDiary(
     opens += stat.opens;
     arrivals += stat.arrivals;
     picks += stat.picks;
+    gathers += stat.gathers ?? 0;
+    well += stat.well ?? 0;
     for (const [zone, count] of Object.entries(stat.zones)) {
       zones[zone] = (zones[zone] ?? 0) + count;
     }
@@ -120,6 +143,9 @@ export function worldLensFromDiary(
   }
   const foundCount = extras?.foundCount ?? 0;
   const regionsFound = countRegionsFound(loadFound());
+  const crystalsFound = Math.max(0, Math.floor(extras?.crystals ?? 0));
+  const acornsGathered = Math.max(0, Math.floor(extras?.acorns ?? 0));
+  const scarvesOwned = Math.max(0, Math.floor(extras?.scarves ?? 0));
   return {
     minutes7d,
     opens7d: opens,
@@ -131,13 +157,23 @@ export function worldLensFromDiary(
     landmarksFound: foundCount,
     regionsFound,
     landmarksTotal: LANDMARKS.length,
+    crystalsFound,
+    acornsGathered,
+    scarvesOwned,
+    gathers7d: gathers,
+    well7d: well,
     hasData:
       minutes7d > 0 ||
       opens > 0 ||
       arrivals > 0 ||
       picks > 0 ||
       quests7d > 0 ||
-      foundCount > 0,
+      foundCount > 0 ||
+      gathers > 0 ||
+      well > 0 ||
+      crystalsFound > 0 ||
+      acornsGathered > 0 ||
+      scarvesOwned > 0,
   };
 }
 
@@ -200,6 +236,10 @@ export function loadLensData(garden: GardenData): LensData {
   const world = worldLensFromDiary(diary.snapshot(), Date.now(), {
     quests: quests.snapshot(),
     foundCount: loadFound().length,
+    /* stage 15-C: the world's honest ledgers — read-only, local-only */
+    crystals: loadCrystals().length,
+    acorns: loadAcornSave().ids.length,
+    scarves: loadWardrobe().owned.length,
   });
   const hasAnyData = totalFinished > 0 || zoneRounds > 0 || summary.attempts > 0 || world.hasData;
 

@@ -77,10 +77,12 @@ describe('FpsGovernor', () => {
     expect(fine.newScale).toBeLessThan(1.2);
   });
 
-  it('arms distress after grace + 8 sustained seconds below 10fps', () => {
-    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 8000, distressGraceMs: 0 });
+  it('arms distress after grace + 8 sustained seconds below 10fps AT the resolution floor', () => {
+    /* stage 15: the pixels must already be at the tier floor — the
+       softening ladder is the kind lever and gets its chance first */
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 8000, distressGraceMs: 0, maxScale: 1 });
     let now = run(gov, 8, 1);
-    let d = gov.evaluate(now, 1); /* the distress clock starts here */
+    let d = gov.evaluate(now, 1); /* scale 1 IS the floor (maxScale 1) */
     expect(d.distress).toBe(false);
     now = run(gov, 8, 6, now); /* 7s total — still inside the budget */
     d = gov.evaluate(now, 1);
@@ -92,6 +94,18 @@ describe('FpsGovernor', () => {
     now = run(gov, 8, 1, now);
     d = gov.evaluate(now, 1);
     expect(d.distress).toBe(false);
+  });
+
+  it('softening above the floor pauses the distress verdict (wide screens get their chance)', () => {
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 8000, distressGraceMs: 0 });
+    let now = run(gov, 8, 1);
+    for (let i = 0; i < 30; i++) {
+      /* 12 seconds stalled below the floor, but the scale is still
+         climbing toward the cap — no distress while a lever remains */
+      now = run(gov, 8, 1, now);
+      const d = gov.evaluate(now, 1 + i * 0.1);
+      expect(d.distress).toBe(false);
+    }
   });
 
   it('grace never blocks the recovery-side of the decision (slow start, then fine)', () => {
@@ -134,9 +148,9 @@ describe('FpsGovernor', () => {
        be judged again from a fresh budget */
     gov.setSpectacle(false);
     now = run(gov, 8, 1, now);
-    gov.evaluate(now, 1.2); /* arms the fresh budget */
+    gov.evaluate(now, 3.6); /* arms the fresh budget (scale at the cap) */
     now = run(gov, 8, 8, now);
-    const d2 = gov.evaluate(now, 1.2);
+    const d2 = gov.evaluate(now, 3.6);
     expect(d2.distress).toBe(true);
   });
 });
