@@ -122,6 +122,7 @@ declare global {
       fps(): number;
       phase(): WorldPhase;
       renderer(): string | null;
+      perf(): { meshes: number; active: number } | null;
       sky(): string | null;
       life(): { butterflies: number; fireflies: number; fish: number } | null;
       /** Lit path lanterns — the journey made visible. */
@@ -1194,6 +1195,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     fps: () => app?.fps() ?? 0,
     phase: () => phase,
     renderer: () => app?.rendererKind() ?? null,
+    perf: () => app?.perf() ?? null,
     sky: () => app?.skyPhase() ?? null,
     life: () => app?.life() ?? null,
     lanterns: () => app?.lanterns() ?? 0,

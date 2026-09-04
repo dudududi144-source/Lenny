@@ -343,8 +343,12 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
      16-a: the ground follows the WIDER continent — it must carry the
      far ring (hearts ~1245) AND every tap in between: the whole
      wanderable world now stands on real, pickable ground (the old
-     720u plate left the outer wilds tap-blind). */
-  const ground = MeshBuilder.CreateGround('ground', { width: 3040, height: 3040, subdivisions: 152 }, scene);
+     720u plate left the outer wilds tap-blind). Subdivision note:
+     the plate is ONE always-submitted mesh, so on software GL every
+     vertex is paid every frame — 72 keeps the hills reading smooth
+     under fog at walking distance (42u quads) at 4x less vertex
+     load than the first 16-a cut; the fps floor holds. */
+  const ground = MeshBuilder.CreateGround('ground', { width: 3040, height: 3040, subdivisions: 72 }, scene);
   {
     const pos = ground.getVerticesData(VertexBuffer.PositionKind);
     if (pos) {
@@ -373,6 +377,9 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 export interface WorldApp {
   fps(): number;
   rendererKind(): WorldRendererKind;
+  /** Scene load snapshot (bridge/diagnostics): total meshes and how
+   *  many the frustum actually submitted this frame. */
+  perf(): { meshes: number; active: number } | null;
   /** bridge (commit 3 fills presence; islands fill zones now) */
   presencePos(): { x: number; z: number } | null;
   /** the live walk errand (null = none) — e2e/diagnostics. */
@@ -1409,6 +1416,14 @@ export async function createWorldApp(
   return {
     fps: () => governor.fps(performance.now()),
     rendererKind: () => kind,
+    perf: () => {
+      try {
+        const active = scene.getActiveMeshes();
+        return { meshes: scene.meshes.length, active: active.length };
+      } catch {
+        return null;
+      }
+    },
     presencePos: () => ({ x: presencePos.x, z: presencePos.z }),
     errand: () => (walkTarget ? { ...walkTarget } : null),
     riding: () => rideStart !== null,
