@@ -111,9 +111,12 @@ export function createWorldBalloon(scene: Scene, padX: number, padZ: number): Wo
   const rootY = 0;
 
   /* ---------- the landing pad — a round wooden deck ----------
-     Named `plat-mesh-…` so the gesture contract reads it as a
-     walkable place: a tap on the deck is an errand to fly. */
-  const pad = MeshBuilder.CreateDisc('plat-mesh-balloon-pad', { radius: 1.7, tessellation: 26 }, scene);
+     Named `balloon-…` like every part of the balloon: a tap on the
+     deck is ONE errand with ONE destination — the pad's exact
+     center — never a snapped point beside it (the resolveWalkTarget
+     keep-out once parked the fox 2 units short and the flight never
+     came; the deck now speaks for itself). */
+  const pad = MeshBuilder.CreateDisc('balloon-pad-deck', { radius: 1.7, tessellation: 26 }, scene);
   pad.rotation.x = Math.PI / 2;
   const plankMat = scene.getMaterialByName('rg-plank') as StandardMaterial | null;
   if (plankMat) pad.material = plankMat;

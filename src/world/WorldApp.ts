@@ -375,6 +375,10 @@ export interface WorldApp {
   rendererKind(): WorldRendererKind;
   /** bridge (commit 3 fills presence; islands fill zones now) */
   presencePos(): { x: number; z: number } | null;
+  /** the live walk errand (null = none) — e2e/diagnostics. */
+  errand(): { x: number; z: number } | null;
+  /** true while the balloon vista ride is airborne. */
+  riding(): boolean;
   nearZone(): string | null;
   zones(): Array<{ id: string; unlocked: boolean; bloom: number }>;
   /** The hour's phase the sky is painted with (visual only). */
@@ -1116,6 +1120,8 @@ export async function createWorldApp(
     fps: () => governor.fps(performance.now()),
     rendererKind: () => kind,
     presencePos: () => ({ x: presencePos.x, z: presencePos.z }),
+    errand: () => (walkTarget ? { ...walkTarget } : null),
+    riding: () => rideStart !== null,
     nearZone: () => near,
     /* zones carry their layout coords now (stage 11): the compass,
        the parent lens and the e2e bridge all read one honest map */
