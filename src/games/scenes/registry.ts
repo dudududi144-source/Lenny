@@ -18,6 +18,10 @@ import { ShapeShadowScene } from './ShapeShadow';
 import { StarConnectScene } from './StarConnect';
 import { WindChimeScene } from './WindChime';
 import { LeafSizeScene } from './LeafSize';
+import { CountTapScene } from './CountTap';
+import { TracePathScene } from './TracePath';
+import { SoundHuntScene } from './SoundHunt';
+import { RhymePickScene } from './RhymePick';
 
 /* kind → scene key (mirrors builder/GameFactory's mapping without the
    Phaser dependency — the new shell must never import Phaser). */
@@ -33,6 +37,15 @@ const KIND_TO_SCENE: Record<GameKind, string> = {
   'breath-guide': 'lenny-story',
   'open-create': 'open-create',
   'sequence-echo': 'sequence-echo',
+  /* stage 16-b — the games flood: four NEW templates, each owning its
+     own scene. No params.extra.scene pin is needed to reach them (the
+     kind routes here); the sound-hunt specs still carry one so the
+     SpecValidator exempts their rhythm-square placement from the
+     category→zone coherence rule. */
+  'count-tap': 'count-tap',
+  'trace-path': 'trace-path',
+  'sound-hunt': 'sound-hunt',
+  'rhyme-pick': 'rhyme-pick',
 };
 
 /* stage 15-C: the five new unique scenes do NOT own a kind — they ride
@@ -63,6 +76,11 @@ export const SCENE_REGISTRY: Record<string, SceneFactory> = {
   'star-connect': (ctx) => new StarConnectScene(ctx),
   'wind-chime': (ctx) => new WindChimeScene(ctx),
   'leaf-size': (ctx) => new LeafSizeScene(ctx),
+  /* stage 16-b — the games flood: four new kinds, four new scenes */
+  'count-tap': (ctx) => new CountTapScene(ctx),
+  'trace-path': (ctx) => new TracePathScene(ctx),
+  'sound-hunt': (ctx) => new SoundHuntScene(ctx),
+  'rhyme-pick': (ctx) => new RhymePickScene(ctx),
 };
 
 export function sceneKeyForSpec(spec: GameSpec): string {

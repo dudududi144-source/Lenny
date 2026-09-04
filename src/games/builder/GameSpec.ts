@@ -29,7 +29,14 @@ export type GameKind =
   | 'letter-find'       /* find a target letter */
   | 'breath-guide'      /* slow breathing with lights */
   | 'open-create'       /* no right answer — pure creation */
-  | 'sequence-echo';    /* watch a growing pattern, repeat it back (working memory) */
+  | 'sequence-echo'     /* watch a growing pattern, repeat it back (working memory) */
+  /* stage 16-b — the games flood: four NEW templates, each with its
+     own scene (KIND_TO_SCENE routes them; no params.extra.scene pin
+     needed except where zone coherence must be exempted). */
+  | 'count-tap'         /* tap each item once to count a set (cardinality) */
+  | 'trace-path'        /* drag along a dotted path (pre-writing tracing) */
+  | 'sound-hunt'        /* watch + listen: which pad hid the critter? */
+  | 'rhyme-pick';       /* hear a word, pick the one that rhymes */
 
 export interface GameNarrative {
   /* Lenny's intro line(s) */

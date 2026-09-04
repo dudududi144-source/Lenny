@@ -111,12 +111,21 @@ export function buildInsights(data: LensData): Insight[] {
   return out;
 }
 
-/* audit 9-d #9: a skill id the graph doesn't carry still gets Hebrew */
-const SKILL_FALLBACK_LABEL: Record<string, string> = {
+/* audit 9-d #9: a skill id the graph doesn't carry still gets Hebrew.
+   (Exported so the catalog tests can pin that the new kinds' skills
+   never leak as raw ids into a milestone line.) */
+export const SKILL_FALLBACK_LABEL: Record<string, string> = {
   'memory.pairs': 'זִכְּרוֹן זוּגוֹת',
   'letter.alef': 'הָאוֹת א',
   'letter.bet': 'הָאוֹת ב',
   'emotion.recognition': 'זִיהוּי רְגָשׁוֹת',
+  /* stage 16-b — the new kinds' skills (milestone lines never leak ids) */
+  'logic.counting': 'סְפִירָה',
+  'logic.cardinality': 'כַּמָּה? — הַכַּמָּתוּת',
+  'motor.tracing': 'שִׁרְטוּט בְּאַצְבַּע',
+  'attention.auditory': 'קֶשֶׁב שָׁמִיעַתִּי',
+  'language.rhyme': 'חֲרִיזָה',
+  'language.phonemes': 'צְלִילֵי מִלִּים',
 };
 
 /* skills that crossed the mastery threshold inside the last 7 days

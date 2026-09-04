@@ -73,6 +73,15 @@ const PARAMS: Record<GameKind, ParamRecipe> = {
   'breath-guide': (t) => ({ itemCount: Math.min(5, 3 + t * 2) }),
   'open-create': () => ({ itemCount: 7 }),
   'sequence-echo': (t) => ({ rounds: 3 + t }),
+  /* stage 16-b kinds: the four new templates are NOT part of the 144
+     derived catalog (KINDS_FOR_CATEGORY stays frozen — the e2e ground
+     never moves); these recipes exist because the records are keyed by
+     the full GameKind union, and they document each kind's knob map
+     (the DDA profile the scenes actually read via dda.tier()). */
+  'count-tap': (t) => ({ rounds: 3 + t }),
+  'trace-path': (t) => ({ rounds: 2 + Math.min(2, t) }),
+  'sound-hunt': (t) => ({ rounds: 4 + t }),
+  'rhyme-pick': (t) => ({ rounds: 4 + t }),
 };
 
 /* ---------- per-kind skills (tier adds depth) ---------- */
@@ -123,6 +132,27 @@ const SKILLS: Record<GameKind, SkillRecipe> = {
     t === 0 ? 'rhythm.pulse' : t < 3 ? 'rhythm.sequence' : 'rhythm.mastery',
   ],
   'breath-guide': () => ['breath.regulation', 'emotion.calm'],
+  /* stage 16-b kinds (registry-only — see the PARAMS note above) */
+  'count-tap': (t) => [
+    'logic.counting',
+    'attention.focus',
+    ...(t >= 1 ? ['logic.cardinality'] : []),
+  ],
+  'trace-path': (t) => [
+    'motor.tracing',
+    'motor.planning',
+    ...(t >= 2 ? ['spatial.shape'] : []),
+  ],
+  'sound-hunt': (t) => [
+    'attention.auditory',
+    'attention.selective',
+    ...(t >= 1 ? ['attention.sustained'] : []),
+  ],
+  'rhyme-pick': (t) => [
+    'language.rhyme',
+    'memory.working',
+    ...(t >= 2 ? ['language.phonemes'] : []),
+  ],
 };
 
 /* ---------- per-kind narrative voice ---------- */
@@ -243,6 +273,28 @@ const NARRATIVES: Record<GameKind, NarrativeRecipe> = {
     ][i % 4],
     win: ['הַפָּנָסִים זוֹהֲרִים. הַשֶּׁקֶט נִשְׁאָר אִתְךָ.', 'נָשַׁמְתָּ יָפֶה. הַבְּרֵכָה תוֹדָה לְךָ.'],
     encourage: ['נְשִׁימָה רַכָּה, בְּלִי לְמַהֵר.', 'אֵין פֹּה נָכוֹן וְלֹא נָכוֹן. רַק לִנְשֹׁם.'],
+  },
+  /* stage 16-b kinds (registry-only — the derived catalog never sees
+     these; the hand-written specs carry their own narratives) */
+  'count-tap': {
+    intro: (n) => [`${n}! הַסְּנַאי פִּזֵר בְּלוּטִים.`, 'גְּעוּ בְּכָל בְּלוּט — אַחַת, שְׁתַּיִם, שָׁלוֹשׁ!'],
+    win: ['הַסְּנַאי סָפַר הַכֹּל! אֲבָל אֵיזוֹ סְפִירָה!'],
+    encourage: ['עוֹד בְּלוּט מְחַכֶּה — גְּעוּ בּוֹ.'],
+  },
+  'trace-path': {
+    intro: (n) => [`${n}! הַכּוֹכָבִים רוֹצִים מַסְלּוּל.`, 'הִתְחִילוּ בַּכּוֹכָב הָאוֹרֵר וּגְרֹרוּ בְּעִקְבוֹת הַנְּקוּדוֹת!'],
+    win: ['הַמַּסְלּוּל כֻּלּוֹ זוֹהֵר!'],
+    encourage: ['הַנְּקוּדָה הַבָּאָה מְחַכָּה — גְּרֹרוּ אֲלֵיהָ.'],
+  },
+  'sound-hunt': {
+    intro: (n) => [`${n}! צָפְרְדֵּעַ מִתְחַבֵּא בַּבְּרֵכָה.`, 'הַקְשִׁיבוּ לַקּוֹרֵא... וּגְעוּ בָּעָלֶה שֶׁמְּבַעְבַּעַ!'],
+    win: ['הַצָּפְרְדֵּעַ נִמְצָא! הַבְּרֵכָה שָׂרָה!'],
+    encourage: ['הַקְשִׁיבוּ שׁוּב — הַבּוּעוֹת יָדִיעוּ.'],
+  },
+  'rhyme-pick': {
+    intro: (n) => [`${n}! הַיַּנְשׁוּף שָׁר מִלָּה.`, 'מִי מֵהַמִּלִּים מִתְחָרֵז אִתָּהּ? הַקְשִׁיבוּ!'],
+    win: ['חֲרִיזָה מֻשְׁלֶמֶת! הָאָזֶן שֶׁלְּךָ קְסֻמָּה!'],
+    encourage: ['הַקְשִׁיבוּ שׁוּב — הַמִּלָּה תָּשִׁיר לְבַד.'],
   },
 };
 

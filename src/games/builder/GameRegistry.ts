@@ -667,6 +667,260 @@ export const GAME_REGISTRY: GameSpec[] = [
     baseTier: 2,
     openEnded: false,
   },
+
+  /* ============================================================
+   * stage 16-b — the games flood: FOUR NEW KINDS + band fillers.
+   *
+   * Each new kind owns its own scene (KIND_TO_SCENE routes it — no
+   * scene pin needed), a pure logic module under games/logic/, a DDA
+   * knob map read through dda.tier(), and its own e2e contract.
+   * Instances land one per StationBand (tier 0 → band 0, tier 1 →
+   * band 1, tier 2 → band 2) so every rung of the unlock chain meets
+   * the new worlds. The three extra seed instances at the bottom give
+   * the thinner bands more variety without touching the derived 144.
+   * NOTE: everything here APPENDS — the seed-spine order every existing
+   * save/e2e default-progression pin relies on never moves.
+   * ============================================================ */
+
+  /* ---------- memory-hill band fillers ---------- */
+  {
+    id: 'sequence-echo-2',
+    kind: 'sequence-echo',
+    zone: 'memory-hill',
+    category: 'memory',
+    skills: ['memory.working', 'memory.sequence'],
+    narrative: {
+      intro: ['הָאוֹרוֹת הַקְּטַנִּים מְנַגְּנִים סֵדֶר קָצָר.', 'הִסְתַּכְּלוּ... וְהַחֲזִירוּ!'],
+      win: 'הַסֵּדֶר הַרִאשׁוֹן שֶׁלְּכֶם! צְעָדִים רִאשׁוֹנִים שֶׁל זִכָּרוֹן!',
+      encourage: 'כִּמְעַט! בּוֹא נִרְאֶה אֶת הַסֵּדֶר עוֹד פַּעַם.',
+    },
+    params: { rounds: 2 },
+    baseTier: 0,
+    openEnded: false,
+  },
+  {
+    id: 'memory-pairs-3',
+    kind: 'memory-pairs',
+    zone: 'memory-hill',
+    category: 'memory',
+    skills: ['memory.pairs', 'memory.sequence', 'attention.selective'],
+    narrative: {
+      intro: ['הַלַּיְלָה הַפְּרָחִים רַבִּים!', 'אַרְבָּעָה זוּגוֹת מְחַכִּים לְזִכָּרוֹן חָזָק.'],
+      win: 'אַרְבָּעָה זוּגוֹת! הַזִּכָּרוֹן שֶׁלְּךָ מִתְחַזֵּק!',
+      encourage: 'הַפְּרָחִים מְחַכִּים, נַסֶּה שׁוּב.',
+    },
+    params: { itemCount: 8, rounds: 1 },
+    baseTier: 2,
+    openEnded: false,
+  },
+
+  /* ---------- count-tap — logic / thinking-forest: tap-to-count ---------- */
+  {
+    id: 'count-acorns-1',
+    kind: 'count-tap',
+    zone: 'thinking-forest',
+    category: 'logic',
+    skills: ['logic.counting', 'attention.focus'],
+    narrative: {
+      intro: ['הַסְּנַאי פִּזֵר בְּלוּטִים עַל הַדֶּשֶׁא.', 'גְּעוּ בְּכָל בְּלוּט — אַחַת, שְׁתַּיִם, שָׁלוֹשׁ!'],
+      win: 'סְפִירָה מֻשְׁלֶמֶת! הַסְּנַאי שָׂמֵחַ!',
+      encourage: 'עוֹד בְּלוּט מְחַכֶּה — גְּעוּ בּוֹ.',
+    },
+    params: { rounds: 3 },
+    baseTier: 0,
+    openEnded: false,
+  },
+  {
+    id: 'count-acorns-2',
+    kind: 'count-tap',
+    zone: 'thinking-forest',
+    category: 'logic',
+    skills: ['logic.counting', 'logic.cardinality', 'attention.focus'],
+    narrative: {
+      intro: ['הַיּוֹם נוֹפְלִים יוֹתֵר בְּלוּטִים!', 'סִפְרוּ בְּקוֹל רָם — כָּל מַגָּע בְּמִסְפָּר.'],
+      win: 'הַסְּל הַמָּלֵא! אַלּוּפַת הַסְּפִירָה!',
+      encourage: 'עוֹד בְּלוּט מְחַכֶּה — גְּעוּ בּוֹ.',
+    },
+    params: { rounds: 4 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
+    id: 'count-acorns-3',
+    kind: 'count-tap',
+    zone: 'thinking-forest',
+    category: 'logic',
+    skills: ['logic.counting', 'logic.cardinality', 'attention.sustained'],
+    narrative: {
+      intro: ['סוּפַת בְּלוּטִים בַּיַּעַר!', 'עֵינַיִם טוֹבוֹת, אֶצְבַּע סַבְלָן — לִסְפֹּר הַכֹּל.'],
+      win: 'כָּל הַיַּעַר נִסְפַּר! וָאוֹ!',
+      encourage: 'עוֹד בְּלוּט מְחַכֶּה — גְּעוּ בּוֹ.',
+    },
+    params: { rounds: 5 },
+    baseTier: 2,
+    openEnded: false,
+  },
+
+  /* ---------- trace-path — spatial / space-sky: constellation tracing ---------- */
+  {
+    id: 'trace-stars-1',
+    kind: 'trace-path',
+    zone: 'space-sky',
+    category: 'spatial',
+    skills: ['motor.tracing', 'motor.planning'],
+    narrative: {
+      intro: ['שְׁבִיל נְקוּדוֹת קוֹשֵׁר בֵּין הַכּוֹכָבִים.', 'הִתְחִילוּ בַּכּוֹכָב הָאוֹרֵר וּגְרֹרוּ בְּעִקְבוֹת הַנְּקוּדוֹת!'],
+      win: 'הַקְּבוּצָה נִסְגְּרָה! כּוֹכָב שָׁלִיחַ עוֹבֵר בַּשָּׁמַיִם!',
+      encourage: 'הַנְּקוּדָה הַבָּאָה מְחַכָּה — גְּרֹרוּ אֲלֵיהָ.',
+    },
+    params: { rounds: 2 },
+    baseTier: 0,
+    openEnded: false,
+  },
+  {
+    id: 'trace-stars-2',
+    kind: 'trace-path',
+    zone: 'space-sky',
+    category: 'spatial',
+    skills: ['motor.tracing', 'motor.planning', 'spatial.shape'],
+    narrative: {
+      intro: ['הַלַּיְלָה הַשְּׁבִיל אֲרֹךְ יוֹתֵר.', 'אֶצְבַּע יָצִיב, עֵינַיִם עַל הַנְּקוּדָה.'],
+      win: 'שְׁבִיל אָרֹךְ שֶׁלְּךָ! הַשָּׁמַיִם מִתְפַּעֲלִים!',
+      encourage: 'הַנְּקוּדָה הַבָּאָה מְחַכָּה — גְּרֹרוּ אֲלֵיהָ.',
+    },
+    params: { rounds: 3 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
+    id: 'trace-stars-3',
+    kind: 'trace-path',
+    zone: 'space-sky',
+    category: 'spatial',
+    skills: ['motor.tracing', 'motor.planning', 'spatial.shape'],
+    narrative: {
+      intro: ['הַקְּבוּצָה הַגְּדוֹלָה מְחַכָּה.', 'שֵׁשׁ כּוֹכָבִים, חוּט אֶחָד שֶׁל אוֹר — שֶׁלְּךָ.'],
+      win: 'הַקְּבוּצָה הַגְּדוֹלָה בַּשָּׁמַיִם! אַלּוּף הַשְּׁבִילִים!',
+      encourage: 'הַנְּקוּדָה הַבָּאָה מְחַכָּה — גְּרֹרוּ אֲלֵיהָ.',
+    },
+    params: { rounds: 3 },
+    baseTier: 2,
+    openEnded: false,
+  },
+
+  /* ---------- spatial band-2 filler ---------- */
+  {
+    id: 'match-kites-3',
+    kind: 'match-shadow',
+    zone: 'space-sky',
+    category: 'spatial',
+    skills: ['spatial.matching', 'spatial.memory', 'spatial.rotation'],
+    narrative: {
+      intro: ['שְׁמוֹנָה עִפְעוֹפִים בַּשָּׁמַיִם!', 'עֵינַיִם טוֹבוֹת מְבִינוֹת צוּרוֹת.'],
+      win: 'שְׁמוֹנָה צְלָלִים מֻתְאָמִים! שִׁיא שֶׁל מֶמֶשׁ!',
+      encourage: 'תִּסְתַּכְּלוּ בַּצּוּרָה שֶׁל הַצֵּל.',
+    },
+    params: { itemCount: 8 },
+    baseTier: 2,
+    openEnded: false,
+  },
+
+  /* ---------- sound-hunt — attention / the drum-square pond: find by ear+eye ----------
+     The specs carry a scene pin (their own scene) so the SpecValidator
+     exempts the rhythm-square placement from the attention→attention-stream
+     coherence rule — the light-path-play-1 pattern, extended to a new kind. */
+  {
+    id: 'find-frog-1',
+    kind: 'sound-hunt',
+    zone: 'rhythm-square',
+    category: 'attention',
+    skills: ['attention.auditory', 'attention.selective'],
+    narrative: {
+      intro: ['בַּבְּרֵכָה שֶׁלִּי הַקֶּצֶב קוֹרֵא!', 'הַקְשִׁיבוּ... וּגְעוּ בָּעָלֶה שֶׁמְּבַעְבַּעַ!'],
+      win: 'מָצָאתֶם אֶת הַצָּפְרְדֵּעַ בְּכָל הַסִּבּוּבִים!',
+      encourage: 'הַקְשִׁיבוּ שׁוּב — הַבּוּעוֹת יָדִיעוּ.',
+    },
+    params: { rounds: 4, extra: { scene: 'sound-hunt' } },
+    baseTier: 0,
+    openEnded: false,
+  },
+  {
+    id: 'find-frog-2',
+    kind: 'sound-hunt',
+    zone: 'rhythm-square',
+    category: 'attention',
+    skills: ['attention.auditory', 'attention.selective', 'attention.sustained'],
+    narrative: {
+      intro: ['הַצָּפְרְדֵּעַ מִתְחַבֵּא יוֹתֵר טוֹב הַיּוֹם.', 'הַבּוּעָה נֶחְמָדָה — עֵינַיִם מְהִירוֹת!'],
+      win: 'עֵינַיִם וְאָזְנַיִם — צְמָד מֻשְׁלָם!',
+      encourage: 'הַקְשִׁיבוּ שׁוּב — הַבּוּעוֹת יָדִיעוּ.',
+    },
+    params: { rounds: 5, extra: { scene: 'sound-hunt' } },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
+    id: 'find-frog-3',
+    kind: 'sound-hunt',
+    zone: 'rhythm-square',
+    category: 'attention',
+    skills: ['attention.auditory', 'attention.selective', 'attention.sustained'],
+    narrative: {
+      intro: ['שֵׁשׁ עֲלֶה-עָלִים, צָפְרְדֵּעַ אַחַת.', 'רַק הָאָזֶן וְהָעִנְיָן יִמְצְאוּ אוֹתָהּ.'],
+      win: 'הַצָּפָרְדֵּעַ בְּטַח מִתְגַּאֶה בָּכֶם!',
+      encourage: 'הַקְשִׁיבוּ שׁוּב — הַבּוּעוֹת יָדִיעוּ.',
+    },
+    params: { rounds: 6, extra: { scene: 'sound-hunt' } },
+    baseTier: 2,
+    openEnded: false,
+  },
+
+  /* ---------- rhyme-pick — language / words-valley: rhyme families ---------- */
+  {
+    id: 'rhyme-pick-1',
+    kind: 'rhyme-pick',
+    zone: 'words-valley',
+    category: 'language',
+    skills: ['language.rhyme', 'memory.working'],
+    narrative: {
+      intro: ['הַיַּנְשׁוּף שָׁר מִלָּה קְטַנָּה.', 'שְׁתֵּי מִלִּים עוֹנוֹת — מִי מִתְחָרֵז אִתָּהּ?'],
+      win: 'הָאָזֶן הָרִאשׁוֹנָה שֶׁלְּךָ! מִלִּים מִתְחָרֵזוֹת!',
+      encourage: 'הַקְשִׁיבוּ שׁוּב — הַמִּלָּה תָּשִׁיר לְבַד.',
+    },
+    params: { rounds: 4 },
+    baseTier: 0,
+    openEnded: false,
+  },
+  {
+    id: 'rhyme-pick-2',
+    kind: 'rhyme-pick',
+    zone: 'words-valley',
+    category: 'language',
+    skills: ['language.rhyme', 'memory.working', 'language.phonemes'],
+    narrative: {
+      intro: ['עַכְשָׁו שָׁלֹשׁ מִלִּים עוֹנוֹת.', 'רַק אַחַת חוֹרֵפֶת — הָאָזֶן יוֹדַעַת.'],
+      win: 'כָּל הַחֲרִיזוֹת שֶׁלְּךָ! הָעֵמֶק שָׂרִיק!',
+      encourage: 'הַקְשִׁיבוּ שׁוּב — הַמִּלָּה תָּשִׁיר לְבַד.',
+    },
+    params: { rounds: 5 },
+    baseTier: 1,
+    openEnded: false,
+  },
+  {
+    id: 'rhyme-pick-3',
+    kind: 'rhyme-pick',
+    zone: 'words-valley',
+    category: 'language',
+    skills: ['language.rhyme', 'memory.working', 'language.phonemes'],
+    narrative: {
+      intro: ['הַיַּנְשׁוּף מְנַגֵּן מִלִּים.', 'מִלָּה אַחַת, שְׁלֹשׁ מִלִּים — וְהַחֲרִיזָה מֻשְׁלָמֶת.'],
+      win: 'אַלּוּף הַחֲרִיזָה! הַמִּלִּים מִתְאַהֲבוֹת!',
+      encourage: 'הַקְשִׁיבוּ שׁוּב — הַמִּלָּה תָּשִׁיר לְבַד.',
+    },
+    params: { rounds: 6 },
+    baseTier: 2,
+    openEnded: false,
+  },
 ];
 
 /** All games in a garden zone. */
