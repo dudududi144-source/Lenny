@@ -253,7 +253,12 @@ export class FpsGovernor {
 
     if (fps > 0) {
       if (fps < this.softFps) {
-        newScale = Math.min(tierCap, currentScale * this.scaleStep);
+        /* the first softening steps are BIG: a wide desktop viewport
+           needs the pixel floor within a couple of decisions, not a
+           12-rung 1.15 ladder (stage 15: the world grew, the ladder
+           had to keep up) */
+        const step = currentScale < 2 ? Math.max(this.scaleStep, 1.4) : this.scaleStep;
+        newScale = Math.min(tierCap, currentScale * step);
       } else if (fps > 55 && currentScale > this.baseScale) {
         newScale = Math.max(this.baseScale, currentScale * 0.94);
       }
@@ -265,7 +270,11 @@ export class FpsGovernor {
       }
     }
 
-    if (!this.spectacle && fps > 0 && fps < this.minFps && this.firstFrameAt !== null && now - this.firstFrameAt >= this.distressGraceMs) {
+    /* stage 15: distress arms only when the pixels are ALREADY as soft
+       as the tier allows — softening is the kind lever, and a wide
+       desktop viewport needs a beat on the floor before the verdict */
+    const atResolutionFloor = newScale >= tierCap - 1e-6;
+    if (!this.spectacle && atResolutionFloor && fps > 0 && fps < this.minFps && this.firstFrameAt !== null && now - this.firstFrameAt >= this.distressGraceMs) {
       /* recovery-aware distress (audit 9-b follow-up): a weak device that
          is CLIMBING out of the hole (wide canvas booted 4→10→13fps and was
          still killed mid-recovery) gets its budget paused while the trend
