@@ -49,59 +49,56 @@ async function tapAt(page: Page, fx: number, fy: number): Promise<void> {
   await page.mouse.up();
 }
 
-async function closeShelfIfOpen(page: Page): Promise<void> {
-  const shelf = page.locator('#world-shelf:not(.hidden)');
-  if (await shelf.isVisible().catch(() => false)) {
-    await page.locator('#world-shelf-close').click();
-    await expect(shelf).toBeHidden();
-  }
-}
 
-
-/** Wait until the fox finishes her current errand — a moving fox can
-    never be "within 1.9" of anywhere (CI's slow rounds re-aim her
-    mid-stride forever). Mirrors the pad walkers' settle discipline. */
-async function settleWalker(page: Page): Promise<void> {
-  for (let i = 0; i < 20; i++) {
-    const busy = await page.evaluate(() => window.__lennyWorld?.errand?.() != null);
-    if (!busy) return;
-    await page.waitForTimeout(400);
+/** Keyboard steering: the fox walks camera-relative, so the walker
+    steers by the target's SCREEN X (left/right keys + forward) — no
+    canvas taps, no pick rays, no overlay races. This is how a child
+    with arrows walks, and it survives CI's slow software GL. */
+async function releaseWalkKeys(page: Page): Promise<void> {
+  for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+    await page.keyboard.up(k).catch(() => undefined);
   }
 }
 
 async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number): Promise<void> {
-  for (let i = 0; i < 150; i++) {
-    await closeShelfIfOpen(page);
-    await settleWalker(page);
-    const p = await page.evaluate(() => window.__lennyWorld?.presencePos());
-    if (p && Math.hypot(p.x - wx, p.z - wz) <= nearDist) return;
-    /* stage 11: the world is journey-scale — a far errand is OFF-SCREEN.
-       A child walks toward it anyway: sample the bearing line for the
-       first stretch of ground that IS visible, and tap that. */
-    const spot = await page.evaluate(([x, z]) => {
-      const w = window.__lennyWorld!;
-      const me = w.presencePos()!;
-      const s = w.screenOf(x!, z!)!;
-      if (s.on && (s.x > 0.03 || s.x < 0.97) && s.y > 0.02) return { fx: s.x, fy: s.y };
-      const dx = x! - me.x;
-      const dz = z! - me.z;
-      const len = Math.hypot(dx, dz) || 1;
-      for (const k of [3, 5, 8, 12, 17, 23, 30]) {
-        const probe = w.screenOf(me.x + (dx / len) * k, me.z + (dz / len) * k);
-        if (probe && probe.on) return { fx: probe.x, fy: probe.y };
+  let lastTurn: 'left' | 'right' = 'right';
+  try {
+    for (let i = 0; i < 300; i++) {
+      const p = await page.evaluate(() => window.__lennyWorld?.presencePos());
+      if (p && Math.hypot(p.x - wx, p.z - wz) <= nearDist) return;
+      const steer = await page.evaluate(([x, z]) => {
+        const w = window.__lennyWorld!;
+        const s = w.screenOf(x!, z!);
+        if (!s) return null;
+        if (!s.on) return { turn: 'spin' as const, fx: s.x };
+        return { turn: s.x > 0.6 ? ('right' as const) : s.x < 0.4 ? ('left' as const) : ('none' as const), fx: s.x };
+      }, [wx, wz]);
+      if (!steer) throw new Error('world bridge gone (screenOf null — the world closed?)');
+      if (steer.turn === 'spin') {
+        /* the place is behind the camera — keep spinning one way until
+           it re-enters the frame (persisted so we never dither) */
+        await page.keyboard.down(lastTurn === 'right' ? 'ArrowRight' : 'ArrowLeft');
+        await page.keyboard.up('ArrowUp');
+        await page.waitForTimeout(320);
+        await page.keyboard.up('ArrowLeft');
+        await page.keyboard.up('ArrowRight');
+        continue;
       }
-      return null;
-    }, [wx, wz]);
-    if (!spot) throw new Error('no visible ground toward the errand');
-    /* the stage-14 camera keeps its visible ground in the UPPER band —
-       a tap clamped to mid-screen lands ON the fox (a no-op step) */
-    const fx = Math.min(0.78, Math.max(0.22, spot.fx));
-    const fy = Math.min(0.34, Math.max(0.10, spot.fy));
-    await tapAt(page, fx, fy);
-    await page.waitForTimeout(650);
+      if (steer.turn !== 'none') lastTurn = steer.turn;
+      await page.keyboard.up('ArrowLeft');
+      await page.keyboard.up('ArrowRight');
+      if (steer.turn === 'left') await page.keyboard.down('ArrowLeft');
+      if (steer.turn === 'right') await page.keyboard.down('ArrowRight');
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(340);
+      await page.keyboard.up('ArrowUp');
+    }
+    throw new Error(`never arrived near (${wx}, ${wz})`);
+  } finally {
+    await releaseWalkKeys(page);
   }
-  throw new Error(`never arrived near (${wx}, ${wz})`);
 }
+
 
 test('wayfinding: the child walks to the named place and the quest completes', async ({ page }) => {
   /* the errand stays child-sized (4–26u); CI's software-GL tap rounds
