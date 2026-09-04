@@ -50,94 +50,84 @@ async function tapAt(page: Page, fx: number, fy: number): Promise<void> {
 }
 
 
-/** Compass steering: the walker never guesses the camera. Each round
-    it probes eight WORLD directions through the bridge — the one that
-    projects at screen-center IS the camera's forward — then presses
-    the key combo whose angle best matches the bearing to the target.
-    No taps, no rays, no dithering, no spin state. */
-const WALK_DIRS: Array<{ keys: string[]; a: number }> = [
-  { keys: ['ArrowUp'], a: 0 },
-  { keys: ['ArrowUp', 'ArrowRight'], a: Math.PI / 4 },
-  { keys: ['ArrowRight'], a: Math.PI / 2 },
-  { keys: ['ArrowDown', 'ArrowRight'], a: (3 * Math.PI) / 4 },
-  { keys: ['ArrowDown'], a: Math.PI },
-  { keys: ['ArrowDown', 'ArrowLeft'], a: (-3 * Math.PI) / 4 },
-  { keys: ['ArrowLeft'], a: -Math.PI / 2 },
-  { keys: ['ArrowUp', 'ArrowLeft'], a: -Math.PI / 4 },
-];
-
+/** Screen-delta steering: the fox's 8 walk directions ARE the eight
+    screen directions (forward = ground below-center, strafe right =
+    right of center), so the walker simply steers by the target's
+    screen offset from the fox's own pixel — zero world-space math,
+    zero camera conventions. A target behind the camera gets an orbit
+    drag (with a flip-if-it-doesn't-help feedback loop). */
 async function releaseWalkKeys(page: Page): Promise<void> {
   for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
     await page.keyboard.up(k).catch(() => undefined);
   }
 }
 
+async function dragOrbit(page: Page, dir: number): Promise<void> {
+  const box = await page.locator('.world-canvas').boundingBox();
+  if (!box) return;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx + dir * (box.width * 0.4), cy, { steps: 9 });
+  await page.mouse.up();
+}
+
 async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number): Promise<void> {
-  let stuck = 0;
-  let lastX = NaN;
-  let lastZ = NaN;
+  let orbitDir: number = 1;
+  let orbitMiss = 0;
+  let orbitBudget = 12;
   try {
-    for (let round = 0; round < 300; round++) {
-      const step = await page.evaluate(([x, z]) => {
+    for (let round = 0; round < 260; round++) {
+      const steer = await page.evaluate(([x, z]) => {
         const w = window.__lennyWorld!;
         const me = w.presencePos()!;
-        /* the bearing to the target, world-space */
-        const bt = Math.atan2(x! - me.x, z! - me.z);
-        /* probe eight world directions — the one projecting nearest the
-           screen center is the camera's forward */
-        let bestA = 0;
-        let bestScore = Infinity;
-        for (let k = 0; k < 8; k++) {
-          const a = (k * Math.PI) / 4;
-          const pr = w.screenOf(me.x + Math.sin(a) * 4, me.z + Math.cos(a) * 4);
-          if (!pr || !pr.on) continue;
-          const score = Math.abs(pr.x - 0.5) + Math.abs(pr.y - 0.6) * 0.4;
-          if (score < bestScore) {
-            bestScore = score;
-            bestA = a;
-          }
-        }
-        /* the relative angle target-vs-forward, quantized to 45° */
-        let d = bt - bestA;
-        while (d > Math.PI) d -= Math.PI * 2;
-        while (d < -Math.PI) d += Math.PI * 2;
-        const idx = Math.round(d / (Math.PI / 4));
-        const dir = WALK_DIRS[((idx % 8) + 8) % 8];
-        return { keys: dir.keys, dist: Math.hypot(x! - me.x, z! - me.z) };
+        const f = w.screenOf(me.x, me.z) ?? { x: 0.5, y: 0.55, on: true };
+        const t = w.screenOf(x!, z!);
+        if (!t) return null;
+        return { on: t.on, dx: t.x - f.x, dy: t.y - f.y, dist: Math.hypot(x! - me.x, z! - me.z) };
       }, [wx, wz]);
-      if (!step) throw new Error('world bridge gone (screenOf null — the world closed?)');
-      if (step.dist <= nearDist) return;
+      if (!steer) throw new Error('world bridge gone (screenOf null — the world closed?)');
+      if (steer.dist <= nearDist) return;
+
+      if ((!steer.on || Math.abs(steer.dx) > 0.45) && orbitBudget > 0) {
+        /* behind the camera or far off to one side — orbit until it
+           enters the frame; flip the direction if two drags did nothing.
+           Bounded: a bounded orbit can never eat the whole clock. */
+        await dragOrbit(page, orbitDir);
+        orbitBudget -= 1;
+        orbitMiss += 1;
+        if (orbitMiss >= 2) {
+          orbitDir = -orbitDir;
+          orbitMiss = 0;
+        }
+        continue;
+      }
+      orbitMiss = 0;
+
       for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
         await page.keyboard.up(k).catch(() => undefined);
       }
-      for (const k of step.keys) await page.keyboard.down(k);
+      /* screen-down IS the ground ahead; screen-up is the far horizon —
+         both mean "walk forward". Screen sides are the strafe keys. */
+      if (steer.dx > 0.06) await page.keyboard.down('ArrowRight');
+      else if (steer.dx < -0.06) await page.keyboard.down('ArrowLeft');
+      await page.keyboard.down('ArrowUp');
       await page.waitForTimeout(360);
-      for (const k of step.keys) await page.keyboard.up(k);
-      /* a shelf or a surface can swallow the keys — Escape reclaims them */
-      const now = await page.evaluate(() => window.__lennyWorld?.presencePos());
-      if (now && Math.hypot(now.x - lastX, now.z - lastZ) < 0.15) {
-        stuck += 1;
-        if (stuck >= 3) {
-          stuck = 0;
-          await page.keyboard.press('Escape').catch(() => undefined);
-        }
-      } else {
-        stuck = 0;
-      }
-      if (now) {
-        lastX = now.x;
-        lastZ = now.z;
+      for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+        await page.keyboard.up(k).catch(() => undefined);
       }
     }
     const end = await page.evaluate(() => {
       const w = window.__lennyWorld;
       return w ? { me: w.presencePos(), fps: Math.round(w.fps()), phase: w.phase?.() } : 'bridge-gone';
     });
-    throw new Error(`never arrived near (${wx}, ${wz}) — fox at ${JSON.stringify(end)} after 300 rounds`);
+    throw new Error(`never arrived near (${wx}, ${wz}) — fox at ${JSON.stringify(end)} after 260 rounds`);
   } finally {
     await releaseWalkKeys(page);
   }
 }
+
 
 
 
