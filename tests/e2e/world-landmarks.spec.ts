@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /* The places beyond the path (critic round B, W1):
- *   - sixteen landmarks exist, none found on a fresh garden (stage 11)
+ *   - ninety-five landmarks exist, none found on a fresh garden (15-B)
  *   - walking close to one discovers it: narration + persistent found
  *   - the name plate (environmental print) shows after discovery
  *   - discovery survives a reload (lenny-world-found-v1)
@@ -106,10 +106,10 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
 
 
 
-test('fifty landmarks exist and a fresh garden has found none', async ({ page }) => {
+test('ninety-five landmarks exist and a fresh garden has found none', async ({ page }) => {
   await openWorld(page);
   const landmarks = await page.evaluate(() => window.__lennyWorld?.landmarks());
-  expect(landmarks!.length).toBe(50);
+  expect(landmarks!.length).toBe(95);
   expect(landmarks!.every((l) => !l.found)).toBe(true);
   expect(await page.evaluate(() => window.__lennyWorld?.foundCount())).toBe(0);
 });

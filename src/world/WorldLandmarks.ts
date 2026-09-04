@@ -100,7 +100,20 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
   sandMat.diffuseColor = hex('#dcb877');
   sandMat.specularColor = new Color3(0.06, 0.05, 0.03);
 
-  const allMats = [barkMat, leafMat, waterMat, stoneMat, goldMat, roseMat, tealMat, sandMat];
+  /* stage 15-B: the vast continent — three shared looks for the four
+     new lands (crystal shine, one warm red, one soft violet) */
+  const crystalMat = new StandardMaterial('lm-crystal', scene);
+  crystalMat.diffuseColor = hex('#bfe3f5');
+  crystalMat.emissiveColor = hex('#a8d8f0').scale(0.45);
+  crystalMat.specularColor = new Color3(0.3, 0.35, 0.4);
+  const redMat = new StandardMaterial('lm-red', scene);
+  redMat.diffuseColor = hex('#e0704f');
+  redMat.specularColor = new Color3(0.04, 0.02, 0.02);
+  const violetMat = new StandardMaterial('lm-violet', scene);
+  violetMat.diffuseColor = hex('#9a7fd0');
+  violetMat.specularColor = new Color3(0.03, 0.03, 0.05);
+
+  const allMats = [barkMat, leafMat, waterMat, stoneMat, goldMat, roseMat, tealMat, sandMat, crystalMat, redMat, violetMat];
   const allMeshes: Mesh[] = [];
 
   /* the parts of the CURRENT landmark, merged into one mesh per place —
@@ -1018,6 +1031,674 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
         core.material = goldMat;
         break;
       }
+      /* ---------- stage 15-B: the vast continent — the four new
+         lands (each hero + four interior places), twenty
+         between-lands somewheres, one new garden place ---------- */
+      case 'bird-post': {
+        /* the garden's new east-quarter perch: a post, little shelves
+           and one round bird, ~3u — hub proportions */
+        const post = mesh(`landmark-${l.id}-p`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p`, { diameterBottom: 0.2, diameterTop: 0.14, height: 2.6, tessellation: 7 }, scene));
+        post.position.set(l.x, 1.3 + gy, l.z);
+        post.material = barkMat;
+        for (let i = 0; i < 3; i++) {
+          const shelf = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateBox(`landmark-${l.id}-s${i}`, { width: 0.55, height: 0.06, depth: 0.3 }, scene));
+          shelf.position.set(l.x, 0.9 + i * 0.65 + gy, l.z + 0.12);
+          shelf.material = leafMat;
+        }
+        const roof = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateCylinder(`landmark-${l.id}-r`, { diameterBottom: 0.7, diameterTop: 0, height: 0.4, tessellation: 7 }, scene));
+        roof.position.set(l.x, 2.8 + gy, l.z);
+        roof.material = redMat;
+        const bird = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateSphere(`landmark-${l.id}-b`, { diameterX: 0.34, diameterY: 0.3, diameterZ: 0.42, segments: 6 }, scene));
+        bird.position.set(l.x, 1.85 + gy, l.z + 0.2);
+        bird.material = goldMat;
+        break;
+      }
+      case 'lantern-tree': {
+        /* the night woods' hero: an old tree hung with lanterns, ~12u */
+        const trunk = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameterBottom: 2.2, diameterTop: 1.2, height: 7.4, tessellation: 9 }, scene));
+        trunk.position.set(l.x, 3.7 + gy, l.z);
+        trunk.material = barkMat;
+        const crown = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateSphere(`landmark-${l.id}-c`, { diameterX: 11.0, diameterY: 7.0, diameterZ: 11.0, segments: 6 }, scene));
+        crown.position.set(l.x, 9.2 + gy, l.z);
+        crown.material = leafMat;
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2 + 0.3;
+          const lan = mesh(`landmark-${l.id}-l${i}`, MeshBuilder.CreateBox(`landmark-${l.id}-l${i}`, { width: 0.5, height: 0.7, depth: 0.5 }, scene));
+          lan.position.set(l.x + Math.cos(ang) * 3.4, 4.6 + (i % 3) * 0.9 + gy, l.z + Math.sin(ang) * 3.4);
+          lan.material = goldMat;
+        }
+        break;
+      }
+      case 'owl-hollow': {
+        /* a hollow tree with two big round eyes, ~7u */
+        const trunk = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameterBottom: 2.4, diameterTop: 1.8, height: 6.4, tessellation: 9 }, scene));
+        trunk.position.set(l.x, 3.2 + gy, l.z);
+        trunk.material = barkMat;
+        const hollow = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateDisc(`landmark-${l.id}-h`, { radius: 0.9, tessellation: 14 }, scene));
+        hollow.position.set(l.x, 2.6 + gy, l.z + 1.13);
+        hollow.material = stoneMat;
+        for (const sx of [-0.5, 0.5]) {
+          const eye = mesh(`landmark-${l.id}-e${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateTorus(`landmark-${l.id}-e${sx > 0 ? 'r' : 'l'}`, { diameter: 0.62, thickness: 0.14, tessellation: 10 }, scene));
+          eye.position.set(l.x + sx, 4.6 + gy, l.z + 1.2);
+          eye.material = goldMat;
+        }
+        const crown = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateSphere(`landmark-${l.id}-c`, { diameterX: 5.4, diameterY: 3.4, diameterZ: 5.4, segments: 6 }, scene));
+        crown.position.set(l.x, 7.4 + gy, l.z);
+        crown.material = leafMat;
+        break;
+      }
+      case 'star-pool': {
+        /* a dark pool the stars fell into, ~5u across */
+        const rim = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateTorus(`landmark-${l.id}-r`, { diameter: 5.0, thickness: 0.4, tessellation: 14 }, scene));
+        rim.position.set(l.x, 0.12 + gy, l.z);
+        rim.scaling.y = 0.4;
+        rim.material = stoneMat;
+        const water = mesh(`landmark-${l.id}-w`, MeshBuilder.CreateDisc(`landmark-${l.id}-w`, { radius: 2.4, tessellation: 18 }, scene));
+        water.position.set(l.x, 0.08 + gy, l.z);
+        water.rotation.x = Math.PI / 2;
+        water.material = tealMat;
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2;
+          const star = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-s${i}`, { type: 1, size: 0.16 }, scene));
+          star.position.set(l.x + Math.cos(ang) * 1.2, 0.2 + gy, l.z + Math.sin(ang) * 1.2);
+          star.material = goldMat;
+        }
+        break;
+      }
+      case 'moth-meadow': {
+        /* a glade where moths dance: pale wings on soft bushes, ~4u */
+        for (let i = 0; i < 4; i++) {
+          const ang = (i / 4) * Math.PI * 2;
+          const bush = mesh(`landmark-${l.id}-b${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-b${i}`, { diameter: 1.1, segments: 6 }, scene));
+          bush.position.set(l.x + Math.cos(ang) * 1.9, 0.35 + gy, l.z + Math.sin(ang) * 1.9);
+          bush.material = leafMat;
+          const wing = mesh(`landmark-${l.id}-w${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-w${i}`, { diameter: 0.5, segments: 5 }, scene));
+          wing.scaling.y = 0.4;
+          wing.position.set(l.x + Math.cos(ang) * 1.9, 1.15 + gy, l.z + Math.sin(ang) * 1.9);
+          wing.material = violetMat;
+        }
+        const drop = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateCylinder(`landmark-${l.id}-d`, { diameter: 0.1, height: 1.3, tessellation: 5 }, scene));
+        drop.position.set(l.x, 0.65 + gy, l.z);
+        drop.material = barkMat;
+        break;
+      }
+      case 'night-bell': {
+        /* a small sleepy bell on a wooden frame, ~4.5u */
+        for (const sx of [-1.2, 1.2]) {
+          const leg = mesh(`landmark-${l.id}-lg${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-lg${sx > 0 ? 'r' : 'l'}`, { diameter: 0.22, height: 3.4, tessellation: 6 }, scene));
+          leg.position.set(l.x + sx, 1.7 + gy, l.z);
+          leg.material = barkMat;
+        }
+        const bar = mesh(`landmark-${l.id}-bar`, MeshBuilder.CreateBox(`landmark-${l.id}-bar`, { width: 3.0, height: 0.22, depth: 0.24 }, scene));
+        bar.position.set(l.x, 3.5 + gy, l.z);
+        bar.material = barkMat;
+        const bell = mesh(`landmark-${l.id}-bell`, MeshBuilder.CreateCylinder(`landmark-${l.id}-bell`, { diameterBottom: 1.3, diameterTop: 0.5, height: 1.5, tessellation: 12 }, scene));
+        bell.position.set(l.x, 2.6 + gy, l.z);
+        bell.material = goldMat;
+        break;
+      }
+      case 'crystal-peak': {
+        /* the crystal foothills' hero: a shining mountain of shards, ~14u */
+        for (let i = 0; i < 7; i++) {
+          const ang = (i / 7) * Math.PI * 2;
+          const h = 6.5 + (i % 3) * 3.4;
+          const spike = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s${i}`, { diameterTop: 0, diameterBottom: 2.4, height: h, tessellation: 6 }, scene));
+          spike.position.set(l.x + Math.cos(ang) * 2.2, h / 2 + gy, l.z + Math.sin(ang) * 2.2);
+          spike.rotation.z = Math.cos(ang) * 0.12;
+          spike.rotation.x = -Math.sin(ang) * 0.12;
+          spike.material = crystalMat;
+        }
+        const crown = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateCylinder(`landmark-${l.id}-c`, { diameterTop: 0, diameterBottom: 3.4, height: 12.5, tessellation: 6 }, scene));
+        crown.position.set(l.x, 6.25 + gy, l.z);
+        crown.material = crystalMat;
+        break;
+      }
+      case 'echo-cave': {
+        /* a cave mouth that answers, ~6u */
+        const face = mesh(`landmark-${l.id}-f`, MeshBuilder.CreateCylinder(`landmark-${l.id}-f`, { diameter: 5.6, height: 4.2, tessellation: 10 }, scene));
+        face.scaling.z = 0.7;
+        face.position.set(l.x, 2.1 + gy, l.z);
+        face.material = stoneMat;
+        const mouth = mesh(`landmark-${l.id}-m`, MeshBuilder.CreateDisc(`landmark-${l.id}-m`, { radius: 1.5, tessellation: 16 }, scene));
+        mouth.position.set(l.x, 1.5 + gy, l.z + 2.0);
+        mouth.material = barkMat;
+        const step = mesh(`landmark-${l.id}-st`, MeshBuilder.CreateBox(`landmark-${l.id}-st`, { width: 2.6, height: 0.3, depth: 1.0 }, scene));
+        step.position.set(l.x, 0.15 + gy, l.z + 2.6);
+        step.material = stoneMat;
+        break;
+      }
+      case 'gem-bridge': {
+        /* a little arched bridge of crystals, ~7u long */
+        const deck = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateBox(`landmark-${l.id}-d`, { width: 6.4, height: 0.3, depth: 1.4 }, scene));
+        deck.position.set(l.x, 1.5 + gy, l.z);
+        deck.rotation.z = 0.06;
+        deck.material = crystalMat;
+        for (const sx of [-3.0, 3.0]) {
+          const pier = mesh(`landmark-${l.id}-p${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p${sx > 0 ? 'r' : 'l'}`, { diameter: 1.0, height: 1.6, tessellation: 8 }, scene));
+          pier.position.set(l.x + sx, 0.8 + gy, l.z);
+          pier.material = stoneMat;
+        }
+        const rail = mesh(`landmark-${l.id}-ra`, MeshBuilder.CreateTorus(`landmark-${l.id}-ra`, { diameter: 6.8, thickness: 0.22, tessellation: 18 }, scene));
+        rail.position.set(l.x, 0.4 + gy, l.z);
+        rail.scaling.y = 2.4;
+        rail.material = crystalMat;
+        break;
+      }
+      case 'quartz-field': {
+        /* a field of light-quills growing from the earth, ~5u */
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2 + 0.4;
+          const rr = 0.9 + (i % 3) * 0.8;
+          const h = 1.0 + (i % 4) * 0.7;
+          const quill = mesh(`landmark-${l.id}-q${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-q${i}`, { diameterTop: 0, diameterBottom: 0.5, height: h, tessellation: 5 }, scene));
+          quill.position.set(l.x + Math.cos(ang) * rr, h / 2 + gy, l.z + Math.sin(ang) * rr);
+          quill.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.16;
+          quill.material = crystalMat;
+        }
+        const base = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateDisc(`landmark-${l.id}-b`, { radius: 3.0, tessellation: 16 }, scene));
+        base.position.set(l.x, 0.04 + gy, l.z);
+        base.rotation.x = Math.PI / 2;
+        base.material = sandMat;
+        break;
+      }
+      case 'gem-geode': {
+        /* a round stone cracked open — a world of glitter inside, ~4u */
+        const outer = mesh(`landmark-${l.id}-o`, MeshBuilder.CreateSphere(`landmark-${l.id}-o`, { diameter: 3.6, segments: 7 }, scene));
+        outer.position.set(l.x, 1.5 + gy, l.z);
+        outer.scaling.y = 0.85;
+        outer.material = stoneMat;
+        const heart = mesh(`landmark-${l.id}-h`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-h`, { type: 1, size: 1.15 }, scene));
+        heart.position.set(l.x, 1.5 + gy, l.z);
+        heart.material = crystalMat;
+        const shard = mesh(`landmark-${l.id}-s`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s`, { diameterTop: 0, diameterBottom: 0.7, height: 1.5, tessellation: 5 }, scene));
+        shard.position.set(l.x + 1.4, 0.75 + gy, l.z + 0.6);
+        shard.rotation.z = 0.5;
+        shard.material = crystalMat;
+        break;
+      }
+      case 'rainbow-tower': {
+        /* the rainbow hills' hero: a tower where every stone is its own
+           color, ~12u — six shared looks stacked */
+        const stack: StandardMaterial[] = [redMat, goldMat, leafMat, tealMat, roseMat, violetMat];
+        for (let i = 0; i < 6; i++) {
+          const block = mesh(`landmark-${l.id}-b${i}`, MeshBuilder.CreateBox(`landmark-${l.id}-b${i}`, { width: 3.4 - i * 0.28, height: 1.85, depth: 3.4 - i * 0.28 }, scene));
+          block.position.set(l.x, 0.95 + i * 1.85 + gy, l.z);
+          block.rotation.y = i * 0.09;
+          block.material = stack[i];
+        }
+        const tip = mesh(`landmark-${l.id}-tip`, MeshBuilder.CreateCylinder(`landmark-${l.id}-tip`, { diameterBottom: 1.7, diameterTop: 0, height: 1.6, tessellation: 8 }, scene));
+        tip.position.set(l.x, 12.1 + gy, l.z);
+        tip.material = goldMat;
+        break;
+      }
+      case 'paint-hill': {
+        /* a hill the rainbow spilled its paint on, ~7u */
+        const hill = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateSphere(`landmark-${l.id}-h`, { diameterX: 9.0, diameterY: 5.6, diameterZ: 9.0, segments: 7 }, scene));
+        hill.position.set(l.x, 0.6 + gy, l.z);
+        hill.material = leafMat;
+        const drips: Array<[number, number, StandardMaterial]> = [
+          [-2.6, 2.4, roseMat],
+          [0.4, 3.0, goldMat],
+          [2.8, 2.0, tealMat],
+        ];
+        for (let i = 0; i < drips.length; i++) {
+          const [dx, dy, dm] = drips[i];
+          const drip = mesh(`landmark-${l.id}-d${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-d${i}`, { diameter: 0.7, height: 1.6, tessellation: 8 }, scene));
+          drip.position.set(l.x + dx, dy + gy, l.z + 2.6);
+          drip.material = dm;
+        }
+        break;
+      }
+      case 'prism-rock': {
+        /* a stone that throws little rainbows, ~4.5u */
+        const rock = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-r`, { radius: 1.7, subdivisions: 1 }, scene));
+        rock.position.set(l.x, 1.0 + gy, l.z);
+        rock.scaling.y = 0.8;
+        rock.material = stoneMat;
+        const prism = mesh(`landmark-${l.id}-p`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-p`, { type: 1, size: 0.85 }, scene));
+        prism.position.set(l.x, 2.9 + gy, l.z);
+        prism.material = crystalMat;
+        const glint = mesh(`landmark-${l.id}-g`, MeshBuilder.CreateDisc(`landmark-${l.id}-g`, { radius: 1.2, tessellation: 14 }, scene));
+        glint.position.set(l.x, 1.0 + gy, l.z + 1.8);
+        glint.rotation.x = -0.5;
+        glint.material = violetMat;
+        break;
+      }
+      case 'kite-tree': {
+        /* a tree the wind decorated with kites, ~8u */
+        const trunk = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameterBottom: 1.1, diameterTop: 0.6, height: 5.0, tessellation: 8 }, scene));
+        trunk.position.set(l.x, 2.5 + gy, l.z);
+        trunk.material = barkMat;
+        const crown = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateSphere(`landmark-${l.id}-c`, { diameterX: 6.4, diameterY: 4.6, diameterZ: 6.4, segments: 6 }, scene));
+        crown.position.set(l.x, 6.4 + gy, l.z);
+        crown.material = leafMat;
+        const kites: Array<[number, number, StandardMaterial]> = [
+          [-2.2, 5.4, redMat],
+          [1.8, 6.6, goldMat],
+          [0.6, 4.6, violetMat],
+        ];
+        for (let i = 0; i < kites.length; i++) {
+          const [kx, ky, km] = kites[i];
+          const kite = mesh(`landmark-${l.id}-k${i}`, MeshBuilder.CreatePlane(`landmark-${l.id}-k${i}`, { width: 0.9, height: 0.9 }, scene));
+          kite.position.set(l.x + kx, ky + gy, l.z + 2.2);
+          kite.rotation.y = 0.5 * i;
+          kite.material = km;
+          const tail = mesh(`landmark-${l.id}-tl${i}`, MeshBuilder.CreateBox(`landmark-${l.id}-tl${i}`, { width: 0.06, height: 1.1, depth: 0.03 }, scene));
+          tail.position.set(l.x + kx, ky - 1.0 + gy, l.z + 2.2);
+          tail.material = barkMat;
+        }
+        break;
+      }
+      case 'color-spring': {
+        /* a spring that answers every day in another color, ~4u */
+        const rim = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateTorus(`landmark-${l.id}-r`, { diameter: 3.8, thickness: 0.35, tessellation: 12 }, scene));
+        rim.position.set(l.x, 0.1 + gy, l.z);
+        rim.scaling.y = 0.4;
+        rim.material = stoneMat;
+        const water = mesh(`landmark-${l.id}-w`, MeshBuilder.CreateDisc(`landmark-${l.id}-w`, { radius: 1.8, tessellation: 16 }, scene));
+        water.position.set(l.x, 0.07 + gy, l.z);
+        water.rotation.x = Math.PI / 2;
+        water.material = roseMat;
+        const drop = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateSphere(`landmark-${l.id}-d`, { diameter: 0.5, segments: 6 }, scene));
+        drop.position.set(l.x, 0.5 + gy, l.z);
+        drop.material = goldMat;
+        break;
+      }
+      case 'tide-pools': {
+        /* the lake-shore hero: three rock-ringed pools, ~10u across */
+        const pools: Array<[number, number, number]> = [
+          [-2.6, 1.2, 2.6],
+          [2.4, 0.6, 2.1],
+          [0.2, -2.4, 1.7],
+        ];
+        for (let i = 0; i < pools.length; i++) {
+          const [px, pz, pr] = pools[i];
+          const rim = mesh(`landmark-${l.id}-r${i}`, MeshBuilder.CreateTorus(`landmark-${l.id}-r${i}`, { diameter: pr * 2, thickness: 0.42, tessellation: 12 }, scene));
+          rim.position.set(l.x + px, 0.12 + gy, l.z + pz);
+          rim.scaling.y = 0.45;
+          rim.material = stoneMat;
+          const water = mesh(`landmark-${l.id}-w${i}`, MeshBuilder.CreateDisc(`landmark-${l.id}-w${i}`, { radius: pr - 0.25, tessellation: 14 }, scene));
+          water.position.set(l.x + px, 0.09 + gy, l.z + pz);
+          water.rotation.x = Math.PI / 2;
+          water.material = i === 1 ? roseMat : tealMat;
+        }
+        break;
+      }
+      case 'lighthouse': {
+        /* the shore's hero: a striped little light-tower, ~11u */
+        const base = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateCylinder(`landmark-${l.id}-b`, { diameterBottom: 3.2, diameterTop: 2.4, height: 2.2, tessellation: 12 }, scene));
+        base.position.set(l.x, 1.1 + gy, l.z);
+        base.material = stoneMat;
+        const tower = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameterBottom: 2.2, diameterTop: 1.5, height: 7.2, tessellation: 12 }, scene));
+        tower.position.set(l.x, 5.8 + gy, l.z);
+        tower.material = sandMat;
+        for (let i = 0; i < 2; i++) {
+          const stripe = mesh(`landmark-${l.id}-st${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-st${i}`, { diameterBottom: 2.05 - i * 0.26, diameterTop: 1.8 - i * 0.26, height: 1.1, tessellation: 12 }, scene));
+          stripe.position.set(l.x, 4.0 + i * 2.6 + gy, l.z);
+          stripe.material = redMat;
+        }
+        const lampRoom = mesh(`landmark-${l.id}-l`, MeshBuilder.CreateCylinder(`landmark-${l.id}-l`, { diameter: 1.6, height: 1.2, tessellation: 10 }, scene));
+        lampRoom.position.set(l.x, 10.0 + gy, l.z);
+        lampRoom.material = goldMat;
+        const cap = mesh(`landmark-${l.id}-cap`, MeshBuilder.CreateCylinder(`landmark-${l.id}-cap`, { diameterBottom: 2.0, diameterTop: 0, height: 1.0, tessellation: 10 }, scene));
+        cap.position.set(l.x, 11.1 + gy, l.z);
+        cap.material = redMat;
+        break;
+      }
+      case 'old-pier': {
+        /* an old wooden pier walking into the water, ~9u */
+        const deck = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateBox(`landmark-${l.id}-d`, { width: 1.8, height: 0.22, depth: 8.4 }, scene));
+        deck.position.set(l.x, 0.75 + gy, l.z + 1.4);
+        deck.material = barkMat;
+        for (let i = 0; i < 3; i++) {
+          const pz = l.z - 1.6 + i * 3.0;
+          for (const sx of [-0.7, 0.7]) {
+            const post = mesh(`landmark-${l.id}-p${i}${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p${i}${sx > 0 ? 'r' : 'l'}`, { diameter: 0.26, height: 1.6, tessellation: 6 }, scene));
+            post.position.set(l.x + sx, 0.55 + gy, pz);
+            post.material = barkMat;
+          }
+        }
+        break;
+      }
+      case 'shell-bed': {
+        /* giant shells standing up — hold one to your ear, ~4u */
+        for (let i = 0; i < 3; i++) {
+          const ang = (i / 3) * Math.PI * 2 + 0.5;
+          const shell = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-s${i}`, { diameter: 1.7 - i * 0.25, segments: 7, slice: 0.5 }, scene));
+          shell.position.set(l.x + Math.cos(ang) * 1.3, 0.7 + gy, l.z + Math.sin(ang) * 1.3);
+          shell.rotation.x = Math.PI / 2.2;
+          shell.rotation.y = -ang;
+          shell.material = i === 1 ? roseMat : sandMat;
+        }
+        const bed = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateDisc(`landmark-${l.id}-b`, { radius: 2.6, tessellation: 14 }, scene));
+        bed.position.set(l.x, 0.04 + gy, l.z);
+        bed.rotation.x = Math.PI / 2;
+        bed.material = sandMat;
+        break;
+      }
+      case 'moored-boat': {
+        /* a small boat tied to the shore, ~4.5u */
+        const hull = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateCylinder(`landmark-${l.id}-h`, { diameter: 1.7, height: 3.2, tessellation: 7 }, scene));
+        hull.rotation.z = Math.PI / 2;
+        hull.scaling.y = 0.55;
+        hull.position.set(l.x, 0.4 + gy, l.z);
+        hull.material = barkMat;
+        const mast = mesh(`landmark-${l.id}-m`, MeshBuilder.CreateCylinder(`landmark-${l.id}-m`, { diameter: 0.14, height: 3.0, tessellation: 6 }, scene));
+        mast.position.set(l.x, 2.0 + gy, l.z);
+        mast.material = barkMat;
+        const sail = mesh(`landmark-${l.id}-s`, MeshBuilder.CreatePlane(`landmark-${l.id}-s`, { width: 1.5, height: 1.9 }, scene));
+        sail.position.set(l.x + 0.75, 2.3 + gy, l.z);
+        sail.rotation.y = Math.PI / 2;
+        sail.material = sandMat;
+        const rope = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateBox(`landmark-${l.id}-r`, { width: 0.05, height: 0.05, depth: 2.0 }, scene));
+        rope.position.set(l.x, 0.5 + gy, l.z - 2.4);
+        rope.material = barkMat;
+        break;
+      }
+      case 'maple-row': {
+        /* red maples in a row — autumn rain of leaves, ~8u */
+        for (let i = 0; i < 3; i++) {
+          const tx = l.x + (i - 1) * 3.2;
+          const trunk = mesh(`landmark-${l.id}-t${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t${i}`, { diameterBottom: 0.6, diameterTop: 0.35, height: 3.6 + (i % 2) * 0.8, tessellation: 7 }, scene));
+          trunk.position.set(tx, 1.8 + gy, l.z);
+          trunk.material = barkMat;
+          const crown = mesh(`landmark-${l.id}-c${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-c${i}`, { diameter: 3.4, segments: 6 }, scene));
+          crown.position.set(tx, 4.6 + (i % 2) * 0.6 + gy, l.z);
+          crown.material = redMat;
+        }
+        break;
+      }
+      case 'pine-crest': {
+        /* a crest of tall pines on a rocky shoulder, ~9u */
+        const crest = mesh(`landmark-${l.id}-cr`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-cr`, { radius: 2.8, subdivisions: 1 }, scene));
+        crest.position.set(l.x, 0.8 + gy, l.z);
+        crest.scaling.y = 0.6;
+        crest.material = stoneMat;
+        for (let i = 0; i < 3; i++) {
+          const px = l.x + (i - 1) * 1.7;
+          const h = 4.6 + (i % 2) * 1.2;
+          const trunk = mesh(`landmark-${l.id}-t${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t${i}`, { diameterBottom: 0.4, diameterTop: 0.22, height: h, tessellation: 6 }, scene));
+          trunk.position.set(px, h / 2 + 1.6 + gy, l.z + (i % 2) * 0.6);
+          trunk.material = barkMat;
+          const crown = mesh(`landmark-${l.id}-c${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-c${i}`, { diameterTop: 0, diameterBottom: 1.9, height: 2.6, tessellation: 7 }, scene));
+          crown.position.set(px, h + 2.2 + gy, l.z + (i % 2) * 0.6);
+          crown.material = leafMat;
+        }
+        break;
+      }
+      case 'heron-reed': {
+        /* reeds and a heron thinking on one leg, ~5u */
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2 + 0.2;
+          const reed = mesh(`landmark-${l.id}-r${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-r${i}`, { diameterTop: 0.03, diameterBottom: 0.08, height: 1.4 + (i % 3) * 0.4, tessellation: 5 }, scene));
+          reed.position.set(l.x + Math.cos(ang) * 1.7, 0.7 + gy, l.z + Math.sin(ang) * 1.7);
+          reed.material = leafMat;
+        }
+        const body = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateSphere(`landmark-${l.id}-b`, { diameterX: 0.8, diameterY: 0.6, diameterZ: 1.2, segments: 6 }, scene));
+        body.position.set(l.x, 2.2 + gy, l.z);
+        body.material = sandMat;
+        const neck = mesh(`landmark-${l.id}-n`, MeshBuilder.CreateCylinder(`landmark-${l.id}-n`, { diameter: 0.12, height: 1.4, tessellation: 6 }, scene));
+        neck.position.set(l.x + 0.3, 3.0 + gy, l.z + 0.3);
+        neck.rotation.z = -0.3;
+        neck.material = sandMat;
+        const leg = mesh(`landmark-${l.id}-lg`, MeshBuilder.CreateCylinder(`landmark-${l.id}-lg`, { diameter: 0.07, height: 1.6, tessellation: 5 }, scene));
+        leg.position.set(l.x, 0.9 + gy, l.z);
+        leg.material = stoneMat;
+        const beak = mesh(`landmark-${l.id}-bk`, MeshBuilder.CreateCylinder(`landmark-${l.id}-bk`, { diameterBottom: 0.05, diameterTop: 0.16, height: 0.6, tessellation: 5 }, scene));
+        beak.position.set(l.x + 0.62, 3.55 + gy, l.z + 0.35);
+        beak.rotation.z = Math.PI / 2;
+        beak.material = goldMat;
+        break;
+      }
+      case 'stone-spring': {
+        /* water rising between old stones, ~3.5u */
+        for (let i = 0; i < 4; i++) {
+          const ang = (i / 4) * Math.PI * 2 + 0.6;
+          const st = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-s${i}`, { radius: 0.55, subdivisions: 1 }, scene));
+          st.position.set(l.x + Math.cos(ang) * 1.4, 0.3 + gy, l.z + Math.sin(ang) * 1.4);
+          st.material = stoneMat;
+        }
+        const well = mesh(`landmark-${l.id}-w`, MeshBuilder.CreateCylinder(`landmark-${l.id}-w`, { diameter: 1.5, height: 0.5, tessellation: 10 }, scene));
+        well.position.set(l.x, 0.25 + gy, l.z);
+        well.material = stoneMat;
+        const water = mesh(`landmark-${l.id}-wa`, MeshBuilder.CreateDisc(`landmark-${l.id}-wa`, { radius: 0.62, tessellation: 12 }, scene));
+        water.position.set(l.x, 0.52 + gy, l.z);
+        water.rotation.x = Math.PI / 2;
+        water.material = tealMat;
+        const bubble = mesh(`landmark-${l.id}-bu`, MeshBuilder.CreateSphere(`landmark-${l.id}-bu`, { diameter: 0.3, segments: 5 }, scene));
+        bubble.position.set(l.x, 0.75 + gy, l.z);
+        bubble.material = goldMat;
+        break;
+      }
+      case 'boulder-dell': {
+        /* a glade of giant marbles — the giants played here, ~6u */
+        for (let i = 0; i < 4; i++) {
+          const ang = (i / 4) * Math.PI * 2 + 0.9;
+          const rr = 1.6 + (i % 2) * 0.9;
+          const r = 1.2 - (i % 3) * 0.2;
+          const boulder = mesh(`landmark-${l.id}-b${i}`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-b${i}`, { radius: r, subdivisions: 1 }, scene));
+          boulder.position.set(l.x + Math.cos(ang) * rr, r * 0.72 + gy, l.z + Math.sin(ang) * rr);
+          boulder.material = stoneMat;
+        }
+        const center = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-c`, { radius: 0.9, subdivisions: 1 }, scene));
+        center.position.set(l.x, 0.55 + gy, l.z);
+        center.material = stoneMat;
+        break;
+      }
+      case 'wind-flag':
+      case 'flag-hill': {
+        /* a pole of colorful pennants — how fast is the day?, ~5.5u */
+        const pole = mesh(`landmark-${l.id}-p`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p`, { diameterBottom: 0.18, diameterTop: 0.12, height: 5.2, tessellation: 6 }, scene));
+        pole.position.set(l.x, 2.6 + gy, l.z);
+        pole.material = barkMat;
+        const flags: StandardMaterial[] = [redMat, goldMat, tealMat, roseMat, violetMat];
+        for (let i = 0; i < flags.length; i++) {
+          const flag = mesh(`landmark-${l.id}-f${i}`, MeshBuilder.CreatePlane(`landmark-${l.id}-f${i}`, { width: 0.6, height: 0.4 }, scene));
+          flag.position.set(l.x + 0.34, 1.5 + i * 0.8 + gy, l.z);
+          flag.rotation.y = Math.PI / 2;
+          flag.material = flags[i];
+        }
+        break;
+      }
+      case 'amber-stump': {
+        /* a chatty stump wearing amber drops, ~3u */
+        const stump = mesh(`landmark-${l.id}-s`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s`, { diameterBottom: 1.5, diameterTop: 1.3, height: 1.7, tessellation: 10 }, scene));
+        stump.position.set(l.x, 0.85 + gy, l.z);
+        stump.material = barkMat;
+        const top = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateDisc(`landmark-${l.id}-t`, { radius: 1.28, tessellation: 12 }, scene));
+        top.position.set(l.x, 1.72 + gy, l.z);
+        top.rotation.x = Math.PI / 2;
+        top.material = goldMat;
+        for (let i = 0; i < 3; i++) {
+          const drop = mesh(`landmark-${l.id}-d${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-d${i}`, { diameter: 0.28, segments: 5 }, scene));
+          drop.position.set(l.x + 0.5 + i * 0.3, 1.1 - i * 0.25 + gy, l.z + 0.55);
+          drop.material = goldMat;
+        }
+        break;
+      }
+      case 'clover-field':
+      case 'clover-fork': {
+        /* clover to the horizon — maybe one leaf has four, ~5u */
+        for (let i = 0; i < 9; i++) {
+          const ang = (i / 9) * Math.PI * 2;
+          const rr = 0.8 + (i % 3) * 0.75;
+          const tuft = mesh(`landmark-${l.id}-c${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-c${i}`, { diameter: 0.75, segments: 5 }, scene));
+          tuft.scaling.y = 0.6;
+          tuft.position.set(l.x + Math.cos(ang) * rr, 0.18 + gy, l.z + Math.sin(ang) * rr);
+          tuft.material = i === 4 ? goldMat : leafMat;
+        }
+        break;
+      }
+      case 'goose-pond':
+      case 'pond-bend': {
+        /* geese sailing in a row — one, two, three, ~5.5u */
+        const pond = mesh(`landmark-${l.id}-p`, MeshBuilder.CreateDisc(`landmark-${l.id}-p`, { radius: 2.7, tessellation: 16 }, scene));
+        pond.position.set(l.x, 0.06 + gy, l.z);
+        pond.rotation.x = Math.PI / 2;
+        pond.material = tealMat;
+        for (let i = 0; i < 3; i++) {
+          const gx = l.x - 1.4 + i * 1.4;
+          const body = mesh(`landmark-${l.id}-g${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-g${i}`, { diameterX: 0.6, diameterY: 0.5, diameterZ: 0.9, segments: 6 }, scene));
+          body.position.set(gx, 0.4 + gy, l.z + (i % 2) * 0.5);
+          body.material = sandMat;
+          const neck = mesh(`landmark-${l.id}-n${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-n${i}`, { diameter: 0.1, height: 0.5, tessellation: 5 }, scene));
+          neck.position.set(gx + 0.25, 0.75 + gy, l.z + (i % 2) * 0.5);
+          neck.material = sandMat;
+        }
+        break;
+      }
+      case 'old-cart':
+      case 'cart-cross': {
+        /* an abandoned cart — its wheels tell stories, ~4u */
+        const bed = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateBox(`landmark-${l.id}-b`, { width: 2.6, height: 0.3, depth: 1.4 }, scene));
+        bed.position.set(l.x, 1.0 + gy, l.z);
+        bed.rotation.z = 0.06;
+        bed.material = barkMat;
+        for (const sx of [-1.0, 1.0]) {
+          const wheel = mesh(`landmark-${l.id}-w${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateTorus(`landmark-${l.id}-w${sx > 0 ? 'r' : 'l'}`, { diameter: 1.3, thickness: 0.16, tessellation: 12 }, scene));
+          wheel.position.set(l.x + sx, 0.65 + gy, l.z + 0.75);
+          wheel.material = barkMat;
+        }
+        const handle = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateBox(`landmark-${l.id}-h`, { width: 0.12, height: 0.12, depth: 1.6 }, scene));
+        handle.position.set(l.x, 1.1 + gy, l.z - 1.4);
+        handle.rotation.x = 0.35;
+        handle.material = barkMat;
+        break;
+      }
+      case 'snowdrop-hollow': {
+        /* white snowdrops that know when to bloom, ~3.5u */
+        for (let i = 0; i < 6; i++) {
+          const ang = (i / 6) * Math.PI * 2;
+          const rr = 0.9 + (i % 3) * 0.6;
+          const stem = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s${i}`, { diameter: 0.06, height: 0.7 + (i % 2) * 0.2, tessellation: 5 }, scene));
+          stem.position.set(l.x + Math.cos(ang) * rr, 0.4 + gy, l.z + Math.sin(ang) * rr);
+          stem.material = leafMat;
+          const head = mesh(`landmark-${l.id}-h${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-h${i}`, { diameter: 0.3, segments: 5 }, scene));
+          head.position.set(l.x + Math.cos(ang) * rr, 0.85 + (i % 2) * 0.2 + gy, l.z + Math.sin(ang) * rr);
+          head.material = crystalMat;
+        }
+        break;
+      }
+      case 'moonrise-clearing': {
+        /* a clearing where the moon rises and fills the grass, ~5u */
+        const arc = mesh(`landmark-${l.id}-a`, MeshBuilder.CreateTorus(`landmark-${l.id}-a`, { diameter: 3.6, thickness: 0.5, tessellation: 16 }, scene));
+        arc.position.set(l.x, 1.6 + gy, l.z);
+        arc.rotation.z = Math.PI / 2;
+        arc.rotation.y = 0.5;
+        arc.material = crystalMat;
+        const glow = mesh(`landmark-${l.id}-g`, MeshBuilder.CreateDisc(`landmark-${l.id}-g`, { radius: 2.8, tessellation: 16 }, scene));
+        glow.position.set(l.x, 0.05 + gy, l.z);
+        glow.rotation.x = Math.PI / 2;
+        glow.material = tealMat;
+        break;
+      }
+      case 'feather-stone': {
+        /* a stone a feather landed on — who dozed off here?, ~3u */
+        const stone = mesh(`landmark-${l.id}-s`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-s`, { radius: 1.0, subdivisions: 1 }, scene));
+        stone.position.set(l.x, 0.6 + gy, l.z);
+        stone.scaling.y = 0.7;
+        stone.material = stoneMat;
+        const quill = mesh(`landmark-${l.id}-q`, MeshBuilder.CreateCylinder(`landmark-${l.id}-q`, { diameter: 0.05, height: 1.5, tessellation: 5 }, scene));
+        quill.position.set(l.x, 2.0 + gy, l.z);
+        quill.rotation.z = 0.6;
+        quill.material = barkMat;
+        const vane = mesh(`landmark-${l.id}-v`, MeshBuilder.CreatePlane(`landmark-${l.id}-v`, { width: 0.6, height: 1.2 }, scene));
+        vane.position.set(l.x + 0.5, 2.35 + gy, l.z);
+        vane.rotation.z = 0.6;
+        vane.material = sandMat;
+        break;
+      }
+      case 'pine-root-arch': {
+        /* ancient roots rise like a tunnel — walk under, ~5.5u */
+        for (const sx of [-1.9, 1.9]) {
+          const root = mesh(`landmark-${l.id}-r${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-r${sx > 0 ? 'r' : 'l'}`, { diameterBottom: 0.8, diameterTop: 0.5, height: 4.4, tessellation: 7 }, scene));
+          root.position.set(l.x + sx, 2.2 + gy, l.z);
+          root.rotation.z = sx > 0 ? -0.35 : 0.35;
+          root.material = barkMat;
+        }
+        const span = mesh(`landmark-${l.id}-sp`, MeshBuilder.CreateCylinder(`landmark-${l.id}-sp`, { diameter: 0.7, height: 4.4, tessellation: 7 }, scene));
+        span.rotation.x = Math.PI / 2;
+        span.position.set(l.x, 4.5 + gy, l.z);
+        span.material = barkMat;
+        break;
+      }
+      case 'twin-birches': {
+        /* two wondrous birches — pale as candles, sisters from birth, ~7u */
+        for (const sx of [-0.9, 0.9]) {
+          const trunk = mesh(`landmark-${l.id}-t${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t${sx > 0 ? 'r' : 'l'}`, { diameterBottom: 0.42, diameterTop: 0.24, height: 5.6, tessellation: 7 }, scene));
+          trunk.position.set(l.x + sx, 2.8 + gy, l.z);
+          trunk.rotation.z = sx > 0 ? -0.12 : 0.12;
+          trunk.material = sandMat;
+          const crown = mesh(`landmark-${l.id}-c${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateSphere(`landmark-${l.id}-c${sx > 0 ? 'r' : 'l'}`, { diameter: 2.8, segments: 6 }, scene));
+          crown.position.set(l.x + sx * 1.6, 6.2 + gy, l.z);
+          crown.material = leafMat;
+        }
+        break;
+      }
+      case 'bluebell-hollow': {
+        /* bluebells — a little wind, and the hollow rings, ~3.5u */
+        for (let i = 0; i < 7; i++) {
+          const ang = (i / 7) * Math.PI * 2 + 0.3;
+          const rr = 0.7 + (i % 3) * 0.55;
+          const stem = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s${i}`, { diameter: 0.05, height: 0.6 + (i % 2) * 0.25, tessellation: 5 }, scene));
+          stem.position.set(l.x + Math.cos(ang) * rr, 0.35 + gy, l.z + Math.sin(ang) * rr);
+          stem.material = leafMat;
+          const bell = mesh(`landmark-${l.id}-b${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-b${i}`, { diameterBottom: 0.2, diameterTop: 0.12, height: 0.3, tessellation: 7 }, scene));
+          bell.position.set(l.x + Math.cos(ang) * rr, 0.78 + (i % 2) * 0.25 + gy, l.z + Math.sin(ang) * rr);
+          bell.material = violetMat;
+        }
+        break;
+      }
+      case 'salt-stone': {
+        /* a white salty block the sea touched once, ~3.5u */
+        const block = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateBox(`landmark-${l.id}-b`, { width: 2.2, height: 2.4, depth: 1.8 }, scene));
+        block.position.set(l.x, 1.0 + gy, l.z);
+        block.rotation.y = 0.4;
+        block.material = crystalMat;
+        const crust = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateBox(`landmark-${l.id}-c`, { width: 2.3, height: 0.3, depth: 1.9 }, scene));
+        crust.position.set(l.x, 2.35 + gy, l.z);
+        crust.rotation.y = 0.4;
+        crust.material = sandMat;
+        break;
+      }
+      case 'dusk-stone': {
+        /* a stone that lights up at evening, ~3.5u */
+        const stone = mesh(`landmark-${l.id}-s`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s`, { diameterBottom: 1.5, diameterTop: 0.9, height: 2.6, tessellation: 8 }, scene));
+        stone.position.set(l.x, 1.3 + gy, l.z);
+        stone.material = stoneMat;
+        const ember = mesh(`landmark-${l.id}-e`, MeshBuilder.CreateSphere(`landmark-${l.id}-e`, { diameter: 0.9, segments: 7 }, scene));
+        ember.position.set(l.x, 2.8 + gy, l.z);
+        ember.material = goldMat;
+        break;
+      }
+      case 'glow-cap-row': {
+        /* a row of glowing mushrooms — at night the row shimmers, ~4u */
+        for (let i = 0; i < 4; i++) {
+          const mx = l.x - 1.5 + i * 1.0;
+          const stem = mesh(`landmark-${l.id}-st${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-st${i}`, { diameter: 0.18, height: 0.55 + (i % 2) * 0.2, tessellation: 6 }, scene));
+          stem.position.set(mx, 0.32 + gy, l.z);
+          stem.material = barkMat;
+          const cap = mesh(`landmark-${l.id}-c${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-c${i}`, { diameter: 0.62, segments: 6, slice: 0.5 }, scene));
+          cap.position.set(mx, 0.62 + (i % 2) * 0.2 + gy, l.z);
+          cap.material = goldMat;
+        }
+        break;
+      }
+      case 'reed-bridge': {
+        /* a bridge of reeds — cross gently, the water refreshes, ~6u */
+        const deck = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateBox(`landmark-${l.id}-d`, { width: 5.6, height: 0.2, depth: 1.2 }, scene));
+        deck.position.set(l.x, 0.8 + gy, l.z);
+        deck.material = barkMat;
+        for (const sx of [-2.6, 2.6]) {
+          const bundle = mesh(`landmark-${l.id}-b${sx > 0 ? 'r' : 'l'}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-b${sx > 0 ? 'r' : 'l'}`, { diameter: 0.7, height: 1.3, tessellation: 7 }, scene));
+          bundle.position.set(l.x + sx, 0.65 + gy, l.z);
+          bundle.material = leafMat;
+        }
+        const rail = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateBox(`landmark-${l.id}-r`, { width: 5.6, height: 0.08, depth: 0.08 }, scene));
+        rail.position.set(l.x, 1.6 + gy, l.z - 0.55);
+        rail.material = leafMat;
+        break;
+      }
     }
 
     /* merge the place's static parts into ONE mesh (multi-material keeps
@@ -1062,12 +1743,14 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
 
   const beacons = new Map<string, Mesh>();
   const bobbers: Bobber[] = [];
-  /* stage 14-C: every region now has interior heroes too */
+  /* stage 14-C: every region now has interior heroes too
+     stage 15-B: the four new lands each brought their own hero */
   const HEROES = new Set<string>([
     'giant-tree', 'wood-hut', 'ice-tower', 'watermill', 'mega-flower', 'obelisk', 'oasis', 'stone-arch',
     'watch-tower', 'giant-mushrooms', 'waterfall-rock', 'ferry-boat', 'giant-tulip', 'sand-pyramid',
     'buried-ship', 'ruined-gate', 'crystal-cluster', 'stone-circle',
     'honey-tree', 'snow-friend', 'star-stone',
+    'lantern-tree', 'crystal-peak', 'rainbow-tower', 'tide-pools',
   ]);
   for (const l of LANDMARKS) {
     const bgy = terrainHeight(l.x, l.z);

@@ -17,16 +17,16 @@ describe('LANDMARKS — the places beyond the path (critic round B, W1)', () => 
     return m;
   };
 
-  it('has fifty named places, each with a Hebrew name and a narration line', () => {
-    expect(LANDMARKS.length).toBe(50);
+  it('has ninety-five named places, each with a Hebrew name and a narration line', () => {
+    expect(LANDMARKS.length).toBe(95);
     for (const l of LANDMARKS) {
       expect(l.name.length).toBeGreaterThan(2);
       expect(l.line.length).toBeGreaterThan(8);
       expect(l.keep).toBeGreaterThan(0.8);
-      expect(l.keep).toBeLessThanOrEqual(3.6);
+      expect(l.keep).toBeLessThanOrEqual(5.2);
     }
     const ids = new Set(LANDMARKS.map((l) => l.id));
-    expect(ids.size).toBe(50);
+    expect(ids.size).toBe(95);
   });
 
   it('every landmark sits inside the walkable world with a margin', () => {
@@ -53,7 +53,27 @@ describe('LANDMARKS — the places beyond the path (critic round B, W1)', () => 
     }
   });
 
-  it('landmarks are destinations, not a cluster (≥3 apart)', () => {
+  it('stage 15-B: EVERY compass sector × ring holds places (distribution, proven)', () => {
+    /* 8 sectors × 3 rings over the wilds (outside the cozy hub) —
+       no dead quadrant, no dead ring: a somewhere in every direction */
+    const rings = [0, Math.round(WORLD_WALK_RADIUS / 3), Math.round((WORLD_WALK_RADIUS * 2) / 3), WORLD_WALK_RADIUS + 1];
+    const cells = new Set<string>();
+    for (const l of LANDMARKS) {
+      const d = Math.hypot(l.x, l.z);
+      if (d < 60) continue; /* hub places live by the spiral's own law */
+      let ring = 0;
+      for (let i = 0; i < 3; i++) if (d >= rings[i] && d < rings[i + 1]) ring = i;
+      const ang = (Math.atan2(l.z, l.x) + Math.PI * 2) % (Math.PI * 2);
+      cells.add(`${Math.floor(ang / (Math.PI / 4))}:${ring}`);
+    }
+    for (let s = 0; s < 8; s++) {
+      for (let r = 0; r < 3; r++) {
+        expect(cells.has(`${s}:${r}`)).toBe(true); /* sector s, ring r is alive */
+      }
+    }
+  });
+
+  it('landmarks are destinations, not a cluster (≥4.5 apart)', () => {
     for (let i = 0; i < LANDMARKS.length; i++) {
       for (let j = i + 1; j < LANDMARKS.length; j++) {
         const a = LANDMARKS[i];
