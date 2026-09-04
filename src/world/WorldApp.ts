@@ -819,6 +819,11 @@ export async function createWorldApp(
         nearSince = null;
         lastArrivedZone = null;
         rideSettleUntil = now + 1800;
+        /* the sky's slow frames are not the ground's record: the land
+           regime starts with a fresh fps window (the same mercy a
+           paused-and-resumed world gets) — the flight must never
+           spend the ground's distress budget */
+        governor.reset();
       } else {
         rideK = k;
       }
@@ -850,6 +855,9 @@ export async function createWorldApp(
         destMat.alpha = 0;
       }
     }
+    /* the flight is a promise, not a malfunction: while airborne the
+       governor softens pixels but never calls the world too heavy */
+    governor.setSpectacle(rideK !== null);
     balloon.update(now, dt, rideK);
 
     const speed = moved ? MAX_WALK_SPEED : 0;

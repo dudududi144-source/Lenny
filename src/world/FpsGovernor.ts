@@ -6,8 +6,12 @@
  *   - CI floor: ≥ 20fps sustained for 10s
  *   - below 25fps → automatic hardware scaling (softer pixels,
  *     never a stall)
- *   - below 15fps sustained 5s → distress signal (the shell
- *     silently falls back to the classic garden)
+ *   - below 10fps sustained 8s → distress signal (the shell
+ *     silently falls back to the classic garden). Stage 13 retune:
+ *     real software renderers (SwiftShader cloud previews) hold a
+ *     CALM garden at 10-15fps — that is playable, never distress;
+ *     the old 15x5s floor kept killing healthy worlds on those
+ *     devices ~11s after every entry.
  *
  * Pure: the caller feeds frame times, the governor only decides.
  * WorldApp applies the decisions to the real engine.
@@ -41,8 +45,8 @@ export interface GovernorDecision {
 
 const DEFAULTS = {
   softFps: 25,
-  minFps: 15,
-  distressMs: 5000,
+  minFps: 10,
+  distressMs: 8000,
   /** shader-compilation warmup: distress never arms during this */
   distressGraceMs: 6000,
   maxScale: 3.6,
@@ -69,6 +73,8 @@ export class FpsGovernor {
   private distressed = false;
   private firstFrameAt: number | null = null;
   private prevDecisionFps = 0;
+  /** a known-heavy spectacle (the balloon vista) is airborne */
+  private spectacle = false;
 
   constructor(opts: GovernorOptions = {}) {
     const o = { ...DEFAULTS, ...opts };
@@ -128,7 +134,7 @@ export class FpsGovernor {
       }
     }
 
-    if (fps > 0 && fps < this.minFps && this.firstFrameAt !== null && now - this.firstFrameAt >= this.distressGraceMs) {
+    if (!this.spectacle && fps > 0 && fps < this.minFps && this.firstFrameAt !== null && now - this.firstFrameAt >= this.distressGraceMs) {
       /* recovery-aware distress (audit 9-b follow-up): a weak device that
          is CLIMBING out of the hole (wide canvas booted 4→10→13fps and was
          still killed mid-recovery) gets its budget paused while the trend
@@ -150,6 +156,21 @@ export class FpsGovernor {
 
     if (fps > 0) this.prevDecisionFps = fps;
     return { newScale, distress };
+  }
+
+  /**
+   * A known-heavy spectacle is running (the balloon vista flight):
+   * the resolution still softens every decision, but the spectacle
+   * itself is never judged "too heavy" — a 26-second promise to a
+   * child is kept in full. Distress re-arms honestly once the feet
+   * touch the ground (spectacle off).
+   */
+  setSpectacle(on: boolean): void {
+    if (on) {
+      this.distressSince = null;
+      this.distressed = false;
+    }
+    this.spectacle = on;
   }
 
   /** Forget history (used on resume after a pause — the engine is warm). */
