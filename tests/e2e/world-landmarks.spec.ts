@@ -13,6 +13,9 @@ async function openWorld(page: Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
     localStorage.setItem('lenny-world-onboarded', '1');
+    /* the minutes-long walkers hold the world open on perf distress
+       (CI's software GL is the fallback's own intended target) */
+    localStorage.setItem('lenny-world-hold', '1');
   });
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();

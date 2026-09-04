@@ -17,6 +17,9 @@ async function openWorldWithQuests(page: Page, seed: Seed): Promise<void> {
   await page.addInitScript((s: Seed) => {
     localStorage.setItem('lenny-garden-mode', 'world');
     localStorage.setItem('lenny-world-onboarded', '1');
+    /* the minutes-long walkers hold the world open on perf distress
+       (CI's software GL is the fallback's own intended target) */
+    localStorage.setItem('lenny-world-hold', '1');
     localStorage.setItem('lenny-world-quests-v1', JSON.stringify({
       v: 2,
       families: {

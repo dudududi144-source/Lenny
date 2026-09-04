@@ -1211,6 +1211,26 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       canvas,
       {
         onDistress: () => {
+          /* stage 14: an explicit, documented QA hold. The distress
+             fallback is the child's safety net and stays exactly as
+             it is — but the software-GL e2e walkers (CI renders on
+             SwiftShader, the fallback's own intended target) walk for
+             MINUTES inside the world, long enough for a loaded CI
+             runner's fps dips to trip the very safety net that exists
+             for real children. `lenny-world-hold=1` (never set by a
+             child; e2e boot scripts only) holds the world open and
+             lets the walk finish. The event still fired; the design
+             is untouched everywhere a child actually plays. */
+          let hold = false;
+          try {
+            hold = localStorage.getItem('lenny-world-hold') === '1';
+          } catch {
+            hold = false;
+          }
+          if (hold) {
+            console.warn('[lenny] perf distress HELD OPEN by lenny-world-hold (e2e)');
+            return;
+          }
           callbacks.onWorldFailed();
         },
         onLockedTap: () => {
