@@ -171,6 +171,9 @@ export interface FloraHandle {
   update(t: number, dt: number): void;
   /** Hour tint for the clouds (standard+; null restores the white sky of weak). */
   setCloudTint(hex: string | null): void;
+  /** standard+ decorations: the high parallax cloud layer. Weak = today's sky.
+   *  (stage 16-c — instant off on a tier drop.) */
+  setAtmosphere(on: boolean): void;
   dispose(): void;
 }
 
@@ -202,6 +205,38 @@ export function buildFlora(scene: Scene): FloraHandle {
     c.isPickable = false;
     c.parent = root;
     clouds.push(c);
+  }
+
+  /* ---------- the high parallax layer (standard+, 16-c) ----------
+     A second deck of broad, fainter streaks sailing ~60u HIGHER and
+     visibly FASTER than the lower deck — two depths, so the sky
+     finally reads as volume instead of a wallpaper of puffs. Same
+     texture (one repaint tints both decks), one extra material, no
+     per-frame allocation. Weak never builds it: EXACTLY today's sky. */
+  const cloudHighMat = new StandardMaterial('flora-cloud-high-mat', scene);
+  cloudHighMat.emissiveTexture = cloudTex;
+  cloudHighMat.opacityTexture = cloudTex;
+  cloudHighMat.opacityTexture.getAlphaFromRGB = false;
+  cloudHighMat.diffuseColor = Color3.Black();
+  cloudHighMat.specularColor = Color3.Black();
+  cloudHighMat.disableLighting = true;
+  cloudHighMat.backFaceCulling = false;
+  cloudHighMat.alpha = 0.52;
+
+  const highClouds: Mesh[] = [];
+  const highRng = mulberry32(0xc11);
+  for (let i = 0; i < 7; i++) {
+    const w = 54 + highRng() * 44;
+    const c = MeshBuilder.CreatePlane(`flora-cloud-high-${i}`, { width: w, height: w * 0.34 }, scene);
+    const a = highRng() * Math.PI * 2;
+    const r = 70 + highRng() * 290;
+    c.position.set(Math.cos(a) * r, 122 + highRng() * 30, Math.sin(a) * r);
+    c.billboardMode = Mesh.BILLBOARDMODE_ALL;
+    c.material = cloudHighMat;
+    c.isPickable = false;
+    c.parent = root;
+    c.setEnabled(false); /* the boot tier is weak — the sky starts as it was */
+    highClouds.push(c);
   }
 
   /* ---------- grass tufts (one master, thin instances) ---------- */
@@ -306,6 +341,14 @@ export function buildFlora(scene: Scene): FloraHandle {
         if (c.position.x > 340) c.position.x = -340;
         c.rotation.z = Math.sin(t * 0.1 + i) * 0.02;
       }
+      /* the high deck: same drift, ~2.4x the speed — the parallax */
+      for (let i = 0; i < highClouds.length; i++) {
+        const c = highClouds[i];
+        if (!c.isEnabled()) continue;
+        c.position.x += dt * (2.6 + (i % 3) * 0.5);
+        if (c.position.x > 420) c.position.x = -420;
+        c.rotation.z = Math.sin(t * 0.13 + i * 1.7) * 0.03;
+      }
     },
     setCloudTint(hex: string | null): void {
       if (hex === cloudTint) return;
@@ -313,9 +356,13 @@ export function buildFlora(scene: Scene): FloraHandle {
       const paint = (cloudTex as DynamicTexture & { repaint?: (t: string) => void }).repaint;
       paint?.(hex ?? '#ffffff');
     },
+    setAtmosphere(on: boolean): void {
+      for (const c of highClouds) c.setEnabled(on);
+    },
     dispose(): void {
       root.dispose(false, true);
       cloudMat.dispose();
+      cloudHighMat.dispose();
       cloudTex.dispose();
       grassMat.dispose();
       grassTex.dispose();

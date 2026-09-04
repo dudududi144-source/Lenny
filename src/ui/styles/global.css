@@ -51,8 +51,13 @@ body {
 }
 
 :focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  /* 16-c: OUTLINE, not box-shadow — a shadow ring is silently beaten
+     by every button/card class that paints its own box-shadow (the
+     keyboard ring used to vanish exactly on the most detailed
+     surfaces). An outline survives them all; gold reads on the dark
+     shell, world.css flips the ink color on its cream panels. */
+  outline: 3px solid rgba(255, 215, 106, 0.6);
+  outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
 
@@ -229,6 +234,10 @@ body {
 .parent-link:hover {
   color: var(--color-cream);
   background: rgba(255, 255, 255, 0.07);
+}
+
+.parent-link:focus-visible {
+  border-radius: var(--radius-sm);
 }
 
 .parent-link:active {
@@ -1318,6 +1327,14 @@ body {
   border-radius: 999px;
   padding: 6px 12px;
   cursor: pointer;
+  transition:
+    background var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out-soft);
+}
+
+.sound-toggle:hover {
+  background: rgba(255, 215, 106, 0.22);
+  transform: translateY(-1px);
 }
 
 /* ============================================================
@@ -1538,12 +1555,15 @@ body {
     flex-basis: 100%;
   }
 
-  /* ---- classic garden map: two columns of zone cards ---- */
+  /* ---- classic garden map: two columns of zone cards ----
+     16-c: one reading width everywhere — head, greeting, card grid
+     and foot all share the hero's 1140px column so the screen has
+     a single aligned spine on any wide monitor. */
   .garden-head,
   .garden-greeting,
   .garden-foot {
     width: 100%;
-    max-width: 1160px;
+    max-width: 1140px;
     margin-inline: auto;
   }
 
@@ -1565,7 +1585,7 @@ body {
   }
 
   .zone-list {
-    max-width: 1100px;
+    max-width: 1140px;
     margin-inline: auto;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1630,5 +1650,55 @@ body {
 
   .parent-gate-card {
     max-width: 400px;
+  }
+}
+
+/* ============================================================
+   16-c — DESKTOP LAPTOPS (≥900px wide, short: ≤880px tall).
+   The designed desktop hero (11vmin title, 34vmin figure) assumed
+   a tall monitor; on 1280×800 the CTA landed 4px past the fold
+   and the flex column squeezed hero-center into the CTA. The
+   laptop range gets the same composition at a calmer vertical
+   rhythm — generous, never clipped, never squeezed. Phones keep
+   their own max-height:640px compaction above, untouched.
+   ============================================================ */
+
+@media (min-width: 900px) and (max-height: 880px) {
+  .screen--hero {
+    padding-block-end: var(--space-4);
+  }
+
+  .hero-center {
+    gap: clamp(10px, 2vh, 18px);
+    margin-block-start: 0;
+  }
+
+  .lenny-figure {
+    width: clamp(170px, 26vmin, 250px);
+  }
+
+  .hero-title {
+    font-size: clamp(3.4rem, 9vmin, 5.2rem);
+  }
+
+  .subtitle {
+    font-size: clamp(1.15rem, 2.6vmin, 1.45rem);
+  }
+
+  .greeting {
+    font-size: 1rem;
+    min-height: 3.2em;
+  }
+
+  .name-input {
+    margin-block-start: 0;
+  }
+
+  .hero-cta {
+    gap: var(--space-2);
+  }
+
+  .hero-cta .ui-btn {
+    min-height: 50px;
   }
 }

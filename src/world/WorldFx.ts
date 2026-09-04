@@ -21,12 +21,13 @@
 
 import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
+import { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture';
 import { Color3 } from '@babylonjs/core/Maths/math.color';
 import { Matrix, Quaternion, Vector3 } from '@babylonjs/core/Maths/math.vector';
 import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import type { Scene } from '@babylonjs/core/scene';
 import { mulberry32 } from './worldAcorns';
-import { pathPoints } from './WorldLayout';
+import { LANDMARKS, pathPoints } from './WorldLayout';
 import { REGION_ROADS, terrainHeight } from './WorldRegions';
 import type { QualityTier } from './FpsGovernor';
 
@@ -45,6 +46,45 @@ const SPARKLE_MOVE = 12;
 const BURST_LIFE = 0.9;
 const BURST_GRAVITY = 2.6;
 const MAX_PARTICLES = FX_BUDGETS.rich.burst;
+
+/* stage 16-c — god-ray landmarks (rich only): the tall silhouettes
+   worth a column of light. Cheap BILLBOARDS, never new lights. */
+const GODRAY_KINDS = new Set([
+  'giant-tree',
+  'ice-tower',
+  'crystal-peak',
+  'rainbow-tower',
+  'lighthouse',
+  'waterfall-rock',
+  'mega-flower',
+]);
+const GODRAY_MAX = 7;
+
+/** One soft shaft texture: vertical beam, feathered edges (painted
+ *  once, shared by every shaft — zero per-landmark canvases). */
+function godrayTexture(scene: Scene): DynamicTexture {
+  const w = 128;
+  const h = 256;
+  const tex = new DynamicTexture('fx-godray-tex', { width: w, height: h }, scene, true);
+  const ctx = tex.getContext() as CanvasRenderingContext2D;
+  const v = ctx.createLinearGradient(0, 0, 0, h);
+  v.addColorStop(0, 'rgba(255,246,214,0.85)');
+  v.addColorStop(0.55, 'rgba(255,240,196,0.38)');
+  v.addColorStop(1, 'rgba(255,236,190,0)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'destination-in';
+  const hgrad = ctx.createLinearGradient(0, 0, w, 0);
+  hgrad.addColorStop(0, 'rgba(0,0,0,0)');
+  hgrad.addColorStop(0.5, 'rgba(0,0,0,1)');
+  hgrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = hgrad;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  tex.update();
+  tex.hasAlpha = true;
+  return tex;
+}
 
 export interface WorldFxHandle {
   setTier(tier: QualityTier): void;
@@ -205,7 +245,49 @@ export function buildWorldFx(scene: Scene): WorldFxHandle {
     burstMaster.thinInstanceBufferUpdated('matrix');
   };
 
-  /* ---------- the quest beacon halo ---------- */
+  /* ---------- god-ray glow billboards (rich tier only, 16-c) ----------
+     Two crossed soft-shaft quads behind each BIG landmark — the sun
+     column a child reads as magic, drawn with one painted texture,
+     ONE master, thin instances (1 draw call), no new lights, no
+     per-frame work: the matrices are composed once and the whole
+     master flips with the tier (instant off on a drop). */
+  const godrayTex = godrayTexture(scene);
+  const godrayMat = new StandardMaterial('fx-godray-mat', scene);
+  godrayMat.emissiveTexture = godrayTex;
+  godrayMat.opacityTexture = godrayTex;
+  godrayMat.opacityTexture.getAlphaFromRGB = false;
+  godrayMat.diffuseColor = Color3.Black();
+  godrayMat.specularColor = Color3.Black();
+  godrayMat.disableLighting = true;
+  godrayMat.backFaceCulling = false;
+  godrayMat.alpha = 0.5;
+
+  const godrayMaster = MeshBuilder.CreatePlane('godray-master', { width: 1, height: 1 }, scene);
+  godrayMaster.material = godrayMat;
+  godrayMaster.parent = root;
+  godrayMaster.isPickable = false;
+  godrayMaster.alwaysSelectAsActiveMesh = true;
+  godrayMaster.setEnabled(false); /* boot tier is weak */
+  {
+    const spots = LANDMARKS.filter((l) => GODRAY_KINDS.has(l.id)).slice(0, GODRAY_MAX);
+    const buf = new Float32Array(spots.length * 2 * 16);
+    let n = 0;
+    for (const l of spots) {
+      const base = terrainHeight(l.x, l.z);
+      const hgt = Math.min(17, l.keep * 2.3);
+      const wid = Math.min(13, l.keep * 1.6);
+      for (const yaw of [Math.PI / 4, -Math.PI / 4]) {
+        scratchScale.set(wid, hgt, 1);
+        Quaternion.RotationYawPitchRollToRef(yaw, -0.1, 0, scratchQuat);
+        scratchPos.set(l.x, base + hgt * 0.44, l.z);
+        Matrix.ComposeToRef(scratchScale, scratchQuat, scratchPos, scratchMatrix);
+        scratchMatrix.copyToArray(buf, n * 16);
+        n++;
+      }
+    }
+    godrayMaster.thinInstanceSetBuffer('matrix', buf.slice(0, n * 16), 16, true);
+    godrayMaster.thinInstanceRefreshBoundingInfo();
+  }
   const beacon = MeshBuilder.CreateTorus('fx-beacon', { diameter: 1.15, thickness: 0.075, tessellation: 24 }, scene);
   beacon.scaling.y = 0.32;
   const beaconMat = new StandardMaterial('fx-beacon-mat', scene);
@@ -246,6 +328,8 @@ export function buildWorldFx(scene: Scene): WorldFxHandle {
       burstMaster.setEnabled(false);
     }
     if (next === 'weak') beacon.setEnabled(false);
+    /* god-rays live ONLY on rich — and vanish the instant it drops */
+    godrayMaster.setEnabled(next === 'rich');
   };
 
   return {
@@ -331,6 +415,8 @@ export function buildWorldFx(scene: Scene): WorldFxHandle {
       sparkleMat.dispose();
       burstMat.dispose();
       beaconMat.dispose();
+      godrayMat.dispose();
+      godrayTex.dispose();
     },
   };
 }

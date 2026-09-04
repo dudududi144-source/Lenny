@@ -43,10 +43,12 @@ import {
   paletteForPhase,
   paintSkyCanvas,
   skyStarRng,
+  type SkyQuality,
   type WorldPalette,
 } from './WorldSky';
 import type { QualityTier } from './FpsGovernor';
 import { buildWorldFx, type WorldFxHandle } from './WorldFx';
+import { buildWorldSignposts } from './WorldSignposts';
 import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
 import { buildLennyStar, type LennyStarHandle } from './LennyStar';
 import {
@@ -263,8 +265,10 @@ async function createEngine(
 
 /** Painted sky dome — the stage 15-D multi-stop gradient, sun halo,
  *  moon glow and deterministic star field, all painted by WorldSky
- *  (one source of truth; the dome itself is unchanged). */
-function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalette): void; dispose(): void } {
+ *  (one source of truth; the dome itself is unchanged). Stage 16-c:
+ *  the paint takes the quality tier — weak is the historical sky,
+ *  standard+ earns the denser star field + moon halo. */
+function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalette, quality?: SkyQuality): void; dispose(): void } {
   const size = 512;
   const tex = new DynamicTexture('sky-tex', { width: size, height: size }, scene, true);
   const ctx = tex.getContext() as CanvasRenderingContext2D;
@@ -286,8 +290,8 @@ function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalett
   dome.applyFog = false;
 
   return {
-    repaint(p: WorldPalette): void {
-      paintSkyCanvas(ctx, size, p, skyStarRng(20260915));
+    repaint(p: WorldPalette, quality: SkyQuality = 'weak'): void {
+      paintSkyCanvas(ctx, size, p, skyStarRng(20260915), quality);
       tex.update();
     },
     dispose(): void {
@@ -515,6 +519,11 @@ export async function createWorldApp(
      meshes; its masters start disabled on the boot tier (weak). */
   const fx: WorldFxHandle = buildWorldFx(scene);
 
+  /* stage 16-c — silent wayfinding: fork/gate arrow posts + region
+     totems (ALL tiers — wayfinding is not decoration; frozen static
+     thin instances, 3 draw calls, distance-culled internally) */
+  const signposts = buildWorldSignposts(scene);
+
   /* the quality tier (stage 15-D): boot 'weak' — EXACTLY today's world.
      Everything the tier unlocks is applied in applyTier (below). */
   let tier: QualityTier = 'weak';
@@ -522,10 +531,36 @@ export async function createWorldApp(
   const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
   const sun = new DirectionalLight('sun', new Vector3(...palette.sunDir), scene);
 
+  /* stage 16-c — region-graded fog (standard+): while the child walks
+     a region's patch the air picks up a whisper (22%) of that region's
+     own hue, easing back to the hour's base fog outside. Zero per-
+     frame allocations; weak returns instantly (its fog is constant). */
+  const baseFog = new Color3();
+  const fogTarget = new Color3();
+  const fogScratch = new Color3();
+  const regionFogTints = new Map<string, Color3>();
+  const gradeRegionFog = (rg: RegionDef | null, dt: number): void => {
+    if (tier === 'weak') return;
+    let target = baseFog;
+    if (rg) {
+      let tint = regionFogTints.get(rg.id);
+      if (!tint) {
+        tint = Color3.FromHexString(rg.tint);
+        regionFogTints.set(rg.id, tint);
+      }
+      fogTarget.r = baseFog.r + (tint.r - baseFog.r) * 0.22;
+      fogTarget.g = baseFog.g + (tint.g - baseFog.g) * 0.22;
+      fogTarget.b = baseFog.b + (tint.b - baseFog.b) * 0.22;
+      target = fogTarget;
+    }
+    Color3.LerpToRef(scene.fogColor, target, Math.min(1, dt * 1.4), fogScratch);
+    scene.fogColor.copyFrom(fogScratch);
+  };
+
   /* apply the hour's light — called at boot and whenever the day turns */
   const applyPalette = (p: WorldPalette): void => {
     palette = p;
-    sky.repaint(p);
+    sky.repaint(p, tier);
     ground.retint(p);
     hemi.intensity = p.hemiIntensity;
     hemi.diffuse = Color3.FromHexString(p.hemiSky);
@@ -540,6 +575,7 @@ export async function createWorldApp(
     scene.fogDensity = tier === 'weak' ? 0.0034 : p.fogDensity;
     /* the clouds ride the hour too (weak keeps the white sky) */
     flora.setCloudTint(tier === 'weak' ? null : p.cloudTint);
+    baseFog.copyFrom(scene.fogColor);
   };
   applyPalette(palette);
 
@@ -671,6 +707,7 @@ export async function createWorldApp(
     creatures.setAtmosphere(next !== 'weak');
     lanterns.setAtmosphere(next !== 'weak');
     balloon.setSway(next !== 'weak');
+    flora.setAtmosphere(next !== 'weak'); /* 16-c: the high parallax deck */
     /* the hour's air + cloud tint follow the palette on standard+ */
     applyPalette(palette);
     /* a richer shadow map is a rebuild — done lazily: drop the old
@@ -1143,6 +1180,8 @@ export async function createWorldApp(
     /* stage 12: region discovery — crossing into a far region's patch */
     const rg = regionAt(presencePos.x, presencePos.z);
     const rgId = rg ? rg.id : null;
+    /* 16-c: the air carries a whisper of the region's hue (standard+) */
+    gradeRegionFog(rg, dt);
     if (rgId !== nearRegionId) {
       nearRegionId = rgId;
       if (rg) {
@@ -1446,6 +1485,7 @@ export async function createWorldApp(
       shadows?.dispose();
       glow?.dispose();
       fx.dispose();
+      signposts.dispose();
       window.removeEventListener('resize', onResize);
       worldInput.detach();
       balloon.dispose();
