@@ -113,6 +113,9 @@ export interface LanternHandle {
   /** Light the first `n` lanterns; new ones pop in when animate. */
   setLit(n: number, animate?: boolean): void;
   lit(): number;
+  /** standard+ only: lit glass breathes with a soft candle flicker.
+   *  Weak keeps the historical steady glow (and the floor's cost). */
+  setAtmosphere(on: boolean): void;
   dispose(): void;
 }
 
@@ -175,6 +178,12 @@ export function buildLanterns(scene: Scene): LanternHandle {
   const pops: LanternPop[] = [];
   const sceneObs = scene.onBeforeRenderObservable.add(() => {
     const now = performance.now();
+    /* the flicker rides the same observable as the pops — one pass */
+    if (flicker && litCount > 0) {
+      const t = now / 1000;
+      const k = 0.9 + Math.sin(t * 7.3) * 0.05 + Math.sin(t * 13.7 + 1.3) * 0.04;
+      litMat.emissiveColor.copyFrom(LIT_EMISSIVE).scaleInPlace(k);
+    }
     for (let i = pops.length - 1; i >= 0; i--) {
       const p = pops[i];
       const k = Math.min(1, (now - p.start) / 700);
@@ -188,6 +197,12 @@ export function buildLanterns(scene: Scene): LanternHandle {
   });
 
   let litCount = 0;
+
+  /* stage 15-D: candle flicker on the LIT material (shared — one write
+     per frame covers every lit lantern). Two cheap sines, never a
+     strobe; the unlit glass never flickers. Zero allocations. */
+  let flicker = false;
+
   return {
     setLit(n: number, animate = false): void {
       const target = lanternsFor(n);
@@ -207,6 +222,10 @@ export function buildLanterns(scene: Scene): LanternHandle {
       litCount = target;
     },
     lit: () => litCount,
+    setAtmosphere(on: boolean): void {
+      flicker = on;
+      if (!on) litMat.emissiveColor.copyFrom(LIT_EMISSIVE); /* exact restore */
+    },
     dispose(): void {
       scene.onBeforeRenderObservable.remove(sceneObs);
       root.dispose(false, true);

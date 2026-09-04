@@ -28,7 +28,7 @@ import type { Scene } from '@babylonjs/core/scene';
 import { mulberry32 } from './worldAcorns';
 import { LANDMARKS, WORLD_ISLANDS } from './WorldLayout';
 import { STATIONS } from './WorldStations';
-import { REGION_ROADS, terrainHeight } from './WorldRegions';
+import { nearestRegion, REGION_ROADS, terrainHeight } from './WorldRegions';
 
 /* ---------- painted textures ---------- */
 
@@ -84,22 +84,26 @@ function cloudTexture(scene: Scene): DynamicTexture {
   const h = 128;
   const tex = new DynamicTexture('flora-cloud-tex', { width: w, height: h }, scene, true);
   const ctx = tex.getContext() as CanvasRenderingContext2D;
-  ctx.clearRect(0, 0, w, h);
-  const puff = (x: number, y: number, r: number): void => {
-    const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r);
-    g.addColorStop(0, 'rgba(255,255,255,0.92)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+  const paint = (tint: string): void => {
+    ctx.clearRect(0, 0, w, h);
+    const puff = (x: number, y: number, r: number): void => {
+      const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r);
+      g.addColorStop(0, `${tint}eb`); /* 0.92 alpha */
+      g.addColorStop(1, `${tint}00`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    puff(90, 78, 44);
+    puff(128, 62, 54);
+    puff(168, 80, 40);
+    puff(116, 88, 36);
+    tex.update();
   };
-  puff(90, 78, 44);
-  puff(128, 62, 54);
-  puff(168, 80, 40);
-  puff(116, 88, 36);
-  tex.update();
+  paint('#ffffff');
   tex.hasAlpha = true;
+  (tex as DynamicTexture & { repaint?: (t: string) => void }).repaint = paint;
   return tex;
 }
 
@@ -165,6 +169,8 @@ function scatter(count: number, seed: number, rMin: number, rMax: number, minRoa
 export interface FloraHandle {
   /** Per-frame drift for the clouds (transforms only). */
   update(t: number, dt: number): void;
+  /** Hour tint for the clouds (standard+; null restores the white sky of weak). */
+  setCloudTint(hex: string | null): void;
   dispose(): void;
 }
 
@@ -231,7 +237,11 @@ export function buildFlora(scene: Scene): FloraHandle {
     grassMaster.thinInstanceRefreshBoundingInfo();
   }
 
-  /* ---------- wild flowers (one master, tinted thin instances) ---------- */
+  /* ---------- wild flowers (one master, tinted thin instances) ----------
+     Stage 15-D: tints are REGION-FLAVORED — near a named region the
+     flowers lean toward that region's tint (read through the public
+     WorldRegions API, so unknown ids can never break this), falling
+     back to the classic three tints in the hub meadow. */
   const flowerTex = flowerTexture(scene);
   const flowerMat = new StandardMaterial('flora-flower-mat', scene);
   flowerMat.diffuseTexture = flowerTex;
@@ -261,9 +271,20 @@ export function buildFlora(scene: Scene): FloraHandle {
       );
       m.copyToArray(matrices, i * 16);
       const tint = FLOWER_TINTS[Math.floor(rng() * FLOWER_TINTS.length)];
-      colors[i * 4] = tint.r;
-      colors[i * 4 + 1] = tint.g;
-      colors[i * 4 + 2] = tint.b;
+      const near = nearestRegion(s.x, s.z, 340);
+      let r = tint.r;
+      let g = tint.g;
+      let b = tint.b;
+      if (near) {
+        /* a 45% lean toward the region's hue — flavored, not uniform */
+        const rc = Color3.FromHexString(near.region.tint);
+        r = r + (rc.r - r) * 0.45;
+        g = g + (rc.g - g) * 0.45;
+        b = b + (rc.b - b) * 0.45;
+      }
+      colors[i * 4] = r;
+      colors[i * 4 + 1] = g;
+      colors[i * 4 + 2] = b;
       colors[i * 4 + 3] = tint.a;
     });
     flowerMaster.thinInstanceSetBuffer('matrix', matrices, 16, true);
@@ -271,6 +292,10 @@ export function buildFlora(scene: Scene): FloraHandle {
     flowerMaster.thinInstanceRefreshBoundingInfo();
     flowerMaster.useVertexColors = true;
   }
+
+  /* the hour's cloud tint (null = the historical white) — a repaint
+     only when the tint actually changes, never per frame */
+  let cloudTint: string | null = null;
 
   return {
     update(t, dt) {
@@ -281,6 +306,12 @@ export function buildFlora(scene: Scene): FloraHandle {
         if (c.position.x > 340) c.position.x = -340;
         c.rotation.z = Math.sin(t * 0.1 + i) * 0.02;
       }
+    },
+    setCloudTint(hex: string | null): void {
+      if (hex === cloudTint) return;
+      cloudTint = hex;
+      const paint = (cloudTex as DynamicTexture & { repaint?: (t: string) => void }).repaint;
+      paint?.(hex ?? '#ffffff');
     },
     dispose(): void {
       root.dispose(false, true);
