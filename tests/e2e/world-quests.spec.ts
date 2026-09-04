@@ -93,7 +93,11 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
       await page.waitForTimeout(340);
       await page.keyboard.up('ArrowUp');
     }
-    throw new Error(`never arrived near (${wx}, ${wz})`);
+    const end = await page.evaluate(() => {
+        const w = window.__lennyWorld;
+        return w ? { me: w.presencePos(), fps: Math.round(w.fps()), phase: w.phase?.() } : 'bridge-gone';
+      });
+      throw new Error(`never arrived near (${wx}, ${wz}) — fox at ${JSON.stringify(end)} after ${i} rounds`);
   } finally {
     await releaseWalkKeys(page);
   }
