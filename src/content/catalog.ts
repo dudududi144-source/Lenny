@@ -109,6 +109,22 @@ const SEED_DISPLAY: Record<string, string> = {
   'wind-melody-1': 'פַּעֲמוֹנֵי הָרוּחַ',
   'wind-melody-2': 'מֶלוֹדִיּוֹת הָרוּחַ',
   'wind-melody-3': 'קוֹנְצֶרְט הָרוּחַ',
+  /* stage 16-b — the games flood */
+  'sequence-echo-2': 'הַסֵּדֶר הָרִאשׁוֹן',
+  'memory-pairs-3': 'זוּגוֹת הַלַּיְלָה',
+  'count-acorns-1': 'סְפִירַת בְּלוּטִים',
+  'count-acorns-2': 'עוֹד בְּלוּטִים לִסְפֹּר',
+  'count-acorns-3': 'סוּפַת הַבְּלוּטִים',
+  'trace-stars-1': 'שְׁבִיל הַכּוֹכָבִים',
+  'trace-stars-2': 'שְׁבִיל אָרֹךְ',
+  'trace-stars-3': 'הַקְּבוּצָה הַגְּדוֹלָה',
+  'match-kites-3': 'שְׁמוֹנָה עִפְעוֹפִים',
+  'find-frog-1': 'אֵיפֹה הַצָּפְרְדֵּעַ?',
+  'find-frog-2': 'הַצָּפְרְדֵּעַ מִתְחַבֵּא',
+  'find-frog-3': 'שֵׁשׁ עֲלֵי בְּרֵכָה',
+  'rhyme-pick-1': 'מִי חוֹרֵפֶת?',
+  'rhyme-pick-2': 'חֲרִיזוֹת נוֹסְפוֹת',
+  'rhyme-pick-3': 'אַלּוּף הַחֲרִיזָה',
 };
 
 /** The name a child (or parent) reads on a shelf card — Hebrew for
