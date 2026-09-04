@@ -63,7 +63,7 @@ describe('FpsGovernor', () => {
   });
 
   it('never arms distress during the warmup grace, even when slow', () => {
-    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000 });
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000, minFps: 15 });
     let now = run(gov, 12, 5.5); /* 5.5s slow — still inside the 6s grace */
     let d = gov.evaluate(now, 1);
     expect(d.distress).toBe(false);
@@ -77,19 +77,19 @@ describe('FpsGovernor', () => {
     expect(fine.newScale).toBeLessThan(1.2);
   });
 
-  it('arms distress after grace + 5 sustained seconds below 15fps', () => {
-    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000, distressGraceMs: 0 });
-    let now = run(gov, 12, 1);
+  it('arms distress after grace + 8 sustained seconds below 10fps', () => {
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 8000, distressGraceMs: 0 });
+    let now = run(gov, 8, 1);
     let d = gov.evaluate(now, 1); /* the distress clock starts here */
     expect(d.distress).toBe(false);
-    now = run(gov, 12, 3, now); /* 4s total — still inside the budget */
+    now = run(gov, 8, 6, now); /* 7s total — still inside the budget */
     d = gov.evaluate(now, 1);
     expect(d.distress).toBe(false);
-    now = run(gov, 12, 2.2, now); /* past the 5s budget */
+    now = run(gov, 8, 2.2, now); /* past the 8s budget */
     d = gov.evaluate(now, 1);
     expect(d.distress).toBe(true);
     /* one-shot: not again while still slow */
-    now = run(gov, 12, 1, now);
+    now = run(gov, 8, 1, now);
     d = gov.evaluate(now, 1);
     expect(d.distress).toBe(false);
   });
@@ -105,7 +105,7 @@ describe('FpsGovernor', () => {
   });
 
   it('recovers the distress window when fps comes back up', () => {
-    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000, distressGraceMs: 0 });
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 5000, distressGraceMs: 0, minFps: 15 });
     let now = run(gov, 12, 3);
     gov.evaluate(now, 1);
     now = run(gov, 60, 2, now); /* recovered */
@@ -121,5 +121,22 @@ describe('FpsGovernor', () => {
     run(gov, 30, 1);
     gov.reset();
     expect(gov.fps(2000)).toBe(0);
+  });
+
+  it('a spectacle (the balloon flight) softens pixels but is never distress', () => {
+    const gov = new FpsGovernor({ decisionMs: 0, distressMs: 1000, distressGraceMs: 0 });
+    gov.setSpectacle(true);
+    let now = run(gov, 8, 8); /* far below the floor, well past every grace */
+    const d = gov.evaluate(now, 1);
+    expect(d.distress).toBe(false); /* the flight is kept, in full */
+    expect(d.newScale).toBeGreaterThan(1); /* the pixels still soften */
+    /* wheels down: the honesty returns — a stalled ground game may
+       be judged again from a fresh budget */
+    gov.setSpectacle(false);
+    now = run(gov, 8, 1, now);
+    gov.evaluate(now, 1.2); /* arms the fresh budget */
+    now = run(gov, 8, 8, now);
+    const d2 = gov.evaluate(now, 1.2);
+    expect(d2.distress).toBe(true);
   });
 });

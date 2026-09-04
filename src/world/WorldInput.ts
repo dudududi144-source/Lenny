@@ -25,6 +25,9 @@ export interface WorldInputEvents {
   onWalkTarget(resolved: WalkResolution): void;
   /** A tap landed on a quest prop (flower / stone / gap) — never a walk. */
   onPropTap(propName: string): void;
+  /** A tap landed on the balloon (any part of it) — the world turns it
+      into one clear errand: walk to the deck, and the sky opens. */
+  onBalloonTap(): void;
   /** A tap tried to enter a fog island (already throttled). */
   onLockedTap(zone: ZoneId): void;
   /** A pointer-down landed while the tour is active (skip request). */
@@ -54,11 +57,13 @@ export interface WorldInputHandle {
 /** One gentle locked-island note per this long — never a spam. */
 const LOCKED_TOAST_MS = 2600;
 
-/** The meshes a tap may land on: grass, platforms, landmarks, quest props. */
-function pickKind(meshName: string): 'walk' | 'prop' | null {
+/** The meshes a tap may land on: grass, platforms, landmarks, quest
+    props — and the balloon, whose every part means "the deck". */
+function pickKind(meshName: string): 'walk' | 'prop' | 'balloon' | null {
   if (meshName === 'ground' || meshName.startsWith('plat-mesh-')) return 'walk';
   if (meshName.startsWith('landmark-')) return 'walk'; /* the rim IS the destination */
   if (meshName.startsWith('quest-')) return 'prop';
+  if (meshName.startsWith('balloon-')) return 'balloon';
   return null;
 }
 
@@ -148,6 +153,17 @@ export function attachWorldInput(
         events.onPropTap(pick.pickedMesh!.name);
       } catch {
         /* a prop tap never crashes the garden */
+      }
+      return;
+    }
+
+    if (pickKind(pick.pickedMesh!.name) === 'balloon') {
+      /* the canopy is not a hole in the world: a tap on ANY part of
+         the balloon is one errand — walk to the deck and fly */
+      try {
+        events.onBalloonTap();
+      } catch {
+        /* a balloon tap never crashes the garden */
       }
       return;
     }

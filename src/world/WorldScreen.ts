@@ -97,6 +97,10 @@ declare global {
     __lennyWorld?: {
       version: string;
       presencePos(): { x: number; z: number } | null;
+      /** the live walk errand (null = none) — e2e/diagnostics. */
+      errand(): { x: number; z: number } | null;
+      /** true while the balloon vista ride is airborne. */
+      riding(): boolean;
       nearZone(): string | null;
       zones(): Array<{ id: string; unlocked: boolean; bloom: number }>;
       fps(): number;
@@ -875,8 +879,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   /* ---------- the read-only world bridge (e2e + parent tooling) ---------- */
 
   window.__lennyWorld = {
-    version: 'stage-12',
+    version: 'stage-13',
     presencePos: () => app?.presencePos() ?? null,
+    errand: () => app?.errand() ?? null,
+    riding: () => app?.riding() ?? false,
     nearZone: () => app?.nearZone() ?? null,
     zones: () => app?.zones() ?? [],
     fps: () => app?.fps() ?? 0,
