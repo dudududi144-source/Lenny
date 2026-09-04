@@ -261,13 +261,25 @@ export function lerpPalette(a: WorldPalette, b: WorldPalette, k: number): WorldP
 
 /* ---------- the painted dome (zero assets, deterministic) ---------- */
 
+/** Paint quality: 'weak' is the historical sky, byte for byte; the
+ *  standard+ night earns a denser field, a milky band and a prouder
+ *  moon (stage 16-c). The rng is reseeded per paint, so every
+ *  quality stays deterministic — the night sky is a PLACE. */
+export type SkyQuality = 'weak' | 'standard' | 'rich';
+
 /**
  * Paint one sky texture (the same seeded stars every time — the
  * night sky is a PLACE, not noise). `blend` (0..1) fades the discs:
  * the WorldApp day-turn drives it through lerpPalette's sun/moon
  * alphas so dusk takes ~9 gentle seconds.
  */
-export function paintSkyCanvas(ctx: CanvasRenderingContext2D, size: number, p: WorldPalette, rng: () => number): void {
+export function paintSkyCanvas(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  p: WorldPalette,
+  rng: () => number,
+  quality: SkyQuality = 'weak',
+): void {
   /* the air: zenith → mid → low → horizon haze (multi-stop) */
   const g = ctx.createLinearGradient(0, 0, 0, size);
   g.addColorStop(0, p.skyTop);
@@ -279,10 +291,26 @@ export function paintSkyCanvas(ctx: CanvasRenderingContext2D, size: number, p: W
   ctx.fillRect(0, 0, size, size);
 
   /* the stars — BEFORE the discs so the moon overlaps them. Fixed
-     rng() calls per star: the field stays put while counts blend. */
+     rng() calls per star: the field stays put while counts blend.
+     standard+ (16-c): the field DENSIFIES and a faint milky band
+     crosses the high sky — still seeded, never flickering. */
   if (p.stars > 0) {
+    const rich = quality === 'rich';
+    const boosted = quality !== 'weak';
+    const count = boosted ? Math.round(p.stars * (rich ? 3 : 2.2)) + (rich ? 34 : 18) : p.stars;
+    /* the milky band: one soft diagonal wash behind everything */
+    if (boosted) {
+      const bx = size * (0.2 + rng() * 0.1);
+      const by = size * 0.1;
+      const band = ctx.createLinearGradient(bx, by, bx + size * 0.7, size * 0.62);
+      band.addColorStop(0, 'rgba(214,228,255,0)');
+      band.addColorStop(0.5, `rgba(214,228,255,${rich ? 0.1 : 0.07})`);
+      band.addColorStop(1, 'rgba(214,228,255,0)');
+      ctx.fillStyle = band;
+      ctx.fillRect(0, 0, size, size);
+    }
     ctx.fillStyle = '#fff7d6';
-    for (let i = 0; i < p.stars; i++) {
+    for (let i = 0; i < count; i++) {
       const x = rng() * size;
       const y = rng() * size * 0.55;
       const r = 0.6 + rng() * 1.3;
@@ -302,6 +330,18 @@ export function paintSkyCanvas(ctx: CanvasRenderingContext2D, size: number, p: W
       ctx.globalAlpha = 0.3;
       ctx.fillRect(x - 4, y - 0.4, 8, 0.8);
       ctx.fillRect(x - 0.4, y - 4, 0.8, 8);
+    }
+    /* standard+ night: four-point glints on the brightest few */
+    if (boosted) {
+      const glints = rich ? 7 : 5;
+      ctx.globalAlpha = 0.5;
+      for (let i = 0; i < glints; i++) {
+        const x = rng() * size;
+        const y = rng() * size * 0.45;
+        const s = 3 + rng() * 4;
+        ctx.fillRect(x - s, y - 0.35, s * 2, 0.7);
+        ctx.fillRect(x - 0.35, y - s, 0.7, s * 2);
+      }
     }
     ctx.globalAlpha = 1;
   }
@@ -329,7 +369,9 @@ export function paintSkyCanvas(ctx: CanvasRenderingContext2D, size: number, p: W
     ctx.globalAlpha = 1;
   }
 
-  /* the moon: a soft glow + the crescent (fades via moonAlpha) */
+  /* the moon: a soft glow + the crescent (fades via moonAlpha).
+     standard+ (16-c): a second, wider halo wash plus a thin ring —
+     the moon reads as a LAMP in the sky, not a sticker. */
   if (p.moon && p.moonAlpha > 0.01) {
     const mx = 0.78 * size;
     const my = 0.14 * size;
@@ -339,6 +381,20 @@ export function paintSkyCanvas(ctx: CanvasRenderingContext2D, size: number, p: W
     ctx.globalAlpha = p.moonAlpha;
     ctx.fillStyle = halo;
     ctx.fillRect(mx - 90, my - 90, 180, 180);
+    if (quality !== 'weak') {
+      const wide = ctx.createRadialGradient(mx, my, 40, mx, my, 150);
+      wide.addColorStop(0, 'rgba(214,224,248,0.16)');
+      wide.addColorStop(1, 'rgba(214,224,248,0)');
+      ctx.fillStyle = wide;
+      ctx.fillRect(mx - 150, my - 150, 300, 300);
+      ctx.globalAlpha = 0.28 * p.moonAlpha;
+      ctx.strokeStyle = 'rgba(243,236,208,0.55)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(mx, my, 34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = p.moonAlpha;
+    }
     ctx.fillStyle = '#f3ecd0';
     ctx.beginPath();
     ctx.arc(mx, my, 26, 0, Math.PI * 2);
