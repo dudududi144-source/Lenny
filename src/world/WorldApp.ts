@@ -669,7 +669,16 @@ export async function createWorldApp(
     tx: home.x,
     tz: home.z,
   };
-  const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z));
+  /* stage 16: any touch device gets the steady-palm camera — vertical
+     orbit needs a deliberate mouse; a kid's thumb never flees the sky */
+  const steadyTouch = (() => {
+    try {
+      return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    } catch {
+      return false;
+    }
+  })();
+  const camera = createWorldCamera(scene, new Vector3(home.x, 0.6, home.z), { steadyTouch });
   scene.activeCamera = camera;
 
   /* ---------- stage 13 — the balloon vista (נוף) ----------
@@ -799,6 +808,14 @@ export async function createWorldApp(
   let lastMusicIntensity = -1;
   const prevPresence = { x: presencePos.x, z: presencePos.z };
   const vel = { x: 0, z: 0 };
+  /* stage 16 camera stability: the eye glides, never snaps — the
+     look-ahead reads a SMOOTHED velocity (the raw per-frame velocity
+     snaps to zero the frame a walk ends, yanking the target back),
+     and the target's height chases the ground under an honest speed
+     cap (a pad rim or a hill crest can lift the view, never fling
+     it). The balloon ride bypasses the cap: its ascent IS the view. */
+  const velS = { x: 0, z: 0 };
+  const CAM_Y_MAX_SPEED = 2.4; /* world units per second, walking */
 
   /* the jump: a small, honest arc — up, gravity, landing squash */
   const JUMP_V = 4.3;
@@ -1056,11 +1073,21 @@ export async function createWorldApp(
       onboard.tick(now, camera);
     } else {
       const camT = camera.target;
-      const lookX = presencePos.x + vel.x * 0.22;
-      const lookZ = presencePos.z + vel.z * 0.22;
+      const vf = Math.min(1, dt * 3.2);
+      velS.x += (vel.x - velS.x) * vf;
+      velS.z += (vel.z - velS.z) * vf;
+      const lookX = presencePos.x + velS.x * 0.22;
+      const lookZ = presencePos.z + velS.z * 0.22;
       camT.x += (lookX - camT.x) * Math.min(1, dt * 2.2);
       camT.z += (lookZ - camT.z) * Math.min(1, dt * 2.2);
-      camT.y += (gy + 0.5 + rideAlt - camT.y) * Math.min(1, dt * 1.6);
+      const camYGoal = gy + 0.5 + rideAlt;
+      const camYDelta = (camYGoal - camT.y) * Math.min(1, dt * 1.6);
+      if (rideK !== null) {
+        camT.y += camYDelta;
+      } else {
+        const maxStep = CAM_Y_MAX_SPEED * dt;
+        camT.y += camYDelta > maxStep ? maxStep : camYDelta < -maxStep ? -maxStep : camYDelta;
+      }
       /* airborne: the eye steps back — the continent deserves the view */
       if (rideK !== null) {
         camera.radius += (30 - camera.radius) * Math.min(1, dt * 0.9);
@@ -1419,7 +1446,14 @@ export async function createWorldApp(
     perf: () => {
       try {
         const active = scene.getActiveMeshes();
-        return { meshes: scene.meshes.length, active: active.length };
+        const camY = camera.target.y;
+        return {
+          meshes: scene.meshes.length,
+          active: active.length,
+          camY: Math.round(camY * 100) / 100,
+          camBeta: Math.round(camera.beta * 1000) / 1000,
+          camRadius: Math.round(camera.radius * 100) / 100,
+        };
       } catch {
         return null;
       }

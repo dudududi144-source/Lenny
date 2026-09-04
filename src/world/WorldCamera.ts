@@ -21,8 +21,12 @@ import type { Scene } from '@babylonjs/core/scene';
 export const CHILD_CAMERA = {
   betaMin: 0.15,
   betaMax: 1.25,
-  radiusMin: 3.4,
-  radiusMax: 46,
+  /* stage 16: the owner's zoom verdict — "too much zoom freedom makes
+     everything very bad". A 4-7 year-old with 3.4..46 could lose the
+     world entirely (macro) or fly to the stratosphere. 8.5 keeps the
+     fox a friend, 26 keeps the continent a view. */
+  radiusMin: 8.5,
+  radiusMax: 26,
   inertia: 0.92,
   /** default angular sensibility 1000 → slower = bigger value */
   angularSensibility: Math.round(1000 / 0.6),
@@ -35,7 +39,11 @@ export const CHILD_CAMERA = {
   startRadius: 16,
 } as const;
 
-export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamera {
+export function createWorldCamera(
+  scene: Scene,
+  target: Vector3,
+  opts: { steadyTouch?: boolean } = {},
+): ArcRotateCamera {
   const camera = new ArcRotateCamera(
     'world-camera',
     CHILD_CAMERA.startAlpha,
@@ -52,6 +60,16 @@ export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamer
   camera.inertia = CHILD_CAMERA.inertia;
   camera.angularSensibilityX = CHILD_CAMERA.angularSensibility;
   camera.angularSensibilityY = CHILD_CAMERA.angularSensibility;
+
+  /* stage 16: "the screen pulls and escapes upward" on phones — a
+     child's palm resting near the joystick drags the CANVAS too, and
+     every vertical pixel swung beta toward the sky. Touch keeps the
+     horizontal look-around and the pinch zoom, but the vertical orbit
+     needs a deliberate desktop mouse: ~15× calmer means a wandering
+     thumb tilts the view a few degrees, never flees to the sky. */
+  if (opts.steadyTouch) {
+    camera.angularSensibilityY = Math.round(CHILD_CAMERA.angularSensibility * 15);
+  }
 
   /* no sliding — orbit and zoom only */
   camera.panningSensibility = 0;

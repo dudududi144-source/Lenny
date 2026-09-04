@@ -412,22 +412,28 @@
   transform: scale(0.96);
 }
 
-/* the classic garden's chip to the world (lives in the 2D garden) */
+/* the classic garden's chip to the world (lives in the 2D garden).
+   NOTE: this chip is FRAME-level DOM (a sibling of the screens, not
+   a child of .screen--world), so the --wz-* tokens are NOT in scope
+   here — var() in calc() went invalid and the chip lost its bottom
+   anchor entirely, floating up over the garden's brand (the owner's
+   "banners sit on one another"). Literal values + env() keep it
+   self-sufficient on any screen it ever appears on. */
 .world-chip {
   position: absolute;
-  bottom: calc(var(--wz-s3) + var(--wz-safe-bottom));
-  inset-inline-end: var(--wz-s3);
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: 12px;
   z-index: 6;
   appearance: none;
   border: 1px solid rgba(255, 215, 106, 0.8);
   background: rgba(24, 34, 28, 0.55);
-  backdrop-filter: var(--wz-panel-blur);
-  color: var(--wz-gold);
+  backdrop-filter: blur(10px);
+  color: #ffd76a;
   font: inherit;
-  font-size: var(--wz-fs-xs);
+  font-size: 13px;
   font-weight: 700;
   padding: 6px 12px;
-  border-radius: var(--wz-r-full);
+  border-radius: 999px;
   cursor: pointer;
   min-height: 44px;
   box-shadow: 0 4px 14px rgba(10, 20, 14, 0.35);
@@ -1293,13 +1299,55 @@
   }
 }
 
-/* phones: the compass lifts above the thumb controls — the joystick
-   tops out at ~174px and the jump at ~142px, so the bottom-center
-   pill would paint over them at ≤375px widths (overlaps are dead,
-   stage 15-A). Sits after the base compass rule — cascade is law. */
+/* phones (stage 16, the owner's verdict): the bottom-center is the
+   THUMB ZONE — nothing fixed lives there anymore.
+   - The wayfinding compass pill is OFF on phones: the in-world
+     signposts (arrows, totems) and the lit road do the pointing in
+     the scene itself; a DOM pill just crowded the play space.
+   - The quest offer is a compact banner that DESCENDS from under the
+     top bar, stays thumb-free, and LIFTS away when answered or
+     deferred — a message that pops, never a sign that sits. */
 @media (max-width: 640px) {
   .screen--world .zone-compass {
-    inset-block-end: calc(190px + var(--wz-safe-bottom));
+    display: none;
+  }
+
+  .screen--world .world-quest {
+    inset-block-end: auto;
+    inset-block-start: calc(88px + var(--wz-safe-top));
+    width: min(94%, 400px);
+    padding: var(--wz-s2) var(--wz-s3);
+    animation: quest-drop 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+
+  .screen--world .world-quest-line {
+    font-size: var(--wz-fs-sm);
+    line-height: 1.35;
+  }
+
+  .screen--world .world-quest .quest-chip {
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 1.1rem;
+  }
+
+  /* the key hint is a desktop instrument — a pre-literate thumb zone
+     reads the joystick itself, and the pill crowded the bottom-center
+     (and brushed the joystick at ≤375px). Touch loses nothing: the
+     wheel and the ⬆ button ARE the instruction. */
+  .screen--world .world-controls.world-touch .world-controls-hint {
+    display: none;
+  }
+}
+
+@keyframes quest-drop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-24px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
   }
 }
 
