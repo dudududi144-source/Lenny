@@ -99,6 +99,8 @@ export function balloonPose(k: number, padX: number, padZ: number): BalloonPose 
 export interface WorldBalloonHandle {
   /** per-frame: bob at the pad, or fly the ride. No allocs steady-state. */
   update(now: number, dt: number, rideK: number | null): void;
+  /** standard+ only: a gentle canopy sway while parked (weak keeps today's bob). */
+  setSway(on: boolean): void;
   /** the pad a child walks to (also the landing spot). */
   pad(): { x: number; z: number };
   /** distance-squared from the fox to the pad (cheap proximity test). */
@@ -189,6 +191,11 @@ export function createWorldBalloon(scene: Scene, padX: number, padZ: number): Wo
 
   /* ---------- state ---------- */
 
+  /* stage 15-D: the atmosphere tiers add a slow canopy tilt while the
+     balloon waits at the pad — it reads as wind, not wobble. Weak tier
+     (and every flight) keeps the exact historical motion. */
+  let sway = false;
+
   const handle: WorldBalloonHandle = {
     update(now, _dt, rideK) {
       if (rideK !== null) {
@@ -203,6 +210,17 @@ export function createWorldBalloon(scene: Scene, padX: number, padZ: number): Wo
       const t = now / 1000;
       balloon.position.set(padX, rootY + Math.sin(t * 0.9) * 0.12, padZ);
       balloon.rotation.y = Math.sin(t * 0.23) * 0.3;
+      if (sway) {
+        balloon.rotation.z = Math.sin(t * 0.47) * 0.045;
+        balloon.rotation.x = Math.cos(t * 0.36) * 0.03;
+      }
+    },
+    setSway(on: boolean): void {
+      sway = on;
+      if (!on) {
+        balloon.rotation.x = 0;
+        balloon.rotation.z = 0;
+      }
     },
     pad: () => ({ x: padX, z: padZ }),
     padDistSq: (x, z) => (x - padX) * (x - padX) + (z - padZ) * (z - padZ),

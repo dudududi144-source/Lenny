@@ -38,7 +38,15 @@ import '@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent';
 import { Texture } from '@babylonjs/core/Materials/Textures/texture';
 import { music, mulberry32 } from '../audio/MusicEngine';
 import { phaseNow, type DayPhase } from '../content/dayCycle';
-import { paletteChanged, paletteForPhase, type WorldPalette } from './WorldSky';
+import {
+  lerpPalette,
+  paletteForPhase,
+  paintSkyCanvas,
+  skyStarRng,
+  type WorldPalette,
+} from './WorldSky';
+import type { QualityTier } from './FpsGovernor';
+import { buildWorldFx, type WorldFxHandle } from './WorldFx';
 import { buildCreatures, type CreaturesHandle } from './WorldCreatures';
 import { buildLennyStar, type LennyStarHandle } from './LennyStar';
 import {
@@ -80,6 +88,7 @@ import {
   islandCenter,
   isInsideIsland,
   isInsideLandmark,
+  LANDMARKS,
   MAX_WALK_SPEED,
   nearestLandmark,
   nearestZone,
@@ -220,50 +229,15 @@ async function createEngine(
   return { engine: gl, kind: 'webgl2' };
 }
 
-/** Painted sky dome — gradient + sun/moon + deterministic stars. */
+/** Painted sky dome — the stage 15-D multi-stop gradient, sun halo,
+ *  moon glow and deterministic star field, all painted by WorldSky
+ *  (one source of truth; the dome itself is unchanged). */
 function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalette): void; dispose(): void } {
   const size = 512;
   const tex = new DynamicTexture('sky-tex', { width: size, height: size }, scene, true);
   const ctx = tex.getContext() as CanvasRenderingContext2D;
 
-  const g = ctx.createLinearGradient(0, 0, 0, size);
-  g.addColorStop(0, palette.skyTop);
-  g.addColorStop(0.52, palette.skyMid);
-  g.addColorStop(0.72, palette.skyHorizon);
-  g.addColorStop(1, palette.skyHorizon);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-
-  if (palette.sun) {
-    ctx.fillStyle = palette.sun.color;
-    ctx.beginPath();
-    ctx.arc(palette.sun.x * size, palette.sun.y * size, palette.sun.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (palette.moon) {
-    ctx.fillStyle = '#f3ecd0';
-    ctx.beginPath();
-    ctx.arc(0.78 * size, 0.14 * size, 26, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = palette.skyTop;
-    ctx.beginPath();
-    ctx.arc(0.755 * size, 0.125 * size, 22, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (palette.stars > 0) {
-    const rng = mulberry32(20260915);
-    ctx.fillStyle = '#fff7d6';
-    for (let i = 0; i < palette.stars; i++) {
-      const x = rng() * size;
-      const y = rng() * size * 0.5;
-      const r = 0.6 + rng() * 1.3;
-      ctx.globalAlpha = 0.35 + rng() * 0.6;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
+  paintSkyCanvas(ctx, size, palette, skyStarRng(20260915));
   tex.update();
 
   const mat = new StandardMaterial('sky-mat', scene);
@@ -281,7 +255,7 @@ function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalett
 
   return {
     repaint(p: WorldPalette): void {
-      paintSkyTexture(ctx, size, p);
+      paintSkyCanvas(ctx, size, p, skyStarRng(20260915));
       tex.update();
     },
     dispose(): void {
@@ -290,47 +264,6 @@ function buildSky(scene: Scene, palette: WorldPalette): { repaint(p: WorldPalett
       dome.dispose();
     },
   };
-}
-
-function paintSkyTexture(ctx: CanvasRenderingContext2D, size: number, palette: WorldPalette): void {
-  const g = ctx.createLinearGradient(0, 0, 0, size);
-  g.addColorStop(0, palette.skyTop);
-  g.addColorStop(0.52, palette.skyMid);
-  g.addColorStop(0.72, palette.skyHorizon);
-  g.addColorStop(1, palette.skyHorizon);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-
-  if (palette.sun) {
-    ctx.fillStyle = palette.sun.color;
-    ctx.beginPath();
-    ctx.arc(palette.sun.x * size, palette.sun.y * size, palette.sun.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (palette.moon) {
-    ctx.fillStyle = '#f3ecd0';
-    ctx.beginPath();
-    ctx.arc(0.78 * size, 0.14 * size, 26, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = palette.skyTop;
-    ctx.beginPath();
-    ctx.arc(0.755 * size, 0.125 * size, 22, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  if (palette.stars > 0) {
-    const rng = mulberry32(20260915);
-    ctx.fillStyle = '#fff7d6';
-    for (let i = 0; i < palette.stars; i++) {
-      const x = rng() * size;
-      const y = rng() * size * 0.5;
-      const r = 0.6 + rng() * 1.3;
-      ctx.globalAlpha = 0.35 + rng() * 0.6;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
 }
 
 /** Procedural grass — two-tone noise, no texture files. */
@@ -526,6 +459,15 @@ export async function createWorldApp(
   /* stage 14 — the continent breathes: clouds, grass, wild flowers */
   const flora: FloraHandle = buildFlora(scene);
 
+  /* stage 15-D — the sparkle layer (pooled, thin-instanced, tier-gated).
+     Built like any other module so the static-freeze pass sees its
+     meshes; its masters start disabled on the boot tier (weak). */
+  const fx: WorldFxHandle = buildWorldFx(scene);
+
+  /* the quality tier (stage 15-D): boot 'weak' — EXACTLY today's world.
+     Everything the tier unlocks is applied in applyTier (below). */
+  let tier: QualityTier = 'weak';
+
   const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
   const sun = new DirectionalLight('sun', new Vector3(...palette.sunDir), scene);
 
@@ -542,6 +484,11 @@ export async function createWorldApp(
     sun.intensity = p.sunIntensity;
     scene.fogColor = Color3.FromHexString(p.fogColor);
     scene.clearColor = Color4.FromHexString(`${p.skyHorizon}FF`);
+    /* the hour's air: weak keeps the historical constant 0.0034 (the
+       floor's proven look); standard+ breathes with the palette */
+    scene.fogDensity = tier === 'weak' ? 0.0034 : p.fogDensity;
+    /* the clouds ride the hour too (weak keeps the white sky) */
+    flora.setCloudTint(tier === 'weak' ? null : p.cloudTint);
   };
   applyPalette(palette);
 
@@ -577,7 +524,10 @@ export async function createWorldApp(
     }
     if (shadows === null && fps > 40) {
       try {
-        shadows = new ShadowGenerator(512, sun);
+        /* rich earns the bigger map (sharper fox shadow); the gate
+           itself (>40 to create, <30 to dispose) is tier-independent */
+        shadowMapSize = tier === 'rich' ? 1024 : 512;
+        shadows = new ShadowGenerator(shadowMapSize, sun);
         shadows.useBlurExponentialShadowMap = true;
         shadows.blurKernel = 8;
         shadows.addShadowCaster(fox.bodyMesh());
@@ -590,11 +540,13 @@ export async function createWorldApp(
         }
       } catch {
         shadows = null; /* shadows are decoration, never load-bearing */
+        shadowMapSize = 0;
       }
     } else if (shadows !== null && fps < 30) {
       shadows.dispose();
       shadows = null;
       shadowedIsland = null;
+      shadowMapSize = 0;
     } else if (shadows !== null && near && near !== shadowedIsland) {
       const prev = shadowedIsland ? islands.platformMesh(shadowedIsland as ZoneId) : null;
       const nextIsland = islands.platformMesh(near);
@@ -644,6 +596,44 @@ export async function createWorldApp(
   /* the world holds its breath this long after wheels-down: no visit,
      no shelf, no ghost hello from a place the flight only flew over */
   let rideSettleUntil = 0;
+
+  /* ---------- stage 15-D — applying a quality tier ----------
+     Called only from the decision cadence (applyInterval), never per
+     frame. Thresholds + hysteresis live in FpsGovernor (weak boots,
+     26fps×2.5s earns standard, 52fps×4s earns rich, drops are instant
+     below 40 / held below 17). What each tier means HERE:
+       weak     — today's world, byte for byte: no sparkles, no birds,
+                  no flicker, static fog, white clouds, 512 shadows.
+       standard — the decorations breathe: fx sparkles + bursts, sky
+                  birds, evening fireflies, lantern flicker, balloon
+                  sway, palette fog + cloud tint. Shadows/glow stay on
+                  their OWN fps gates (>40/<30), untouched.
+       rich     — standard plus a 1024 shadow map and the tighter
+                  resolution cap (the governor owns that lever).
+     The distress fallback and the QA hold key are NEVER touched by
+     any of this — they are the floor's hard safety net. */
+  let shadowMapSize = 0; /* 0 = not built yet */
+  const applyTier = (next: QualityTier): void => {
+    if (next === tier) return;
+    tier = next;
+    fx.setTier(next);
+    creatures.setAtmosphere(next !== 'weak');
+    lanterns.setAtmosphere(next !== 'weak');
+    balloon.setSway(next !== 'weak');
+    /* the hour's air + cloud tint follow the palette on standard+ */
+    applyPalette(palette);
+    /* a richer shadow map is a rebuild — done lazily: drop the old
+       generator and the (unchanged) fps gate recreates it within 2s */
+    const wantShadowMap = next === 'rich' ? 1024 : 512;
+    if (shadows !== null && shadowMapSize !== wantShadowMap) {
+      shadows.dispose();
+      shadows = null;
+      shadowedIsland = null;
+      shadowMapSize = 0;
+    }
+    /* a slightly prouder halo on rich (glow itself stays fps-gated) */
+    if (glow !== null) glow.intensity = next === 'rich' ? 0.7 : 0.55;
+  };
 
   const bootAt = performance.now();
   const onboard = createWorldOnboard(options.onboard === true, playPose, bootAt, {
@@ -767,6 +757,7 @@ export async function createWorldApp(
   const ANIMATED_PREFIXES = [
     'fox', 'lenny', 'presence-', 'dest-', 'balloon-', 'acorn-', 'station-',
     'quest-', 'friend', 'creature', 'sparkle', 'bird', 'butterfly',
+    'fx-',
     'landmark-beacon-', 'landmark-windmill', 'landmark-swing',
     'landmark-campfire', 'landmark-balloon', 'landmark-fireflies',
     'landmark-watermill', 'rg-clouds', 'flora-cloud',
@@ -1003,7 +994,7 @@ export async function createWorldApp(
       music.setIntensity(wantedIntensity);
     }
 
-    creatures.update(t, dt);
+    creatures.update(t, dt, presencePos.x, presencePos.z);
     landmarks.update(t, dt, presencePos.x, presencePos.z);
     regions.update(t, dt, presencePos.x, presencePos.z);
     questProps.update(t, now);
@@ -1012,6 +1003,9 @@ export async function createWorldApp(
     meadow.update(t, dt, presencePos.x, presencePos.z);
     clearings.update(t, dt, presencePos.x, presencePos.z);
     flora.update(t, dt);
+    /* the sparkle layer: road motes + bursts + the quest halo
+       (thin-instance writes only; weak tier short-circuits inside) */
+    fx.update(t, dt, presencePos.x, presencePos.z);
 
     /* stage 14: the clearings — step onto a pad and its games lean in */
     const ns = nearestStation(
@@ -1043,6 +1037,9 @@ export async function createWorldApp(
     if (gotAcorn) {
       acornsSession++;
       clearings.setCollectedAcorns(new Set([gotAcorn.id]));
+      /* a little nut-colored pop where it stood (standard+ only; weak
+         short-circuits inside the fx pool) */
+      fx.burstAt(presencePos.x, gy + 0.55, presencePos.z, 'acorn');
       try {
         events.onAcorn?.(gotAcorn.id, acornsSession);
       } catch {
@@ -1056,6 +1053,8 @@ export async function createWorldApp(
     if (landmarkId !== nearLandmark) {
       nearLandmark = landmarkId;
       if (nl) {
+        /* the discovery star-burst (standard+ only) */
+        fx.burstAt(presencePos.x, gy + 0.9, presencePos.z, 'discovery');
         try {
           events.onLandmarkNear?.(nl.landmark);
         } catch {
@@ -1083,6 +1082,8 @@ export async function createWorldApp(
     if (rgId !== nearRegionId) {
       nearRegionId = rgId;
       if (rg) {
+        /* the region deserves its own welcome (standard+ only) */
+        fx.burstAt(presencePos.x, gy + 1.1, presencePos.z, 'discovery');
         try {
           events.onRegionNear?.(rg);
         } catch {
@@ -1140,21 +1141,46 @@ export async function createWorldApp(
     governor.push(now, engine.getDeltaTime());
   });
 
-  /* the day turns slowly — check once in a while, repaint when it does */
+  /* ---------- the day TURNS (stage 15-D): phase changes ease in over
+     ~9s through lerpPalette — the sun cross-fades into the moon, the
+     sky blends, the fog follows. A 4-year-old never sees the world
+     snap dark. The blend ticks at 160ms (NOT per frame) and only
+     while a transition is live, so steady-state cost is zero. */
+  const DAY_BLEND_MS = 9000;
+  let blendFrom: WorldPalette | null = null;
+  let blendTarget: WorldPalette | null = null;
+  let blendStart = 0;
   const dayInterval = window.setInterval(() => {
     if (paused || disposed) return;
     const now = phaseNow();
-    if (now !== phase) {
-      const next = paletteForPhase(now);
-      if (paletteChanged(palette, next)) applyPalette(next);
+    if (now !== phase && blendFrom === null) {
+      blendFrom = palette;
+      blendTarget = paletteForPhase(now);
+      blendStart = performance.now();
       phase = now;
-      creatures.setPhase(phase);
+      creatures.setPhase(phase); /* creature gates flip with the target */
     }
   }, 30_000);
+  const dayBlend = window.setInterval(() => {
+    if (paused || disposed || blendFrom === null || blendTarget === null) return;
+    const k = Math.min(1, (performance.now() - blendStart) / DAY_BLEND_MS);
+    applyPalette(lerpPalette(blendFrom, blendTarget, k));
+    if (k >= 1) {
+      applyPalette(blendTarget); /* land exactly on the phase palette */
+      blendFrom = null;
+      blendTarget = null;
+    }
+  }, 160);
 
   const applyInterval = window.setInterval(() => {
     if (paused || disposed) return;
-    const decision = governor.evaluate(performance.now(), currentScale);
+    const now = performance.now();
+    /* stage 15-D: the quality tier is decided on the same cadence —
+       earned upward with hold times, shed downward instantly-ish
+       (hysteresis in FpsGovernor keeps it from flapping) */
+    const t = governor.evaluateTier(now);
+    if (t !== tier) applyTier(t);
+    const decision = governor.evaluate(now, currentScale, t);
     if (Math.abs(decision.newScale - currentScale) > 0.001) {
       currentScale = decision.newScale;
       engine.setHardwareScalingLevel(currentScale);
@@ -1270,7 +1296,19 @@ export async function createWorldApp(
     life: () => creatures.counts(),
     lanterns: () => lanterns.lit(),
     setFoundLandmarks: (ids) => landmarks.setFound(new Set(ids)),
-    setQuestTarget: (id) => landmarks.setQuestTarget(id),
+    setQuestTarget: (id) => {
+      landmarks.setQuestTarget(id);
+      /* the fx halo rides the quest beacon on standard+ (weak keeps
+         the beacon alone — exactly today's wayfinding) */
+      const l = id ? LANDMARKS.find((L) => L.id === id) : null;
+      if (l) {
+        const onIsland = isInsideIsland(l.x, l.z);
+        const y = terrainHeight(l.x, l.z) + (onIsland ? islands.islandTopY() + 0.04 : 0.14);
+        fx.setQuestTarget(l.x, l.z, y);
+      } else {
+        fx.setQuestTarget(null);
+      }
+    },
     setQuestProps: (spec) => {
       if (spec) {
         /* props sit on the surface under the child — a platform top,
@@ -1334,9 +1372,11 @@ export async function createWorldApp(
       disposed = true;
       window.clearInterval(applyInterval);
       window.clearInterval(dayInterval);
+      window.clearInterval(dayBlend);
       window.clearInterval(shadowProbe);
       shadows?.dispose();
       glow?.dispose();
+      fx.dispose();
       window.removeEventListener('resize', onResize);
       worldInput.detach();
       balloon.dispose();

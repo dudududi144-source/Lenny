@@ -292,6 +292,18 @@ export function buildFox(scene: Scene): FoxHandle {
       const wagSpeed = moving ? 9 : 1.7;
       tail.rotation.y = Math.sin(t * wagSpeed) * (moving ? 0.5 : 0.28);
 
+      /* idle head look (stage 15-D): standing still, the cub curiously
+         scans the garden — two slow sines read as "looking around",
+         never as a loop. Moving or airborne, the gaze returns to the
+         road within ~0.2s. Zero allocations, transform writes only. */
+      if (!moving && !airborne) {
+        head.rotation.y = Math.sin(t * 0.43) * 0.34 + Math.sin(t * 0.17) * 0.2;
+        head.rotation.z = Math.sin(t * 0.31) * 0.06;
+      } else {
+        head.rotation.y *= Math.max(0, 1 - dt * 6);
+        head.rotation.z *= Math.max(0, 1 - dt * 6);
+      }
+
       /* blinking: every few seconds, a soft double-lid */
       if (blinkLeft > 0) {
         blinkLeft -= dt;
