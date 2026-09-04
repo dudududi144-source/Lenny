@@ -13,6 +13,11 @@ import { SequenceEchoScene } from './SequenceEcho';
 import { BreathPoolScene } from './BreathPool';
 import { PlayPathScene } from './PlayPath';
 import { OpenCanvasScene } from './OpenCanvas';
+import { RainbowOrderScene } from './RainbowOrder';
+import { ShapeShadowScene } from './ShapeShadow';
+import { StarConnectScene } from './StarConnect';
+import { WindChimeScene } from './WindChime';
+import { LeafSizeScene } from './LeafSize';
 
 /* kind → scene key (mirrors builder/GameFactory's mapping without the
    Phaser dependency — the new shell must never import Phaser). */
@@ -29,6 +34,11 @@ const KIND_TO_SCENE: Record<GameKind, string> = {
   'open-create': 'open-create',
   'sequence-echo': 'sequence-echo',
 };
+
+/* stage 15-C: the five new unique scenes do NOT own a kind — they ride
+   existing kinds ('sort-order' / 'match-shadow' / 'sequence-echo') and
+   pin their scene via spec.params.extra.scene (the light-path-play-1
+   pattern), so the builder's kind union stays frozen. */
 
 export type SceneFactory = (ctx: SceneCtx) => GameScene;
 
@@ -47,6 +57,12 @@ export const SCENE_REGISTRY: Record<string, SceneFactory> = {
   'open-create': (ctx) => new OpenCanvasScene(ctx),
   'drum-beat': (ctx) => new DrumBeatScene(ctx),
   'lenny-story': (ctx) => new BreathPoolScene(ctx),
+  /* stage 15-C — the content flood */
+  'rainbow-order': (ctx) => new RainbowOrderScene(ctx),
+  'shape-shadow': (ctx) => new ShapeShadowScene(ctx),
+  'star-connect': (ctx) => new StarConnectScene(ctx),
+  'wind-chime': (ctx) => new WindChimeScene(ctx),
+  'leaf-size': (ctx) => new LeafSizeScene(ctx),
 };
 
 export function sceneKeyForSpec(spec: GameSpec): string {

@@ -155,7 +155,11 @@ describe('WorldDiary', () => {
     const raw = JSON.parse(storage.getItem(WORLD_DIARY_KEY)!) as Record<string, unknown>;
     expect(Object.keys(raw).sort()).toEqual(['days', 'v']);
     for (const stat of Object.values(raw.days as Record<string, Record<string, unknown>>)) {
-      expect(Object.keys(stat).sort()).toEqual(['arrivals', 'ms', 'opens', 'picks', 'shelfOpens', 'zones']);
+      /* stage 15-C: the whitelisted set grows by gathers + well — still
+         counters only, no identifiers, ever */
+      expect(Object.keys(stat).sort()).toEqual([
+        'arrivals', 'gathers', 'ms', 'opens', 'picks', 'shelfOpens', 'well', 'zones',
+      ]);
       for (const zoneKey of Object.keys(stat.zones as Record<string, unknown>)) {
         expect(zoneKey.length).toBeLessThanOrEqual(40);
       }
@@ -168,5 +172,48 @@ describe('WorldDiary', () => {
     expect(diary.isEmpty()).toBe(true);
     diary.noteHeartbeat(1);
     expect(diary.isEmpty()).toBe(false);
+  });
+});
+
+describe('WorldDiary — stage 15-C activities (gathers + well)', () => {
+  it('noteGathers counts honest gathers today, ignores garbage', () => {
+    const storage = fakeStorage();
+    const diary = new WorldDiary(storage, () => NOON);
+    diary.noteGathers();
+    diary.noteGathers(2);
+    diary.noteGathers(0);
+    diary.noteGathers(-3);
+    diary.noteGathers(Number.NaN);
+    const today = diary.snapshot().days['2026-09-02'];
+    expect(today.gathers).toBe(3);
+  });
+
+  it('noteWell counts a purchase a day', () => {
+    const storage = fakeStorage();
+    const diary = new WorldDiary(storage, () => NOON);
+    diary.noteWell();
+    diary.noteWell();
+    const today = diary.snapshot().days['2026-09-02'];
+    expect(today.well).toBe(2);
+    expect(diary.isEmpty()).toBe(false);
+  });
+
+  it('a gathers-only diary is not empty (real activity, honest lens)', () => {
+    const storage = fakeStorage();
+    const diary = new WorldDiary(storage, () => NOON);
+    diary.noteGathers(1);
+    expect(diary.isEmpty()).toBe(false);
+  });
+
+  it('old saves without the new keys coerce to zeros (schema growth is safe)', () => {
+    const storage = fakeStorage({
+      [WORLD_DIARY_KEY]: JSON.stringify({
+        v: 1,
+        days: { '2026-09-01': { ms: 1000, opens: 1, arrivals: 0, shelfOpens: 0, picks: 0, zones: {} } },
+      }),
+    });
+    const snap = new WorldDiary(storage, () => NOON).snapshot();
+    expect(snap.days['2026-09-01'].gathers).toBe(0);
+    expect(snap.days['2026-09-01'].well).toBe(0);
   });
 });

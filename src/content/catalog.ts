@@ -93,6 +93,22 @@ const SEED_DISPLAY: Record<string, string> = {
   'breath-lanterns-2': 'עוֹד פָּנָסִים',
   'open-create-1': 'הַצַּיִר הַחָפְשִׁי',
   'light-path-play-1': 'שְׁבִיל הַפָּנָסִים',
+  /* stage 15-C — the content flood */
+  'rainbow-bridge-1': 'גֶּשֶׁר הַקֶּשֶׁת',
+  'rainbow-bridge-2': 'גֶּשֶׁר הַקֶּשֶׁת — חֲמִשָּׁה צְבָעִים',
+  'rainbow-bridge-3': 'גֶּשֶׁר הַקֶּשֶׁת הַמְלֵא',
+  'leaf-nests-1': 'קִנֵּי הֶעָלִים',
+  'leaf-nests-2': 'עָלִים נוֹפְלִים',
+  'leaf-nests-3': 'קִנֵּי הַסְּתָיו',
+  'true-shadows-1': 'צְלָלִים מְדֻיֶּיקִים',
+  'true-shadows-2': 'עוֹד צְלָלִים אֲמִתִּיִּים',
+  'true-shadows-3': 'אַלּוּף הַצְּלָלִים',
+  'star-threads-1': 'קִשּׁוּר הַכּוֹכָבִים',
+  'star-threads-2': 'קְבוּצָה גְּדוֹלָה',
+  'star-threads-3': 'עֶשֶׂרָה כּוֹכָבִים',
+  'wind-melody-1': 'פַּעֲמוֹנֵי הָרוּחַ',
+  'wind-melody-2': 'מֶלוֹדִיּוֹת הָרוּחַ',
+  'wind-melody-3': 'קוֹנְצֶרְט הָרוּחַ',
 };
 
 /** The name a child (or parent) reads on a shelf card — Hebrew for
@@ -101,11 +117,12 @@ export function displayNameFor(spec: GameSpec): string {
   return NAME_BY_ID[spec.id] ?? SEED_DISPLAY[spec.id] ?? spec.id;
 }
 
-/** Boot-time gate: all 144 derived specs + legacy mappings must validate.
- *  Throws loudly in dev/CI when one does not — a bad spec never reaches
- *  a child. */
+/** Boot-time gate: all 144 derived specs + the hand-written registry
+ *  + the legacy mappings must validate. Throws loudly in dev/CI when
+ *  one does not — a bad spec never reaches a child. (Stage 15-C: the
+ *  registry joined the gate — it holds hand-written specs now too.) */
 export function installCatalog(): void {
-  const bad = validateCatalog([...SPEC_CATALOG, ...LEGACY_SPECS]);
+  const bad = validateCatalog([...SPEC_CATALOG, ...LEGACY_SPECS, ...GAME_REGISTRY]);
   const ids = Object.keys(bad);
   if (ids.length > 0) {
     console.error(`[catalog] ${ids.length} invalid specs`, bad);

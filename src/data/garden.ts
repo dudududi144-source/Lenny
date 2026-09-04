@@ -213,6 +213,9 @@ export const QUEST_TEXT = {
   countingOffer: 'פְּרָחִים פְּרָחוּ כָּאן! קַשְׁתּוּ כָּל אֶחָד.',
   countingAsk: 'כַּמָּה פְּרָחִים הָיוּ כָּאן?',
   countingAgain: 'לֹא נוֹרָא — בּוֹא נִסְפּוֹר שׁוּב!',
+  /** the counting walk (stage 15-C): composed with the thing's own name */
+  walkCountOffer: (thing: string): string => `בַּדֶּרֶךְ אֶפְשָׁר לִרְאוֹת ${thing}! סִפְרוּ וּבַחֲרוּ מִסְפָּר.`,
+  walkCountAgain: 'כִּמְעַט! בּוֹא נִסְפּוֹר שׁוּב לְאַט.',
   patternOffer: 'הָאֲבָנִים יוֹצְרוֹת סֵדֶר. אֵיזֶה צֶבַע מַמְשִׁיךְ?',
   patternAgain: 'טוֹב! נִנְסֶה שׁוּב.',
   done: 'וָאו! עוֹד גִּלּוּי הַושְׁלַם!',

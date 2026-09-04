@@ -6,7 +6,7 @@ import { dayKeyFor, type WorldDiaryData } from '../world/worldDiary';
 const NOW = new Date(2026, 8, 2, 12, 0, 0).getTime(); /* 2026-09-02 local noon */
 
 function stat(over: Partial<WorldDiaryData['days'][string]> = {}): WorldDiaryData['days'][string] {
-  return { ms: 0, opens: 0, arrivals: 0, shelfOpens: 0, picks: 0, zones: {}, ...over };
+  return { ms: 0, opens: 0, arrivals: 0, shelfOpens: 0, picks: 0, zones: {}, gathers: 0, well: 0, ...over };
 }
 
 function diaryWith(days: Record<string, WorldDiaryData['days'][string]>): WorldDiaryData {
@@ -49,5 +49,23 @@ describe('worldLensFromDiary', () => {
     const lens = worldLensFromDiary(data, NOW);
     expect(lens.zones['light-path']).toBe(3);
     expect(lens.zones['breath-pool']).toBe(4);
+  });
+
+  it('stage 15-C: gathers + well ride the 7-day window; the ledgers arrive as extras', () => {
+    const data = diaryWith({
+      [dayKeyFor(NOW)]: stat({ gathers: 3, well: 1 }),
+      [dayKeyFor(NOW - 9 * 86_400_000)]: stat({ gathers: 50, well: 9 }), /* outside the window */
+    });
+    const lens = worldLensFromDiary(data, NOW, { crystals: 4, acorns: 21, scarves: 2 });
+    expect(lens.gathers7d).toBe(3);
+    expect(lens.well7d).toBe(1);
+    expect(lens.crystalsFound).toBe(4);
+    expect(lens.acornsGathered).toBe(21);
+    expect(lens.scarvesOwned).toBe(2);
+    expect(lens.hasData).toBe(true);
+  });
+
+  it('stage 15-C: a silent diary with no ledgers stays silent', () => {
+    expect(worldLensFromDiary(diaryWith({}), NOW, { crystals: 0, acorns: 0, scarves: 0 }).hasData).toBe(false);
   });
 });

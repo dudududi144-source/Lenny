@@ -18,12 +18,18 @@ export interface ScarfItem {
   color: string; /* hex — the fox wears it */
 }
 
-/** The four scarves of the well — a year of wandering, priced honestly. */
+/** The well's collection — a year of wandering, priced honestly.
+ *  Costs rise strictly (the tests pin it); the shop renders every
+ *  entry and the fox wears any of them. Stage 15-C adds the winter
+ *  three: the snow region's ice, the meadow's blossom, the night sky. */
 export const SCARF_ITEMS: readonly ScarfItem[] = [
   { id: 'scarf-moss', name: 'צָעִיף יָרוֹק', cost: 8, color: '#7da35a' },
   { id: 'scarf-berry', name: 'צָעִיף וָרוֹד', cost: 16, color: '#d05a7e' },
   { id: 'scarf-honey', name: 'צָעִיף דְּבַשׁ', cost: 28, color: '#e8a33d' },
   { id: 'scarf-star', name: 'צָעִיף כּוֹכָבִים', cost: 45, color: '#e6c86e' },
+  { id: 'scarf-ice', name: 'צָעִיף קֶרַח', cost: 60, color: '#9fd8e8' },
+  { id: 'scarf-blossom', name: 'צָעִיף פְּרִיחָה', cost: 80, color: '#f0a3c0' },
+  { id: 'scarf-twilight', name: 'צָעִיף בֵּין הָעַרְבַּיִם', cost: 110, color: '#5a4f8f' },
 ];
 
 export function scarfById(id: string): ScarfItem | null {

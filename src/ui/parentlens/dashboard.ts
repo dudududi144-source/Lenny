@@ -176,6 +176,19 @@ function worldCard(data: LensData): HTMLElement {
     if (w.regionsFound > 0) {
       lines.push(h('p', { class: 'parent-line' }, `${w.regionsFound} מִתּוֹךְ 6 אֲזוֹרִים בְּעוֹלָם הַגָּדוֹל כְּבָר הִתְגַּלּוּ.`));
     }
+    /* stage 15-C: the honest ledgers — gathers, the well, the snow's crystals */
+    if (w.gathers7d > 0) {
+      lines.push(h('p', { class: 'parent-line' }, `הַשְּׁבוּעַ נֶאֱסְפוּ בַּדֶּרֶךְ ${w.gathers7d} אוֹצָרוֹת קְטַנִּים (נְצָנִים, בְּלוּטִים וּקְרִיסְטַלִּים).`));
+    }
+    if (w.well7d > 0) {
+      lines.push(h('p', { class: 'parent-line' }, `הַשָּׁבוּעַ נִקְנָה מַשֶּׁהוּ בְּאֵר הַגַּן — ${w.well7d} ${w.well7d === 1 ? 'בִּקּוּר' : 'בִּקּוּרִים'}.`));
+    }
+    if (w.scarvesOwned > 0) {
+      lines.push(h('p', { class: 'parent-line' }, `לַשּׁוּעָל יֵשׁ ${w.scarvesOwned} צָעִיפִים בָּאֲרוֹן — כָּל אֶחָד נִקְנָה בַּאֲקָרוֹנִים שֶׁנֶּאֱסְפוּ בַּדֶּרֶךְ.`));
+    }
+    if (w.crystalsFound > 0) {
+      lines.push(h('p', { class: 'parent-line' }, `${w.crystalsFound} מִתּוֹךְ 12 קְרִיסְטַּלִּים כְּבָר נִמְצְאוּ בְּאֶרֶץ הַשֶּׁלֶג.`));
+    }
   }
   /* stage 12: the honest horizon — this is a world that grows with the
      child for years (new regions, roads, and a fresh daily journey),
