@@ -28,6 +28,8 @@ export interface WorldInputEvents {
   /** A tap landed on the balloon (any part of it) — the world turns it
       into one clear errand: walk to the deck, and the sky opens. */
   onBalloonTap(): void;
+  /** A tap landed on a game clearing's pad — the games lean in (stage 14). */
+  onStationTap(zone: string, band: number): void;
   /** A tap tried to enter a fog island (already throttled). */
   onLockedTap(zone: ZoneId): void;
   /** A pointer-down landed while the tour is active (skip request). */
@@ -57,14 +59,30 @@ export interface WorldInputHandle {
 /** One gentle locked-island note per this long — never a spam. */
 const LOCKED_TOAST_MS = 2600;
 
-/** The meshes a tap may land on: grass, platforms, landmarks, quest
-    props — and the balloon, whose every part means "the deck". */
-function pickKind(meshName: string): 'walk' | 'prop' | 'balloon' | null {
+/**
+ * The meshes a tap may land on: grass, platforms, landmarks, quest
+ * props, clearing pads — and the balloon, whose every part means
+ * "the deck".
+ */
+function pickKind(meshName: string): 'walk' | 'prop' | 'balloon' | 'station' | null {
   if (meshName === 'ground' || meshName.startsWith('plat-mesh-')) return 'walk';
   if (meshName.startsWith('landmark-')) return 'walk'; /* the rim IS the destination */
   if (meshName.startsWith('quest-')) return 'prop';
   if (meshName.startsWith('balloon-')) return 'balloon';
+  if (meshName.startsWith('station-pad-')) return 'station';
   return null;
+}
+
+/** `station-pad-light-path-0` → { zone: 'light-path', band: 0 } (zone ids carry dashes). */
+export function parseStationMesh(name: string): { zone: string; band: number } | null {
+  if (!name.startsWith('station-pad-')) return null;
+  const rest = name.slice('station-pad-'.length);
+  const cut = rest.lastIndexOf('-');
+  if (cut <= 0) return null;
+  const zone = rest.slice(0, cut);
+  const band = Number(rest.slice(cut + 1));
+  if (!zone || !Number.isInteger(band) || band < 0 || band > 2) return null;
+  return { zone, band };
 }
 
 export function attachWorldInput(
@@ -153,6 +171,19 @@ export function attachWorldInput(
         events.onPropTap(pick.pickedMesh!.name);
       } catch {
         /* a prop tap never crashes the garden */
+      }
+      return;
+    }
+
+    if (pickKind(pick.pickedMesh!.name) === 'station') {
+      /* a pad is a door — a tap on it (or its flag) opens the games */
+      const st = parseStationMesh(pick.pickedMesh!.name);
+      if (st) {
+        try {
+          events.onStationTap(st.zone, st.band);
+        } catch {
+          /* a clearing tap never crashes the garden */
+        }
       }
       return;
     }

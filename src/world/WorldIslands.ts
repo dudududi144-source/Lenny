@@ -480,8 +480,8 @@ export function buildIslands(scene: Scene): IslandsHandle {
     labelMat.specularColor = Color3.Black();
     labelMat.disableLighting = true;
     labelMat.backFaceCulling = false;
-    const label = MeshBuilder.CreatePlane(`label-${zoneDef.id}`, { width: 2.4, height: 0.6 }, scene);
-    label.position.set(0, 2.55, 0);
+    const label = MeshBuilder.CreatePlane(`label-${zoneDef.id}`, { width: 2.0, height: 0.5 }, scene);
+    label.position.set(0, 2.35, 0);
     label.billboardMode = Mesh.BILLBOARDMODE_ALL;
     label.material = labelMat;
     label.parent = root;

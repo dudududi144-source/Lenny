@@ -75,11 +75,16 @@ export interface FoxHandle {
   bodyMesh(): Mesh;
   /** head-top world position (bubble anchor) */
   headPos(): Vector3;
+  /** The well's promise, worn: a scarf in the given hex (or none). */
+  setScarf(colorHex: string | null): void;
   dispose(): void;
 }
 
 export function buildFox(scene: Scene): FoxHandle {
   const root = new TransformNode('fox-root', scene);
+  /* stage 14: a bigger cub — the continent is huge, the hero must
+     read against it (and her scarf must be worth the walk) */
+  root.scaling.setAll(1.18);
   const bodyRoot = new TransformNode('fox-body-root', scene);
   bodyRoot.parent = root;
 
@@ -184,7 +189,7 @@ export function buildFox(scene: Scene): FoxHandle {
   tailTip.material = cream;
   tailTip.parent = tail;
 
-  /* ---------- the legs (swing) ---------- */
+  /* ---------- the legs (swing) — with dark boots that read the gait ---------- */
   const legs: Mesh[] = [];
   const legPos: Array<[number, number]> = [
     [-0.13, 0.12], [0.13, 0.12], /* front pair */
@@ -196,7 +201,29 @@ export function buildFox(scene: Scene): FoxHandle {
     leg.material = i < 2 ? coat : coatDark;
     leg.parent = bodyRoot;
     legs.push(leg);
+    const foot = MeshBuilder.CreateSphere(`fox-foot-${i}`, { diameterX: 0.11, diameterY: 0.09, diameterZ: 0.14, segments: 6 }, scene);
+    foot.position.set(0, -0.13, 0.02);
+    foot.material = dark;
+    foot.parent = leg;
   }
+
+  /* ---------- the scarf (the well's promise, stage 14) ----------
+     A soft ring around the neck + a little tail that flies when
+     the cub runs. The color is wardrobe-owned; null hides it. */
+  const scarfMat = new StandardMaterial('fox-scarf-mat', scene);
+  scarfMat.specularColor = new Color3(0.05, 0.05, 0.05);
+  const scarf = MeshBuilder.CreateTorus('fox-scarf', { diameter: 0.34, thickness: 0.085, tessellation: 16 }, scene);
+  scarf.scaling.set(1, 0.62, 1);
+  scarf.position.set(0, 0.46, 0.12);
+  scarf.material = scarfMat;
+  scarf.parent = bodyRoot;
+  const scarfTail = MeshBuilder.CreateBox('fox-scarf-tail', { width: 0.1, height: 0.26, depth: 0.045 }, scene);
+  scarfTail.position.set(0.05, 0.26, -0.06);
+  scarfTail.rotation.x = 0.5;
+  scarfTail.material = scarfMat;
+  scarfTail.parent = bodyRoot;
+  scarf.setEnabled(false);
+  scarfTail.setEnabled(false);
 
   /* ---------- animation state (module-level, zero allocs) ---------- */
   let walkPhase = 0;
@@ -204,8 +231,10 @@ export function buildFox(scene: Scene): FoxHandle {
   let landSquash = 0;
   let nextBlink = 2.2;
   let blinkLeft = 0;
+  let nextEarFlick = 5.5;
+  let earFlickLeft = 0;
 
-  const disposeList: Array<{ dispose(): void }> = [coat, coatDark, cream, dark, blush];
+  const disposeList: Array<{ dispose(): void }> = [coat, coatDark, cream, dark, blush, scarfMat];
 
   return {
     update(t, dt, frame) {
@@ -225,6 +254,11 @@ export function buildFox(scene: Scene): FoxHandle {
       legs[1].rotation.x = -swing;
       legs[2].rotation.x = -swing;
       legs[3].rotation.x = swing;
+
+      /* the scarf tail flies with the run (the walk pays for the wear) */
+      if (scarf.isEnabled()) {
+        scarfTail.rotation.x = 0.5 + (moving ? Math.sin(walkPhase * 1.05) * 0.35 : Math.sin(t * 1.4) * 0.08);
+      }
 
       const airborne = frame.jumpY > 0.02;
       if (airborne) {
@@ -272,8 +306,34 @@ export function buildFox(scene: Scene): FoxHandle {
           nextBlink = t + 2.2 + (Math.abs(Math.sin(t * 12.9898)) * 2.6);
         }
       }
+
+      /* an ear-flick now and then — a cub is alive even when still */
+      if (earFlickLeft > 0) {
+        earFlickLeft -= dt;
+        const k = Math.sin(earFlickLeft * 26) * 0.3 * earFlickLeft;
+        earL.rotation.z = 0.22 + k;
+        earR.rotation.z = -0.22 + k * 0.4;
+      } else {
+        earL.rotation.z = 0.22;
+        earR.rotation.z = -0.22;
+        if (t > nextEarFlick) {
+          earFlickLeft = 0.42;
+          nextEarFlick = t + 4.5 + Math.abs(Math.sin(t * 7.31)) * 5;
+        }
+      }
     },
     bodyMesh: () => body,
+    setScarf(colorHex: string | null): void {
+      if (!colorHex) {
+        scarf.setEnabled(false);
+        scarfTail.setEnabled(false);
+        return;
+      }
+      scarfMat.emissiveColor = Color3.FromHexString(colorHex).scale(0.35);
+      scarfMat.diffuseColor = Color3.FromHexString(colorHex);
+      scarf.setEnabled(true);
+      scarfTail.setEnabled(true);
+    },
     headPos: () => {
       /* head world position without allocations in the hot path —
          this is called at bubble cadence (per second), not per frame */

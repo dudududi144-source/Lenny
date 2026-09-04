@@ -2,6 +2,7 @@ import { CATEGORIES } from '../../data/games';
 import type { GameSpec } from '../../games/builder/GameSpec';
 import { zoneCatalog, tierUnlocked, tierMissing, displayNameFor } from '../../content/catalog';
 import { zoneName } from '../../games/core/ProgressStore';
+import { specsForBand, BAND_NAMES, type StationBand } from '../../world/WorldStations';
 import { ZONE_ICONS } from './zoneIcons';
 import { h } from './common/el';
 
@@ -14,8 +15,9 @@ export interface GameShelfCallbacks {
 
 export interface GameShelfHandle {
   root: HTMLElement;
-  /** Build the shelf for a zone and slide it in. */
-  open(zoneId: string, activeSpecId: string | null): void;
+  /** Build the shelf for a zone and slide it in. A band narrows the
+   *  shelf to one clearing's games (stage 14); null = the whole zone. */
+  open(zoneId: string, activeSpecId: string | null, band?: StationBand | null): void;
   close(): void;
   isOpen(): boolean;
 }
@@ -111,11 +113,16 @@ export function createGameShelf(callbacks: GameShelfCallbacks, options: GameShel
     callbacks.onClose?.();
   }
 
-  function build(zoneId: string, activeSpecId: string | null): void {
-    title.textContent = `מִשְׂחָקִים בְּ${zoneName(zoneId)}`;
+  function build(zoneId: string, activeSpecId: string | null, band: StationBand | null): void {
+    const all = zoneCatalog(zoneId);
+    const specs = band === null || band === undefined ? all : specsForBand(all, band);
+    title.textContent =
+      band === null || band === undefined
+        ? `מִשְׂחָקִים בְּ${zoneName(zoneId)}`
+        : `${BAND_NAMES[band]} · ${zoneName(zoneId)}`;
     row.replaceChildren();
 
-    for (const spec of zoneCatalog(zoneId)) {
+    for (const spec of specs) {
       /* the game the garden's path brought the child to is ALWAYS open —
          the shelf lock governs free choice, never the guided journey */
       const unlocked = tierUnlocked(spec.category, spec.baseTier) || spec.id === activeSpecId;
@@ -162,8 +169,8 @@ export function createGameShelf(callbacks: GameShelfCallbacks, options: GameShel
     }
   }
 
-  function open(zoneId: string, activeSpecId: string | null): void {
-    build(zoneId, activeSpecId);
+  function open(zoneId: string, activeSpecId: string | null, band?: StationBand | null): void {
+    build(zoneId, activeSpecId, band ?? null);
     root.classList.remove('hidden');
     root.classList.add('is-open');
     root.setAttribute('aria-hidden', 'false');

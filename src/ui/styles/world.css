@@ -481,3 +481,232 @@
     animation: none;
   }
 }
+
+/* ============================================================
+ * Stage 14 — the living continent: entry card, acorn chip, well
+ * ============================================================ */
+
+/* the HUD chip row never overflows the header again — it wraps
+   (the owner: "העיצוב יוצא מפרופורציות") */
+.world-head-side {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  row-gap: 6px;
+  max-width: min(72vw, 560px);
+}
+
+.screen--world .light-chip {
+  padding: 4px 11px;
+  font-size: 0.86rem;
+}
+
+.screen--world .light-chip.acorn-chip {
+  color: #6b4a2c;
+  border-color: rgba(201, 138, 75, 0.55);
+  background: rgba(255, 244, 224, 0.6);
+}
+
+.screen--world .light-chip.acorn-chip .acorn-star {
+  color: #a06a38;
+  filter: drop-shadow(0 0 5px rgba(201, 138, 75, 0.8));
+  transform: rotate(180deg); /* ▲ reads as an acorn's cap-point */
+  display: inline-block;
+  font-size: 0.8em;
+}
+
+/* ---------- the clearing's entry card ---------- */
+
+.world-entry {
+  position: absolute;
+  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 18px;
+  background: rgba(255, 253, 244, 0.93);
+  border: 1.5px solid rgba(255, 215, 106, 0.9);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(20, 40, 30, 0.28);
+  z-index: 7;
+  animation: entry-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: min(92vw, 430px);
+}
+
+.world-entry.hidden {
+  display: none;
+}
+
+.entry-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.entry-title {
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #223d26;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entry-sub {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #5a7a56;
+}
+
+.world-entry .btn,
+.world-entry button:not(.well-close) {
+  min-height: 52px;
+  min-width: 96px;
+  font-size: 1rem;
+  font-weight: 800;
+  border-radius: 14px;
+}
+
+@keyframes entry-pop {
+  0% {
+    transform: translateX(-50%) scale(0.7);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---------- the well's shop ---------- */
+
+.world-well {
+  position: absolute;
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  inset-inline-start: 50%;
+  transform: translateX(50%); /* rtl-safe centering */
+  width: min(92vw, 400px);
+  background: rgba(255, 253, 244, 0.96);
+  border: 1.5px solid rgba(201, 138, 75, 0.7);
+  border-radius: 20px;
+  box-shadow: 0 14px 38px rgba(20, 40, 30, 0.3);
+  z-index: 7;
+  padding: 14px 16px;
+  animation: entry-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.world-well.hidden {
+  display: none;
+}
+
+.well-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.well-title-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.well-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #223d26;
+}
+
+.well-sub {
+  font-size: 0.74rem;
+  color: #5a7a56;
+  font-weight: 600;
+}
+
+.well-balance {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #6b4a2c;
+  background: rgba(201, 138, 75, 0.14);
+  border: 1px solid rgba(201, 138, 75, 0.4);
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.well-close {
+  appearance: none;
+  border: 1px solid rgba(60, 80, 60, 0.25);
+  background: rgba(255, 255, 255, 0.7);
+  color: #33502f;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.well-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 34vh;
+  overflow-y: auto;
+}
+
+.well-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(201, 138, 75, 0.3);
+  border-radius: 14px;
+  padding: 8px 10px;
+}
+
+.well-row.wearing {
+  border-color: rgba(125, 163, 90, 0.75);
+  background: rgba(125, 163, 90, 0.12);
+}
+
+.well-swatch {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 8px;
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.well-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #3a2b12;
+}
+
+.well-row button,
+.well-row .btn {
+  min-height: 42px;
+  min-width: 84px;
+  font-size: 0.86rem;
+  border-radius: 11px;
+}
+
+@media (max-width: 560px) {
+  .world-entry {
+    gap: 10px;
+    padding-inline: 14px;
+  }
+  .entry-title {
+    font-size: 0.94rem;
+  }
+  .world-well {
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+}
