@@ -15,6 +15,10 @@
  *   - shelfOpens  shelf slide-ins on open zones
  *   - picks       games opened from the world shelf
  *   - zones       arrivals per zone id
+ *   - gathers     (stage 15-C) collectibles gathered that day —
+ *                 sparkles, acorns, crystals (one call per gather;
+ *                 the writer is the gather site in the shell)
+ *   - well        (stage 15-C) purchases at the garden well
  *
  * Privacy contract (mirrors ETHICS.md):
  *   - localStorage only, key `lenny-world-diary-v1`
@@ -40,6 +44,10 @@ export interface WorldDayStat {
   shelfOpens: number;
   picks: number;
   zones: Record<string, number>;
+  /** collectibles gathered today (sparkles + acorns + crystals) */
+  gathers: number;
+  /** purchases at the garden well today */
+  well: number;
 }
 
 export interface WorldDiaryData {
@@ -58,7 +66,7 @@ export function dayKeyFor(ms: number): string {
 }
 
 function emptyStat(): WorldDayStat {
-  return { ms: 0, opens: 0, arrivals: 0, shelfOpens: 0, picks: 0, zones: {} };
+  return { ms: 0, opens: 0, arrivals: 0, shelfOpens: 0, picks: 0, zones: {}, gathers: 0, well: 0 };
 }
 
 /* ---------- defensive reads: storage is the child's device, treat it kindly ---------- */
@@ -73,6 +81,8 @@ function coerceStat(raw: unknown): WorldDayStat {
   out.arrivals = num(r.arrivals);
   out.shelfOpens = num(r.shelfOpens);
   out.picks = num(r.picks);
+  out.gathers = num(r.gathers);
+  out.well = num(r.well);
   if (typeof r.zones === 'object' && r.zones !== null) {
     for (const [zone, count] of Object.entries(r.zones as Record<string, unknown>)) {
       /* zone ids are short internal keys — anything longer is not ours */
@@ -176,6 +186,22 @@ export class WorldDiary {
     });
   }
 
+  /** One collectible was gathered (sparkle / acorn / crystal) — the
+   *  shell's gather site calls this beside its ledger write. */
+  noteGathers(n: number = 1): void {
+    if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) return;
+    this.write((today) => {
+      today.gathers += Math.floor(n);
+    });
+  }
+
+  /** A purchase was made at the garden well. */
+  noteWell(): void {
+    this.write((today) => {
+      today.well += 1;
+    });
+  }
+
   /** Read-only view, pruned to the retention window. */
   snapshot(): WorldDiaryData {
     return this.read();
@@ -185,7 +211,16 @@ export class WorldDiary {
   isEmpty(): boolean {
     const data = this.snapshot();
     for (const stat of Object.values(data.days)) {
-      if (stat.ms > 0 || stat.opens > 0 || stat.arrivals > 0 || stat.shelfOpens > 0 || stat.picks > 0) return false;
+      if (
+        stat.ms > 0 ||
+        stat.opens > 0 ||
+        stat.arrivals > 0 ||
+        stat.shelfOpens > 0 ||
+        stat.picks > 0 ||
+        stat.gathers > 0 ||
+        stat.well > 0
+      )
+        return false;
     }
     return true;
   }

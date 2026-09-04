@@ -13,6 +13,11 @@
  *                HOW MANY (cardinality, not just reciting).
  *   patterns   — which color stone continues the sequence?
  *                AB → AAB → ABC by tier (seriation / logic).
+ *   walk-count — (stage 15-C) count the world's OWN things on the
+ *                way — butterflies, clouds, stones — and answer via
+ *                number chips (cardinality on a real walk). Offered
+ *                when the shell renders its chips branch; storage,
+ *                rotation and content are live (OFFERED_FAMILIES).
  *
  * ETHICS + storage contract (mirrors worldDiary):
  *   - localStorage only, key `lenny-world-quests-v1`
@@ -32,8 +37,24 @@
 export const WORLD_QUESTS_KEY = 'lenny-world-quests-v1';
 export const QUEST_RETENTION_DAYS = 30;
 
-export const QUEST_FAMILIES = ['wayfinding', 'counting', 'patterns'] as const;
+/**
+ * Every quest family the STORE knows (storage schema + coercion + stats).
+ * stage 15-C adds the fourth: the counting walk — the child counts the
+ * world's own things on the way (butterflies, clouds...) and answers via
+ * number chips. See OFFERED_FAMILIES for the rotation contract.
+ */
+export const QUEST_FAMILIES = ['wayfinding', 'counting', 'patterns', 'walk-count'] as const;
 export type QuestFamily = (typeof QUEST_FAMILIES)[number];
+
+/**
+ * The families the world shell RENDERS today (WorldScreen's startQuest
+ * branches). The rotation offers ONLY rendered families — a quest is
+ * never offered that the child cannot see. When the shell grows its
+ * small walk-count branch (chips-only: setQuestPanel + onCountChip),
+ * 'walk-count' joins this list and the engine needs nothing else —
+ * storage, tiers and content are live already.
+ */
+export const OFFERED_FAMILIES: readonly QuestFamily[] = ['wayfinding', 'counting', 'patterns'];
 
 export const QUEST_TIER_MAX = 3;
 
@@ -151,11 +172,12 @@ export function questDayKey(ms: number): string {
 
 /**
  * The next family to offer: fewest completions wins; ties follow the
- * canonical order. Every family gets its turn — no starving one skill.
+ * canonical order. Every RENDERED family gets its turn — no starving
+ * one skill (see OFFERED_FAMILIES for the rotation contract).
  */
 export function nextFamily(data: WorldQuestData): QuestFamily {
-  let best: QuestFamily = QUEST_FAMILIES[0];
-  for (const f of QUEST_FAMILIES) {
+  let best: QuestFamily = OFFERED_FAMILIES[0];
+  for (const f of OFFERED_FAMILIES) {
     if (data.families[f].completions < data.families[best].completions) best = f;
   }
   return best;
@@ -175,6 +197,52 @@ export function countingCountFor(tier: number, seq: number): number {
   const lo = [3, 4, 6][t - 1];
   const span = [2, 3, 3][t - 1];
   return lo + (questHash(seq, 7) % span);
+}
+
+/* ---------- walk-count content (pure, stage 15-C) ---------- */
+
+/**
+ * The things a child can honestly COUNT on the way in this world —
+ * the meadow blooms, butterflies loop, birds land, clouds drift,
+ * stones line the road. Names are everyday Hebrew (niqqud).
+ */
+export const WALK_THINGS: ReadonlyArray<{ id: string; name: string }> = [
+  { id: 'flowers', name: 'פְּרָחִים' },
+  { id: 'butterflies', name: 'פַּרְפָּרִים' },
+  { id: 'birds', name: 'צִפּוֹרִים' },
+  { id: 'clouds', name: 'עָנָנִים' },
+  { id: 'stones', name: 'אֲבָנִים' },
+];
+
+export interface WalkCountQuest {
+  /** what to count (a WALK_THINGS entry) */
+  thing: { id: string; name: string };
+  /** the honest answer (3..8 — never above the attention span) */
+  count: number;
+  /** the answer chips: the truth with its two neighbors, shuffled */
+  chips: number[];
+}
+
+/**
+ * A deterministic walk-count quest for (tier, seq): the thing, the
+ * count, and the chip row. Same inputs, same quest, every device —
+ * the buildPatternQuest discipline.
+ */
+export function buildWalkCountQuest(tier: number, seq: number): WalkCountQuest {
+  const t = Math.max(1, Math.min(QUEST_TIER_MAX, tier));
+  const lo = [3, 4, 6][t - 1];
+  const span = [2, 3, 3][t - 1];
+  const count = lo + (questHash(seq, 13) % span);
+  const thing = WALK_THINGS[questHash(seq, 29) % WALK_THINGS.length];
+  const chips = [Math.max(1, count - 1), count, count + 1];
+  /* a deterministic shuffle: the true chip is not always the middle one */
+  const r = questHash(seq, 17);
+  const swap = (i: number, j: number): void => {
+    [chips[i], chips[j]] = [chips[j], chips[i]];
+  };
+  swap(0, r % 3);
+  swap(1, (r >>> 3) % 3);
+  return { thing, count, chips };
 }
 
 /* ---------- pattern content (pure) ---------- */
