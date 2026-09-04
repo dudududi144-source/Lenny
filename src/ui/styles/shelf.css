@@ -179,6 +179,34 @@
   color: rgba(255, 246, 236, 0.75);
 }
 
+/* stage 15-A — desktop: the picker stops scrolling sideways and
+   lays its games out in wrapping rows (a real desktop menu, the
+   whole zone visible at a glance). Phone keeps the snap scroll. */
+@media (min-width: 900px) {
+  .shelf-panel {
+    width: min(100%, 920px);
+  }
+
+  .shelf-row {
+    flex-wrap: wrap;
+    justify-content: center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: min(58vh, 620px);
+    scroll-snap-type: none;
+    row-gap: var(--space-3);
+  }
+
+  .shelf-card {
+    width: 168px;
+    min-height: 128px;
+  }
+
+  .shelf-name {
+    font-size: var(--font-size-sm);
+  }
+}
+
 /* the HUD shelf button is enabled from the start */
 #hud-shelf.is-off {
   display: none;

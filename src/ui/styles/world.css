@@ -6,8 +6,9 @@
    values. RTL (dir=rtl on <html>) via logical properties only.
 
    The z-ladder (never improvise):
-     plates 4 < bubble 5 < controls 7 < HUD 10 < sparkle 12
-     < sheets 30 (entry / well / shelf) < modal 40 (reserved).
+     plates 4 / compass 4 < bubble 5 < controls 7 < HUD 10
+     < sparkle 12 < entry/well sheets 30 < world shelf 34
+     < loading 40 (modal reserved).
 
    The one panel: every floating surface shares --wz-panel-*.
    ============================================================ */
@@ -32,12 +33,14 @@
   --wz-fs-md: 17px;
   --wz-fs-lg: 22px;
 
-  /* ---- z ladder ---- */
+  /* ---- z ladder (loading > shelf > entry/well > quest > bubble > compass) ---- */
   --wz-z-plate: 4;
+  --wz-z-compass: 4;
   --wz-z-bubble: 5;
   --wz-z-hud: 10;
   --wz-z-sparkle: 12;
   --wz-z-sheet: 30;
+  --wz-z-shelf: 34;
   --wz-z-modal: 40;
 
   /* ---- ink on the day sky ---- */
@@ -77,15 +80,11 @@
   touch-action: none; /* Babylon pointer input owns the gestures */
 }
 
-/* the world canvas keeps a render budget on wide screens — the
-   garden layout widens, the GPU budget does not explode (perf
-   floor protects weak renderers from the distress fallback) */
-@media (min-width: 900px) {
-  .world-stage {
-    max-width: 720px;
-    margin-inline: auto;
-  }
-}
+/* stage 15-A: the phone-width cap on the world canvas is GONE —
+   the stage fills the frame on every device (the owner's desktop
+   screenshot bug was this 720px column). The camera + engine
+   resize with the stage; FpsGovernor keeps the render budget in
+   check on weak GPUs, so fullscreen is perf-safe. */
 
 /* ============ loading veil (until the engine boots) ============ */
 
@@ -131,11 +130,17 @@
   }
 }
 
-/* ============ the top bar — one system, two groups ============
+/* ============ the top bar — ONE flex row, three groups ============
    status chips (acorns + the day's journey) hug the inline-start
-   edge; menu buttons (wardrobe / sound / back) hug the inline-end
-   edge. Display-only elements never take pointers — the canvas
-   stays walkable everywhere except the real controls. */
+   edge, the Lenny signature holds the center, menu buttons
+   (wardrobe / sound / back) hug the inline-end edge. The brand is
+   a flex CHILD of the head (stage 15-A): no absolute positioning,
+   no chips-on-chips at any width. Display-only elements never take
+   pointers — the canvas stays walkable everywhere but the controls.
+
+   Narrow phones (≤640px): the head wraps — the signature takes its
+   own row, chips + menu share the second row. Same visual as the
+   old stepped layout, minus the overlap risk. */
 
 .world-head {
   position: absolute;
@@ -145,6 +150,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--wz-s2);
+  flex-wrap: wrap; /* phones: brand row + instruments row */
   z-index: var(--wz-z-hud);
   pointer-events: none;
 }
@@ -170,16 +176,32 @@
   max-width: 60vw;
 }
 
+/* from 641px up the whole bar is one row: the signature flexes in
+   the middle and keeps its content truly centered between the two
+   instrument groups — nothing can ever slide under it */
+@media (min-width: 641px) {
+  .world-head {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .world-brand {
+    flex: 1 1 0;
+    order: 0; /* back between status and menu (phones lift it to row 1) */
+    justify-content: center;
+    position: static;
+  }
+}
+
 /* ---- the Lenny wordmark: one small, elegant signature ----
    The game's name lives ONCE in the world HUD — a quiet gold-star
    monogram, never a wrapping column of text (the owner: the title
    must be elegant and commercial). No pointers: it's a signature,
-   not a button. */
+   not a button. A flex child of .world-head (see above): on phones
+   it wraps onto its own centered row, on wider screens it centers
+   between the instrument groups. */
 .world-brand {
-  position: absolute;
-  top: calc(var(--wz-s2) + var(--wz-safe-top));
-  inset-inline-start: 50%;
-  transform: translateX(50%); /* RTL-safe centering */
+  justify-content: center;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -212,10 +234,16 @@
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
-/* narrow phones: a smaller signature, and the bar steps DOWN one
-   row so nothing ever wraps into an ugly vertical sliver */
+/* narrow phones: a smaller signature; chips + menu share the row
+   beneath it (the flex-wrap gap does the stepping — no offsets) */
 @media (max-width: 640px) {
+  .world-head {
+    row-gap: 5px;
+  }
+
   .world-brand {
+    order: -1; /* the signature row comes first */
+    flex: 0 0 100%;
     padding: 3px 10px 4px;
   }
 
@@ -226,10 +254,6 @@
 
   .world-brand .brand-name {
     font-size: var(--wz-fs-sm);
-  }
-
-  .world-head {
-    top: calc(var(--wz-s2) + var(--wz-safe-top) + 34px);
   }
 }
 
@@ -422,7 +446,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  z-index: var(--wz-z-hud);
+  z-index: var(--wz-z-compass); /* UNDER the bubble — the ladder is law */
   pointer-events: none; /* taps fall through to the world */
 }
 
@@ -657,10 +681,12 @@
 
 /* ============================================================
    THE STATION ENTRY CARD — the store front of 30 clearings.
-   Mobile: a bottom sheet (full-width, thumb-reachable, slides
-   up). Desktop (≥768px): the same surface as a centered card,
-   max-width 420px. The sheet BODY takes no pointers — the world
-   stays walkable under it; only the real controls respond.
+   Phone: a bottom sheet (full-width, thumb-reachable, slides
+   up). ≥768px: a centered floating card. ≥1024px (stage 15-A):
+   a SIDE card on the inline-end edge — the world stays visible
+   beside it, the compass/hint never fight it for the bottom.
+   The sheet BODY takes no pointers — the world stays walkable
+   under it; only the real controls respond.
    Accent = the zone's own color via --sc.
    ============================================================ */
 
@@ -876,6 +902,22 @@
   }
 }
 
+/* true desktop (≥1024px): the entry becomes a SIDE card on the
+   inline-end edge — a station panel, not a bottom sheet. It grows
+   downward from under the top bar and can never collide with the
+   bottom-center guidance slot or the grown-up corner. */
+@media (min-width: 1024px) {
+  .world-entry {
+    inset-inline-start: auto;
+    inset-inline-end: var(--wz-s5);
+    inset-block-start: calc(84px + var(--wz-safe-top));
+    inset-block-end: auto;
+    width: clamp(340px, 30vw, 440px);
+    max-height: calc(100% - 152px - var(--wz-safe-top) - var(--wz-safe-bottom));
+    margin-inline: 0;
+  }
+}
+
 /* ============================================================
    THE WELL'S SHOP — same sheet language, acorns become scarves.
    (This one is a real shop: it keeps its pointers, it is modal
@@ -1048,6 +1090,12 @@
   flex-direction: column;
 }
 
+/* the world's full picker outranks the entry/well sheets (the
+   ladder: loading 40 > shelf 34 > sheets 30) */
+#world-shelf {
+  z-index: var(--wz-z-shelf);
+}
+
 #world-shelf .shelf-title {
   font-size: var(--wz-fs-md);
   font-weight: 800;
@@ -1075,6 +1123,18 @@
 @media (min-width: 480px) {
   #world-shelf .shelf-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* desktop: the picker uses the room — 4 columns of real cards */
+@media (min-width: 900px) {
+  #world-shelf .shelf-panel {
+    width: min(100%, 840px);
+    padding: var(--wz-s5);
+  }
+
+  #world-shelf .shelf-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -1141,8 +1201,10 @@
 
 /* ============================================================
    STATE EXCLUSIONS — one primary surface at a time owns the
-   bottom-center. The shell toggles entry-open / well-open on
-   the screen root; the shelf-open phase already existed.
+   bottom-center. The shell toggles entry-open / well-open /
+   quest-open on the screen root; the shelf-open phase already
+   existed, and onboarding hides the compass while the camera
+   flies. Order of power: shelf > entry/well > quest > compass.
    ============================================================ */
 
 .screen--world.entry-open .world-quest,
@@ -1153,7 +1215,11 @@
 
 .screen--world.entry-open .zone-compass,
 .screen--world.well-open .zone-compass,
-.screen--world[data-world-phase='shelf-open'] .zone-compass {
+.screen--world.quest-open .zone-compass,
+.screen--world[data-world-phase='shelf-open'] .zone-compass,
+.screen--world[data-world-phase='onboarding'] .zone-compass,
+.screen--world[data-world-phase='loading'] .zone-compass,
+.screen--world[data-world-phase='closed'] .zone-compass {
   opacity: 0;
   visibility: hidden;
 }
@@ -1190,6 +1256,72 @@
 
   .entry-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* phones: the compass lifts above the thumb controls — the joystick
+   tops out at ~174px and the jump at ~142px, so the bottom-center
+   pill would paint over them at ≤375px widths (overlaps are dead,
+   stage 15-A). Sits after the base compass rule — cascade is law. */
+@media (max-width: 640px) {
+  .screen--world .zone-compass {
+    inset-block-end: calc(190px + var(--wz-safe-bottom));
+  }
+}
+
+/* ============================================================
+   DESKTOP WORLD (≥1024px) — the HUD grows into its room: larger
+   type scale, roomier chips, bigger answer chips. The canvas is
+   already full-viewport; the instruments stop whispering.
+   ============================================================ */
+
+@media (min-width: 1024px) {
+  .screen--world {
+    --wz-fs-xs: 14px;
+    --wz-fs-sm: 16px;
+    --wz-fs-md: 18px;
+    --wz-fs-lg: 24px;
+  }
+
+  .world-head {
+    inset-inline: var(--wz-s4);
+  }
+
+  .world-status .light-chip {
+    min-height: 44px;
+    padding: 6px 16px;
+  }
+
+  .world-menu .ui-btn,
+  .world-menu button.ui-btn--ghost {
+    min-height: 46px;
+    padding: 10px 18px;
+  }
+
+  .world-foot {
+    inset-inline: var(--wz-s4);
+  }
+
+  /* the offered quest: roomier panel, bigger answer chips —
+     a 4-7 year-old at a desk answers with the whole hand */
+  .world-quest {
+    width: min(92%, 560px);
+    bottom: calc(72px + var(--wz-safe-bottom));
+  }
+
+  .world-quest-line {
+    font-size: 1.25rem;
+  }
+
+  .quest-chip {
+    min-width: 64px;
+    min-height: 64px;
+    font-size: 1.5rem;
+  }
+
+  .world-quest .ui-btn,
+  .world-quest button.world-ghost {
+    min-height: 46px;
   }
 }
 

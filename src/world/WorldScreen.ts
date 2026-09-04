@@ -473,19 +473,20 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     compass,
     loading,
     buildTouchControls(),
-    /* stage 14-B top bar: instruments on the journey's side, actions
-       on the other; the Lenny signature rides top-center — one
-       elegant wordmark, never a wrapping column of text */
-    h(
-      'div',
-      { class: 'world-brand', 'aria-hidden': 'true' },
-      starIcon(),
-      h('span', { class: 'brand-name' }, 'לני'),
-    ),
+    /* stage 14-B top bar, stage 15-A layout: ONE flex row — instruments
+       on the journey's side, the Lenny signature centered in the row
+       (a flex child, never absolutely stacked over the chips), actions
+       on the other edge. Nothing can overlap at any width. */
     h(
       'header',
       { class: 'world-head' },
       h('div', { class: 'world-status' }, acornChip, dailyChip),
+      h(
+        'div',
+        { class: 'world-brand', 'aria-hidden': 'true' },
+        starIcon(),
+        h('span', { class: 'brand-name' }, 'לני'),
+      ),
       h(
         'div',
         { class: 'world-menu' },
@@ -776,6 +777,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   function hideQuestPanel(): void {
     questPanel.classList.add('hidden');
+    root.classList.remove('quest-open');
   }
 
   function scheduleQuestOffer(ms: number): void {
@@ -803,6 +805,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     questPicked = 0;
     pickedFlowers.clear();
     questPanel.classList.remove('hidden');
+    /* stage 15-A: the quest owns the bottom-center — the compass
+       rests while an offer is live (one surface at a time) */
+    root.classList.add('quest-open');
 
     if (q.family === 'wayfinding') {
       /* a target away from where the child stands — a real LITTLE
