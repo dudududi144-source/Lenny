@@ -70,8 +70,10 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
     }, [wx, wz]);
     if (!spot) throw new Error('no visible ground toward the place');
     /* clamp into the open middle band — away from header, shelf, quest panel */
+    /* the stage-14 camera keeps its visible ground in the UPPER band —
+       a tap clamped to mid-screen lands ON the fox (a no-op step) */
     const fx = Math.min(0.78, Math.max(0.22, spot.fx));
-    const fy = Math.min(0.72, Math.max(0.32, spot.fy));
+    const fy = Math.min(0.34, Math.max(0.10, spot.fy));
     await tapAt(page, fx, fy);
     await page.waitForTimeout(650);
   }
