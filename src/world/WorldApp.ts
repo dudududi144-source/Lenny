@@ -116,9 +116,34 @@ export class WorldUnsupportedError extends Error {
 
 export type WorldRendererKind = 'webgpu' | 'webgl2';
 
+/**
+ * Stage 15 phone-class detection (pure, honest): a coarse pointer + a
+ * short-side cap, or an explicit mobile UA. Phones/tablets are the
+ * devices where mobile-WebGPU stacks are the least proven — they get
+ * the battle-tested WebGL2 path straight away (see createEngine) and
+ * a memory-safe quality ceiling (tier capped at 'standard').
+ */
+export function isPhoneClassDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  try {
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      const coarse = window.matchMedia('(pointer: coarse)').matches;
+      const shortSide = Math.min(window.screen?.width ?? 1024, window.screen?.height ?? 768);
+      if (coarse && shortSide <= 820) return true;
+    }
+  } catch {
+    /* a shy probe falls through to the UA */
+  }
+  return /Android|iPhone|iPad|iPod|Mobile|Silk/i.test(navigator.userAgent ?? '');
+}
+
 export interface WorldAppEvents {
   /** Sustained fps below the floor — the shell should fall back. */
   onDistress?(): void;
+  /** The engine painted its very first frame (the shell's boot
+   *  watchdog cancels on this — a phone that never paints is
+   *  rescued by the shell instead of staring at a loading veil). */
+  onFirstFrame?(): void;
   /** The presence point settled (walking finished). */
   onArrive?(zone: ZoneId | null): void;
   /** A zone was passed THROUGH mid-walk — roaming counts as a visit. */
@@ -167,10 +192,17 @@ function withTimeout<T>(p: Promise<T>, ms: number, reason: string): Promise<T> {
 
 async function createEngine(
   canvas: HTMLCanvasElement,
+  phoneClass: boolean,
 ): Promise<{ engine: Engine | WebGPUEngine; kind: WorldRendererKind }> {
-  /* WebGPU first — any hesitation (rejected, slow, or hung) falls through to WebGL2 */
+  /* WebGPU first — any hesitation (rejected, slow, or hung) falls through
+   * to WebGL2. STAGE 15 PHONE RULE: phone-class devices skip the WebGPU
+   * attempt entirely — mobile WebGPU stacks are exactly where "the garden
+   * never comes up" reports come from (init that half-succeeds, a context
+   * that dies before the first frame, drivers that neither reject nor
+   * resolve). WebGL2 on phones is the battle-tested workhorse; desktop
+   * keeps the WebGPU fast path. */
   try {
-    if (typeof navigator !== 'undefined' && 'gpu' in navigator) {
+    if (!phoneClass && typeof navigator !== 'undefined' && 'gpu' in navigator) {
       const gpu = new WebGPUEngine(canvas, { antialias: true, stencil: false });
       let owned = false;
       const init = gpu.initAsync();
@@ -402,7 +434,26 @@ export async function createWorldApp(
   data: GardenData = { firstSeen: 0, lights: 0, zones: {}, finished: {} },
   options: WorldAppOptions = {},
 ): Promise<WorldApp> {
-  const { engine, kind } = await createEngine(canvas);
+  /* stage 15: one honest device read for the whole world — the engine
+     choice (phones go WebGL2-first), the memory-safe tier ceiling, and
+     the shell's boot watchdog all speak the same truth */
+  const phoneClass = isPhoneClassDevice();
+  const { engine, kind } = await createEngine(canvas, phoneClass);
+
+  /* stage 15 phone hardening: a WebGL context that dies (tab hidden
+     too long, GPU reset, memory squeeze) used to leave a silent black
+     canvas. Now it speaks: the shell's safety net shows the classic
+     garden — the same floor the fps distress uses. */
+  let contextLostFired = false;
+  engine.onContextLostObservable.add(() => {
+    if (contextLostFired || disposed) return;
+    contextLostFired = true;
+    try {
+      events.onDistress?.();
+    } catch {
+      /* the net never becomes the crash */
+    }
+  });
 
   const scene = new Scene(engine);
   scene.fogMode = Scene.FOGMODE_EXP2;
@@ -767,10 +818,23 @@ export async function createWorldApp(
     m.freezeWorldMatrix();
   }
 
+  /* stage 15 phone hardening: the very first painted frame tells the
+     shell's boot watchdog "this device is alive" — a world that never
+     paints is rescued by the shell instead of an eternal veil */
+  let firstFrameSent = false;
+
   engine.runRenderLoop(() => {
     if (paused || disposed) return;
     const now = performance.now();
     const dt = Math.min(0.1, engine.getDeltaTime() / 1000);
+    if (!firstFrameSent) {
+      firstFrameSent = true;
+      try {
+        events.onFirstFrame?.();
+      } catch {
+        /* the watchdog's business, never the garden's crash */
+      }
+    }
 
     /* ---------- movement, stage 11: direct control ----------
        Joystick or keyboard = the fox's legs (camera-relative, the
@@ -1177,8 +1241,13 @@ export async function createWorldApp(
     const now = performance.now();
     /* stage 15-D: the quality tier is decided on the same cadence —
        earned upward with hold times, shed downward instantly-ish
-       (hysteresis in FpsGovernor keeps it from flapping) */
-    const t = governor.evaluateTier(now);
+       (hysteresis in FpsGovernor keeps it from flapping).
+       STAGE 15 PHONE CEILING: phone-class devices cap at 'standard' —
+       the 1024px shadow rebuild of 'rich' doubles VRAM exactly where
+       memory squeezes kill contexts; everything beautiful about
+       standard (sky, birds, fireflies, sparkles) stays. */
+    const earned = governor.evaluateTier(now);
+    const t: QualityTier = phoneClass && earned === 'rich' ? 'standard' : earned;
     if (t !== tier) applyTier(t);
     const decision = governor.evaluate(now, currentScale, t);
     if (Math.abs(decision.newScale - currentScale) > 0.001) {

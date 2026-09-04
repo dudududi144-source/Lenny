@@ -531,6 +531,43 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   let app: WorldApp | null = null;
   let opening: Promise<void> | null = null;
+  /* stage 15 phone hardening — the first-frame watchdog: a device
+     whose engine boots but never paints (half-alive WebGPU, a context
+     that died young) must never leave a child in an eternal loading
+     veil. 30s of silence = the shell's classic garden, the same floor
+     fps-distress uses. E2E's hold flag (lenny-world-hold=1) disables
+     it exactly like the fps distress — CI's slow software-GL boots
+     are legitimate, not distress. */
+  let firstFrameTimer: number | null = null;
+  let firstFrameSeen = false;
+  const armFirstFrameWatchdog = (): void => {
+    let held = false;
+    try {
+      held = localStorage.getItem('lenny-world-hold') === '1';
+    } catch {
+      held = false;
+    }
+    if (held) return;
+    firstFrameSeen = false;
+    if (firstFrameTimer !== null) window.clearTimeout(firstFrameTimer);
+    firstFrameTimer = window.setTimeout(() => {
+      firstFrameTimer = null;
+      if (firstFrameSeen) return; /* the engine is alive and painting */
+      if (phase === 'closed' || opening === null) return; /* already home */
+      try {
+        console.warn('[lenny] world never painted its first frame — shell fallback');
+      } catch {
+        /* console is a luxury, not a requirement */
+      }
+      callbacks.onWorldFailed();
+    }, 30000);
+  };
+  const cancelFirstFrameWatchdog = (): void => {
+    if (firstFrameTimer !== null) {
+      window.clearTimeout(firstFrameTimer);
+      firstFrameTimer = null;
+    }
+  };
   let phase: WorldPhase = 'closed';
   let shelfZone: string | null = null;
 
@@ -1215,6 +1252,12 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     app = await createWorldApp(
       canvas,
       {
+        /* the engine's first painted frame disarms the boot watchdog —
+           the device has proven it can show the garden */
+        onFirstFrame: () => {
+          firstFrameSeen = true;
+          cancelFirstFrameWatchdog();
+        },
         onDistress: () => {
           /* stage 14: an explicit, documented QA hold. The distress
              fallback is the child's safety net and stays exactly as
@@ -1443,6 +1486,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     if (opening) return opening;
     loading.classList.remove('hidden');
     root.dataset.worldPhase = 'loading';
+    /* stage 15 phone hardening: the clock starts with the opening —
+       cancelled the moment the engine paints its first frame */
+    armFirstFrameWatchdog();
     opening = boot()
       .then(() => {
         loading.classList.add('hidden');
@@ -1461,6 +1507,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       })
       .catch(() => {
         /* engine refused — the shell shows the classic garden instead */
+        cancelFirstFrameWatchdog();
         app = null;
         phase = 'closed';
         callbacks.onWorldFailed();
@@ -1473,6 +1520,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   function close(): void {
     stopHeartbeat();
+    cancelFirstFrameWatchdog();
     if (shelf.isOpen()) shelf.close();
     shelfZone = null;
     /* quests pause with the world — an active offer resumes on return */
