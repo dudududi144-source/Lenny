@@ -63,7 +63,7 @@ export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamer
   camera.minZ = 0.4;
   /* stage 14-C: the continent + the mountain ring live FAR away now
      (peaks at ~940u) — the far plane follows the horizon */
-  camera.maxZ = 2400;
+  camera.maxZ = 3600; /* 16-a: the wider continent + its horizon ring */
 
   camera.attachControl();
 

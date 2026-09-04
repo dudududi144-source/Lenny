@@ -15,7 +15,7 @@
 import { freshGarden, LocalProgressStore, isUnlocked, consumeNewZones, type GardenData } from '../games/core/ProgressStore';
 import { GARDEN_TEXT, QUEST_TEXT, getZone, type ZoneId } from '../data/garden';
 import { FRIENDS, LANDMARKS, WORLD_ISLANDS, zoneHint, type LandmarkDef } from './WorldLayout';
-import { STATIONS } from './WorldStations';
+import { ALL_STATIONS, stationId } from './WorldStations';
 import { REGIONS, type RegionDef } from './WorldRegions';
 import { WorldDaily } from './worldDaily';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
@@ -1207,8 +1207,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     acorns: () => acornWallet,
     stations: () => {
       const data = loadGarden();
-      return STATIONS.map((s) => ({
-        id: `${s.zone}:${s.band}`,
+      /* 16-a: ALL clearings (zone pads + the far ring); far pads carry
+         their own stable key so ids stay unique */
+      return ALL_STATIONS.map((s) => ({
+        id: stationId(s),
         zone: s.zone,
         band: s.band,
         x: s.x,

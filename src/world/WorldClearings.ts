@@ -26,9 +26,9 @@ import { TransformNode } from '@babylonjs/core/Meshes/transformNode';
 import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import type { Scene } from '@babylonjs/core/scene';
 import { ZONES, type ZoneId } from '../data/garden';
-import { STATIONS, type StationBand, type StationSpot, STATION_PAD_RADIUS } from './WorldStations';
+import { ALL_STATIONS, stationId, stationPadKey, type StationBand, type StationSpot, STATION_PAD_RADIUS } from './WorldStations';
 import { ACORN_SPOTS } from './worldAcorns';
-import { terrainHeight } from './WorldRegions';
+import { REGIONS, terrainHeight } from './WorldRegions';
 
 const hex = (s: string): Color3 => Color3.FromHexString(s);
 
@@ -162,20 +162,25 @@ export function buildClearings(scene: Scene): ClearingsHandle {
   const pennantMats: StandardMaterial[] = [];
   const zoneSet = new Set<string>();
 
-  for (const spot of STATIONS) {
-    const color = zoneColor.get(spot.zone) ?? '#ffd76a';
-    const sRoot = new TransformNode(`station-${spot.zone}-${spot.band}`, scene);
+  /* 16-a: the pennant carries the ZONE color for zone pads and the
+     REGION tint for the far pads (a cloud pad reads cloud-white) */
+  const regionColor = new Map<string, string>(REGIONS.map((r) => [r.id, r.tint]));
+  for (const spot of ALL_STATIONS) {
+    const color = (spot.region ? regionColor.get(spot.region) : undefined) ?? zoneColor.get(spot.zone) ?? '#ffd76a';
+    const uid = stationId(spot);
+    const padKey = stationPadKey(spot);
+    const sRoot = new TransformNode(`station-${uid}`, scene);
     sRoot.position.set(spot.x, terrainHeight(spot.x, spot.z), spot.z);
     sRoot.parent = root;
 
-    /* the pad — pickable, the name carries zone+band for the tap router */
-    const padMat = new StandardMaterial(`station-pad-mat-${spot.zone}-${spot.band}`, scene);
+    /* the pad — pickable, the name carries zone-or-region + band for the tap router */
+    const padMat = new StandardMaterial(`station-pad-mat-${uid}`, scene);
     padMat.diffuseColor = hex(color).scale(0.85);
     padMat.emissiveColor = hex(color).scale(0.22);
     padMat.specularColor = new Color3(0.05, 0.05, 0.05);
     padMat.alpha = 0.94;
     const pad = MeshBuilder.CreateDisc(
-      `station-pad-${spot.zone}-${spot.band}`,
+      `station-pad-${padKey}-${spot.band}`,
       { radius: STATION_PAD_RADIUS, tessellation: 26 },
       scene,
     );
@@ -186,14 +191,14 @@ export function buildClearings(scene: Scene): ClearingsHandle {
     pad.isPickable = true;
 
     /* the pulse ring around the pad */
-    const glowMat = new StandardMaterial(`station-glow-mat-${spot.zone}-${spot.band}`, scene);
+    const glowMat = new StandardMaterial(`station-glow-mat-${uid}`, scene);
     glowMat.emissiveColor = hex(color);
     glowMat.diffuseColor = Color3.Black();
     glowMat.specularColor = Color3.Black();
     glowMat.disableLighting = true;
     glowMat.alpha = 0.5;
     const padGlow = MeshBuilder.CreateTorus(
-      `station-glow-${spot.zone}-${spot.band}`,
+      `station-glow-${uid}`,
       { diameter: STATION_PAD_RADIUS * 2 + 0.22, thickness: 0.09, tessellation: 24 },
       scene,
     );
@@ -203,9 +208,9 @@ export function buildClearings(scene: Scene): ClearingsHandle {
     padGlow.parent = sRoot;
     padGlow.isPickable = false;
 
-    /* the pennant pole + flag (faces the island) */
+    /* the pennant pole + flag (faces its home) */
     const pole = MeshBuilder.CreateCylinder(
-      `station-pole-${spot.zone}-${spot.band}`,
+      `station-pole-${uid}`,
       { diameter: 0.09, height: 2.1, tessellation: 6 },
       scene,
     );
@@ -214,14 +219,14 @@ export function buildClearings(scene: Scene): ClearingsHandle {
     pole.parent = sRoot;
     pole.isPickable = false;
 
-    const pennantMat = new StandardMaterial(`pennant-mat-${spot.zone}-${spot.band}`, scene);
+    const pennantMat = new StandardMaterial(`pennant-mat-${uid}`, scene);
     const tex = pennantTexture(scene, color, spot.band);
     pennantMat.diffuseTexture = tex;
     pennantMat.specularColor = new Color3(0.03, 0.03, 0.03);
     pennantMat.backFaceCulling = false;
     pennantMats.push(pennantMat);
     const pennant = MeshBuilder.CreatePlane(
-      `station-pad-${spot.zone}-${spot.band}`,
+      `station-flag-${uid}`,
       { width: 0.86, height: 0.56 },
       scene,
     );
@@ -233,7 +238,7 @@ export function buildClearings(scene: Scene): ClearingsHandle {
 
     /* the light pillar — find me from the next hill */
     const pillar = MeshBuilder.CreateCylinder(
-      `station-pillar-${spot.zone}-${spot.band}`,
+      `station-pillar-${uid}`,
       { diameterTop: 0.34, diameterBottom: 0.5, height: 13, tessellation: 10 },
       scene,
     );

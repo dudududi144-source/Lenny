@@ -14,21 +14,20 @@ import { WANDER_RADIUS, WORLD_WALK_RADIUS, WORLD_ISLANDS, WORLD_SIGNPOSTS, FRIEN
 import { HUB_RADIUS } from '../world/WorldLayout';
 
 describe('REGIONS — the continent beyond the garden (stage 15-B)', () => {
-  it('has ten named regions with Hebrew names and arrival lines', () => {
-    expect(REGIONS).toHaveLength(10);
+  it('has 12 named regions with Hebrew names and arrival lines', () => {
+    expect(REGIONS).toHaveLength(12);
     for (const r of REGIONS) {
       expect(r.name.length).toBeGreaterThan(2);
       expect(r.line.length).toBeGreaterThan(8);
-      expect(r.radius).toBeGreaterThanOrEqual(185);
+      expect(r.radius).toBeGreaterThanOrEqual(170);
     }
-    expect(new Set(REGIONS.map((r) => r.id)).size).toBe(10);
+    expect(new Set(REGIONS.map((r) => r.id)).size).toBe(12);
   });
 
   it('the regions sit far from the hub, around the whole compass, and never overlap', () => {
     for (const r of REGIONS) {
       const d = Math.hypot(r.x, r.z);
-      expect(d).toBeGreaterThan(640); /* a real journey out (15-B hearts 644–935) */
-      expect(d).toBeLessThanOrEqual(940);
+      expect(d).toBeGreaterThan(640); /* a real journey out (15-B hearts 644–935, 16-a far rim ~1200-1245) */
       expect(d + r.radius).toBeLessThanOrEqual(WANDER_RADIUS); /* inside the world */
     }
     for (let i = 0; i < REGIONS.length; i++) {
@@ -39,13 +38,18 @@ describe('REGIONS — the continent beyond the garden (stage 15-B)', () => {
         expect(gap).toBeGreaterThanOrEqual(0); /* patches never overlap */
       }
     }
-    /* ~36° apart: no two hearts share a bearing (no crowded compass) */
+    /* 16-a: 12 lands. Same-ring hearts keep ≥ ~28.6° of bearing (the
+       ten 15-B lands are ~36° apart); cross-ring pairs (the 16-a far
+       ring at d~1215/1245 vs the 15-B ring at d≤935) keep ≥ ~14.3° —
+       400+ units of radial separation make them visually distinct
+       even where their bearings come close. */
     for (let i = 0; i < REGIONS.length; i++) {
       for (let j = i + 1; j < REGIONS.length; j++) {
         const a = Math.atan2(REGIONS[i].z, REGIONS[i].x);
         const b = Math.atan2(REGIONS[j].z, REGIONS[j].x);
         const sep = Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        expect(sep).toBeGreaterThan(0.5); /* ≥ ~28.6° between every pair of bearings */
+        const sameRing = Math.hypot(REGIONS[i].x, REGIONS[i].z) < 1000 === Math.hypot(REGIONS[j].x, REGIONS[j].z) < 1000;
+        expect(sep).toBeGreaterThan(sameRing ? 0.5 : 0.25);
       }
     }
   });
@@ -75,7 +79,7 @@ describe('REGIONS — the continent beyond the garden (stage 15-B)', () => {
   });
 
   it('the roads reach every region and stay inside the world', () => {
-    expect(REGION_ROADS).toHaveLength(10);
+    expect(REGION_ROADS).toHaveLength(12);
     for (const road of REGION_ROADS) {
       expect(road.points.length).toBeGreaterThan(20);
       const region = regionById(road.region);
@@ -118,11 +122,14 @@ describe('REGIONS — the continent beyond the garden (stage 15-B)', () => {
     }
   });
 
-  it('the hub road exits beyond the garden ring', () => {
+  it('the hub road exits beyond the garden ring (far lands start further out on the meadow)', () => {
     for (const road of REGION_ROADS) {
       const start = road.points[0];
       expect(Math.hypot(start.x, start.z)).toBeGreaterThanOrEqual(HUB_RADIUS - 2);
-      expect(Math.hypot(start.x, start.z)).toBeLessThanOrEqual(HUB_RADIUS + 8);
+      /* 16-a: the ten ring-one roads leave at the garden rim; the two
+         far lands (cloud/star) start on the open meadow (r 210/240) so
+         their near-bearing runs never braid the start ring */
+      expect(Math.hypot(start.x, start.z)).toBeLessThanOrEqual(HUB_RADIUS + 8 + 190);
     }
   });
 

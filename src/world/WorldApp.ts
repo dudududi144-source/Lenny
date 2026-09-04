@@ -100,7 +100,7 @@ import {
 import { buildRegions, regionAt, terrainHeight, type RegionDef, type RegionsHandle } from './WorldRegions';
 import { buildClearings, type ClearingsHandle } from './WorldClearings';
 import { buildFlora, type FloraHandle } from './WorldFlora';
-import { nearestStation, STATIONS, STATION_NEAR_RADIUS, type StationBand } from './WorldStations';
+import { ALL_STATIONS, nearestStation, STATION_NEAR_RADIUS, type StationBand } from './WorldStations';
 import { attachWorldInput } from './WorldInput';
 import { createWorldOnboard } from './WorldOnboard';
 import type { ZoneId } from '../data/garden';
@@ -324,8 +324,10 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 
   tex.wrapU = Texture.WRAP_ADDRESSMODE;
   tex.wrapV = Texture.WRAP_ADDRESSMODE;
-  tex.uScale = 99;
-  tex.vScale = 99;
+  /* 16-a: the grass tiling rides the wider plate (same texel density:
+     ~7.3 world units per tile, exactly the stage-12 look) */
+  tex.uScale = 418;
+  tex.vScale = 418;
 
   const mat = new StandardMaterial('grass-mat', scene);
   mat.diffuseTexture = tex;
@@ -333,8 +335,12 @@ function buildGround(scene: Scene, palette: WorldPalette): { retint(p: WorldPale
 
   /* stage 12: the ground IS the continent — the flat hub garden blends
      into rolling hills (terrainHeight is flat inside r<148), so the
-     walker feels the land rise underfoot on the way to the regions */
-  const ground = MeshBuilder.CreateGround('ground', { width: 720, height: 720, subdivisions: 32 }, scene);
+     walker feels the land rise underfoot on the way to the regions.
+     16-a: the ground follows the WIDER continent — it must carry the
+     far ring (hearts ~1245) AND every tap in between: the whole
+     wanderable world now stands on real, pickable ground (the old
+     720u plate left the outer wilds tap-blind). */
+  const ground = MeshBuilder.CreateGround('ground', { width: 3040, height: 3040, subdivisions: 152 }, scene);
   {
     const pos = ground.getVerticesData(VertexBuffer.PositionKind);
     if (pos) {
@@ -1304,9 +1310,21 @@ export async function createWorldApp(
       },
       onStationTap: (zone, band) => {
         /* a pad is a door, not a teleport: far away the tap SENDS the
-           child there; up close it opens that band's games (stage 14) */
+           child there; up close it opens that band's games (stage 14).
+           16-a: far pads key on their REGION (no zone collision) — the
+           zone match runs first, then the region match. */
         if (onboard.active() || rideStart !== null) return;
-        const spot = STATIONS.find((s) => s.zone === zone && s.band === band);
+        const zonePads = ALL_STATIONS.filter((s) => s.zone === zone && s.band === band);
+        const regionPads = ALL_STATIONS.filter((s) => s.region === zone && s.band === band);
+        const matches = zonePads.length > 0 ? zonePads : regionPads;
+        const spot =
+          matches.length <= 1
+            ? matches[0]
+            : matches.reduce((a, b) =>
+                Math.hypot(presencePos.x - a.x, presencePos.z - a.z) <= Math.hypot(presencePos.x - b.x, presencePos.z - b.z)
+                  ? a
+                  : b,
+              );
         if (!spot) return;
         const d = Math.hypot(presencePos.x - spot.x, presencePos.z - spot.z);
         if (d > STATION_NEAR_RADIUS * 0.95) {
@@ -1316,7 +1334,9 @@ export async function createWorldApp(
           return;
         }
         try {
-          events.onStationTap?.({ zone: zone as ZoneId, band: band as StationBand });
+          /* far pads forward their THEME zone (the shelf borrows that
+             zone's catalog; 'cloud'/'star' never reach the shell) */
+          events.onStationTap?.({ zone: spot.zone as ZoneId, band: band as StationBand });
         } catch {
           /* a clearing tap never crashes the garden */
         }

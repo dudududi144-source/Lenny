@@ -1,18 +1,20 @@
 /* ============================================================
- * WorldRegions — the continent beyond the garden (stage 12 → 15-B).
+ * WorldRegions — the continent beyond the garden (stage 12 → 16-a).
  *
  * STAGE 11 built a journey-scale garden ring. STAGE 12 opened the
- * world. STAGE 14-C made it vast. STAGE 15-B makes it the honest
- * VAST CONTINENT the owner counted five times and never got:
+ * world. STAGE 14-C made it vast. STAGE 15-B made it the honest
+ * VAST CONTINENT. STAGE 16-a widens it AGAIN (the owner counted
+ * six times now):
  *
- *   - TEN named REGIONS at hearts 644–935 units out (radii
- *     185–200, ~36° apart around the whole compass): each is a
- *     DESTINATION with an interior worth exploring — its own gate
- *     on a real road, its own scenery palette, landmarks, friends.
- *     The six old lands moved out; FOUR new lands joined —
- *     יער הלילה (the night woods, south), גבעות הבדוליות (the
- *     crystal foothills, west), גבעות הקשת (the rainbow hills,
- *     east) and חוף הברכות (the lake-shore tide pools, north-west).
+ *   - TWELVE named REGIONS: the ten lands at hearts 644–935 out
+ *     (radii 185–200, ~36° apart) plus TWO FAR lands on the new
+ *     outer ring (hearts ~1215/1245, radius 170) —
+ *     אִיֵּי הֶעָנָן (the cloud isles, south-east, where the clouds
+ *     come down to rest) and מִדְבַּר הַכּוֹכָבִים (the star desert,
+ *     north-east, where the sand glitters like the night sky —
+ *     dreamy, never dark). Each is a DESTINATION with an interior
+ *     worth exploring — its own gate on a real road, its own
+ *     scenery palette, landmarks.
  *   - The zone ISLANDS (the game stages) live inside the regions —
  *     reaching the next stage is a JOURNEY now, with a road,
  *     signposts and a compass (Croc-style stage geography).
@@ -43,7 +45,20 @@ const hex = (s: string): Color3 => Color3.FromHexString(s);
  * THE PURE HALF — every number here is unit-pinned.
  * ============================================================ */
 
-export type RegionId = 'forest' | 'snow' | 'river' | 'flower' | 'dunes' | 'rocky' | 'night' | 'crystal' | 'rainbow' | 'shore';
+export type RegionId =
+  | 'forest'
+  | 'snow'
+  | 'river'
+  | 'flower'
+  | 'dunes'
+  | 'rocky'
+  | 'night'
+  | 'crystal'
+  | 'rainbow'
+  | 'shore'
+  /* stage 16-a — the far ring */
+  | 'cloud'
+  | 'star';
 
 export interface RegionDef {
   id: RegionId;
@@ -56,9 +71,11 @@ export interface RegionDef {
   tint: string;
 }
 
-/** The TEN regions of the continent — ~36° apart around the whole
- *  compass, hearts 644–935 out (stage 15-B: the vast continent for
- *  real; radii 185–200 so every patch has an interior to roam). */
+/** The TWELVE regions of the continent — the ten 15-B lands around
+ *  the whole compass (~36° apart, hearts 644–935, radii 185–200)
+ *  plus the two stage 16-a FAR lands that fill the two widest
+ *  compass gaps on the new outer ring (hearts ~1215/1245, radius
+ *  170, so every patch keeps an interior to roam). */
 export const REGIONS: RegionDef[] = [
   {
     id: 'forest',
@@ -149,6 +166,27 @@ export const REGIONS: RegionDef[] = [
     z: -890,
     radius: 185,
     tint: '#3b4a6b',
+  },
+  /* ---- stage 16-a: the far ring — the two widest compass gaps
+     (between night & rocky, and between flower & river) get their
+     own lands, one dreamy-white, one glitter-soft ---- */
+  {
+    id: 'cloud',
+    name: 'אִיֵּי הֶעָנָן',
+    line: 'אִיֵּי הֶעָנָן! הָעֲנָנִים יוֹרְדִים לְכָאן לָנוּחַ — רַכִּים כְּמוֹ כַּר הַמִּטָּה.',
+    x: 331,
+    z: -1169,
+    radius: 170,
+    tint: '#d7e6f2',
+  },
+  {
+    id: 'star',
+    name: 'מִדְבַּר הַכּוֹכָבִים',
+    line: 'מִדְבַּר הַכּוֹכָבִים! הַחוֹל מְנַצְנֵץ כְּמוֹ שָׁמַיִם — כּוֹכָבִים נָחִים פֹּה עַל הָאָרֶץ.',
+    x: 331,
+    z: 1200,
+    radius: 170,
+    tint: '#8d84c4',
   },
 ];
 
@@ -244,12 +282,17 @@ export interface RegionRoad {
   points: Array<{ x: number; z: number }>;
 }
 
-/** Road control points for one region: hub ring → two wiggled mids → gate → heart. */
+/** Road control points for one region: hub ring → two wiggled mids → gate → heart.
+ *  16-a: the two FAR lands start their roads further out (r 210/240) —
+ *  their bearings sit ~20° from night/rocky/flower/river, and four roads
+ *  sharing the r56 start ring at 19° would braid there; a staggered start
+ *  keeps every road ≥30u from its neighbours along the whole run. */
 function roadControl(region: RegionDef): Array<{ x: number; z: number }> {
   const dist = Math.hypot(region.x, region.z);
   const theta = Math.atan2(region.z, region.x);
   const toHubX = -region.x / dist;
   const toHubZ = -region.z / dist;
+  const startR = region.id === 'cloud' ? 210 : region.id === 'star' ? 240 : 56;
   /* per-region wiggle so the ten roads never read as bare spokes
      (alternating bends: neighbours lean AWAY from each other) */
   const wig: Record<RegionId, [number, number]> = {
@@ -263,9 +306,13 @@ function roadControl(region: RegionDef): Array<{ x: number; z: number }> {
     crystal: [0.08, -0.05],
     rainbow: [-0.09, 0.05],
     shore: [0.08, -0.05],
+    /* 16-a: the far roads lean AWAY from their nearest neighbours
+       (night leans +, so cloud leans −; river leans −, so star leans +) */
+    cloud: [-0.07, 0.06],
+    star: [0.07, -0.06],
   };
   const [w1, w2] = wig[region.id];
-  const start = { x: Math.cos(theta) * 56, z: Math.sin(theta) * 56 };
+  const start = { x: Math.cos(theta) * startR, z: Math.sin(theta) * startR };
   const mid1 = { x: Math.cos(theta + w1) * (dist * 0.45), z: Math.sin(theta + w1) * (dist * 0.45) };
   const mid2 = { x: Math.cos(theta + w2) * (dist * 0.78), z: Math.sin(theta + w2) * (dist * 0.78) };
   const gate = { x: region.x + toHubX * region.radius, z: region.z + toHubZ * region.radius };
@@ -349,10 +396,11 @@ export interface RegionsHandle {
 }
 
 /** How far from the walker a region stays visible (draw-call stewardship).
- *  15-B: raised 330 → 470 — the regions tripled their reach, so a
- *  region must be visible from its neighbour's rim (the widest gap
- *  between neighbouring hearts is ~580) or the walks would feel empty. */
-const REGION_VISIBILITY = 470;
+ *  16-a: raised 470 → 620 — the far ring doubled its reach, and a
+ *  region must still be visible from its neighbour's rim (the widest
+ *  gap between neighbouring hearts is now ~1050 on the far ring) or
+ *  the long walks would feel empty. */
+const REGION_VISIBILITY = 620;
 
 interface BuiltRegion {
   def: RegionDef;
@@ -431,11 +479,24 @@ export function buildRegions(scene: Scene): RegionsHandle {
   const rainbowVioletMat = new StandardMaterial('rg-rainbow-b', scene);
   rainbowVioletMat.diffuseColor = hex('#9a7fd0');
   rainbowVioletMat.specularColor = new Color3(0.03, 0.03, 0.05);
+  /* stage 16-a: the far ring — cloud-gold motes + star-desert glitter */
+  const goldMatCloud = new StandardMaterial('rg-cloud-gold', scene);
+  goldMatCloud.diffuseColor = hex('#caa53d');
+  goldMatCloud.emissiveColor = hex('#ffd76a').scale(0.55);
+  goldMatCloud.specularColor = new Color3(0.05, 0.05, 0.02);
+  const starGlowMat = new StandardMaterial('rg-star-glow', scene);
+  starGlowMat.diffuseColor = hex('#e8dc9a');
+  starGlowMat.emissiveColor = hex('#ffe9a0').scale(0.5);
+  starGlowMat.specularColor = new Color3(0.25, 0.24, 0.2);
+  const sandMatStar = new StandardMaterial('rg-sand-star', scene);
+  sandMatStar.diffuseColor = hex('#a89fd6');
+  sandMatStar.specularColor = new Color3(0.06, 0.05, 0.09);
 
   const allMats = [
     woodMat, trunkMat, pineMat, pineSnowMat, whiteMat, rockMat, cactusMat, sandMat,
     waterMat, bushMat, flowerA, flowerB, flowerC, mountainMat, capMat, cloudMat,
     nightGlowMat, crystalMat, rainbowRedMat, rainbowVioletMat,
+    goldMatCloud, starGlowMat, sandMatStar,
   ];
   const regionColorMats = new Map<RegionId, StandardMaterial>();
   for (const r of REGIONS) {
@@ -679,6 +740,56 @@ export function buildRegions(scene: Scene): RegionsHandle {
           put(st, rockMat, p.x, p.z, 0.18 + k * 0.36);
         }
       }
+    } else if (region.id === 'cloud') {
+      /* the cloud isles (16-a): soft mounds where the clouds came down
+         to rest — white stacks, pale mist tufts and one warm lantern
+         mote each, so the land reads DREAMY, never empty */
+      for (let i = 0; i < 26; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const s = 1.1 + rng() * 1.9;
+        for (let k = 0; k < 3; k++) {
+          const puff = MeshBuilder.CreateSphere(`rg-cl-p${i}-${k}`, { diameter: s * (1 - k * 0.24), segments: 6 }, scene);
+          put(puff, cloudMat, p.x + (k - 1) * s * 0.42, p.z + (rng() - 0.5) * s * 0.3, s * 0.34 + k * s * 0.22);
+        }
+      }
+      for (let i = 0; i < 18; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const mote = MeshBuilder.CreateSphere(`rg-cl-m${i}`, { diameter: 0.26 + rng() * 0.22, segments: 5 }, scene);
+        put(mote, goldMatCloud, p.x, p.z, 0.5 + rng() * 1.4);
+      }
+      for (let i = 0; i < 12; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const tuft = MeshBuilder.CreateCylinder(`rg-cl-t${i}`, { diameterTop: 0.1, diameterBottom: 0.22, height: 0.5 + rng() * 0.4, tessellation: 5 }, scene);
+        put(tuft, whiteMat, p.x, p.z, 0.22);
+      }
+    } else if (region.id === 'star') {
+      /* the star desert (16-a): glittering sand under a dreamy sky —
+         violet-gold star crystals sleep in the dunes (soft, never dark) */
+      for (let i = 0; i < 30; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const h = 0.9 + rng() * 2.0;
+        const spike = MeshBuilder.CreateCylinder(`rg-st-s${i}`, { diameterTop: 0, diameterBottom: 0.34 + rng() * 0.3, height: h, tessellation: 5 }, scene);
+        spike.rotation.z = (rng() - 0.5) * 0.6;
+        spike.rotation.x = (rng() - 0.5) * 0.6;
+        put(spike, starGlowMat, p.x, p.z, h / 2);
+      }
+      for (let i = 0; i < 34; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const dune = MeshBuilder.CreateSphere(`rg-st-d${i}`, { diameter: 1.6 + rng() * 2.2, segments: 6 }, scene);
+        dune.scaling.y = 0.3;
+        put(dune, sandMatStar, p.x, p.z, 0.1);
+      }
+      for (let i = 0; i < 12; i++) {
+        const p = propAt();
+        if (!p) continue;
+        const rock = MeshBuilder.CreateIcoSphere(`rg-st-r${i}`, { radius: 0.35 + rng() * 0.55, subdivisions: 1 }, scene);
+        put(rock, rockMat, p.x, p.z, 0.16);
+      }
     } else {
       /* night — the firefly woods: dark pines and soft ground-lights */
       for (let i = 0; i < 66; i++) {
@@ -764,14 +875,15 @@ export function buildRegions(scene: Scene): RegionsHandle {
   }
 
   /* ---------- the vista: mountain ring + drifting clouds ----------
-     15-B: pushed out with the continent again — the mountains must
-     haunt the horizon BEYOND the regions (hearts out to ~935, so
-     the ring stands 1350–1600 out, well past the walkable edge). */
+     16-a: pushed out with the continent again — the mountains must
+     haunt the horizon BEYOND the far ring (hearts out to ~1245, so
+     the ring stands 1520–1770 out, well past the walkable edge and
+     still inside the widened camera draw distance). */
   const mountainParts: Mesh[] = [];
   const mrng = mulberry32(20260912);
   for (let i = 0; i < 14; i++) {
     const ang = (i / 14) * Math.PI * 2 + mrng() * 0.3;
-    const d = 1350 + mrng() * 250;
+    const d = 1520 + mrng() * 250;
     const h = 190 + mrng() * 150;
     const w = 190 + mrng() * 100;
     const x = Math.cos(ang) * d;

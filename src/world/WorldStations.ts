@@ -24,7 +24,7 @@
 
 import { type ZoneId } from '../data/garden';
 import { HUB_JOURNEY, LANDMARKS, WORLD_ISLANDS, pathPoints } from './WorldLayout';
-import { REGION_ROADS } from './WorldRegions';
+import { REGION_ROADS, type RegionId } from './WorldRegions';
 
 export type StationBand = 0 | 1 | 2;
 
@@ -58,6 +58,12 @@ export interface StationSpot {
   dist: number;
   /** the pennant's world bearing (faces the island) */
   facing: number;
+  /** stage 16-a: set on FAR clearings — the region that hosts the pad
+   *  (the pad's mesh name keys on it, so far pads never collide with
+   *  the zone pads; `zone` stays the shelf's catalog + unlock fog). */
+  region?: RegionId;
+  /** stage 16-a: stable unique id for far pads (`far:<region|place>:<band>`). */
+  key?: string;
 }
 
 /** Deterministic per-zone fan base (golden-angle spread across zones). */
@@ -109,8 +115,67 @@ WORLD_ISLANDS.forEach((p, i) => {
   BY_ZONE[p.zone] = stationsFor(p.zone, i);
 });
 
-/** All thirty clearings, hub first (journey order = WORLD_ISLANDS order). */
+/** All thirty zone clearings, hub first (journey order = WORLD_ISLANDS order). */
 export const STATIONS: StationSpot[] = WORLD_ISLANDS.flatMap((p) => BY_ZONE[p.zone]);
+
+/* ---------- stage 16-a: the FAR clearings ----------
+ *
+ * The owner's verdict again: playable content clustered at spawn.
+ * The thirty zone clearings all hug their islands (all ≤ ~930 out);
+ * the far reaches and the two new far lands had NO games at all.
+ * Twelve far clearings now carry the three band tiers outward:
+ *
+ *   - the cloud isles + the star desert: a full 3-band family each
+ *     (the pad's shelf borrows the thematically-nearest zone's
+ *     catalog — sky games on the clouds, rhythm games in the
+ *     desert — and the unlock fog follows that same zone);
+ *   - six single pads beside the far-reach somewhere-places
+ *     (honey tree, snow friend, moon pond, reed hut, sun clock,
+ *     star stone), banded 0/2/1/0/2/1 so all three tiers wait out
+ *     there too.
+ *
+ * Every far spot passes the SAME clearances (roads, landmarks,
+ * islands, pads) — pinned by unit test.
+ */
+const farSpot = (
+  key: string,
+  zone: ZoneId,
+  band: StationBand,
+  x: number,
+  z: number,
+  region?: RegionId,
+): StationSpot => ({
+  key,
+  zone,
+  band,
+  x,
+  z,
+  dist: Math.hypot(x, z),
+  /* the pennant turns toward the world center (the pad reads from the road) */
+  facing: Math.atan2(-z, -x),
+  region,
+});
+
+export const FAR_STATIONS: StationSpot[] = [
+  /* the cloud isles — sky games over the clouds (space-sky fog owns them) */
+  farSpot('far:cloud:0', 'space-sky', 0, 268, -1108, 'cloud'),
+  farSpot('far:cloud:1', 'space-sky', 1, 396, -1122, 'cloud'),
+  farSpot('far:cloud:2', 'space-sky', 2, 318, -1222, 'cloud'),
+  /* the star desert — rhythm games in the glitter (rhythm-square fog owns them) */
+  farSpot('far:star:0', 'rhythm-square', 0, 272, 1148, 'star'),
+  farSpot('far:star:1', 'rhythm-square', 1, 398, 1162, 'star'),
+  farSpot('far:star:2', 'rhythm-square', 2, 320, 1256, 'star'),
+  /* the far reaches — one pad each, every band waits out there */
+  farSpot('far:honey-tree', 'space-sky', 0, -1015, -126),
+  farSpot('far:snow-friend', 'space-sky', 2, -940, 552),
+  farSpot('far:moon-pond', 'words-valley', 1, 92, 1040),
+  farSpot('far:reed-hut', 'creativity-meadow', 0, 982, 572),
+  farSpot('far:sun-clock', 'rhythm-square', 2, 838, -728),
+  farSpot('far:star-stone', 'attention-stream', 1, 312, -938),
+];
+
+/** All clearings (zone pads first, then the far ring), for every consumer. */
+export const ALL_STATIONS: StationSpot[] = [...STATIONS, ...FAR_STATIONS];
 
 export function stationsOfZone(zone: ZoneId): StationSpot[] {
   return BY_ZONE[zone] ?? [];
@@ -124,7 +189,7 @@ export function nearestStation(
   zoneUnlocked: (zone: ZoneId) => boolean,
 ): { station: StationSpot; dist: number } | null {
   let best: { station: StationSpot; dist: number } | null = null;
-  for (const s of STATIONS) {
+  for (const s of ALL_STATIONS) {
     if (!zoneUnlocked(s.zone)) continue;
     const d = Math.hypot(x - s.x, z - s.z);
     if (d <= maxDist && (best === null || d < best.dist)) best = { station: s, dist: d };
@@ -177,13 +242,19 @@ export function stationPathClearance(x: number, z: number): number {
 
 export { minDistToPath };
 
-/** A station's own id (stable, e2e + storage). */
+/** A station's own id (stable, e2e + storage). Far pads carry their own key. */
 export function stationId(s: StationSpot): string {
-  return `${s.zone}:${s.band}`;
+  return s.key ?? `${s.zone}:${s.band}`;
+}
+
+/** The pad's mesh-name identity: zone pads key on zone, far pads on region
+ *  (WorldInput parses BOTH — region ids never collide with zone ids). */
+export function stationPadKey(s: StationSpot): string {
+  return s.region ?? s.zone;
 }
 
 /** True when the point respects every static clearance (tests + build-time sanity). */
-export function stationClearancesHold(list: readonly StationSpot[] = STATIONS): boolean {
+export function stationClearancesHold(list: readonly StationSpot[] = ALL_STATIONS): boolean {
   for (const s of list) {
     /* roads */
     if (stationPathClearance(s.x, s.z) < STATION_ROAD_CLEARANCE) return false;
