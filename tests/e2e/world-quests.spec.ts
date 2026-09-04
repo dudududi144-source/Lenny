@@ -86,7 +86,9 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
 }
 
 test('wayfinding: the child walks to the named place and the quest completes', async ({ page }) => {
-  test.setTimeout(75_000); /* stage 11: even a banded errand is a real walk */
+  /* the errand stays child-sized (4–26u); CI's software-GL tap rounds
+     are simply slow — the clock gets honest room, the walk does not */
+  test.setTimeout(240_000);
   await openWorldWithQuests(page, { counting: 1, patterns: 1 });
   const q = await page.evaluate(() => window.__lennyWorld?.quest());
   expect(q!.family).toBe('wayfinding');

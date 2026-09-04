@@ -78,16 +78,19 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
   throw new Error(`never arrived near (${wx}, ${wz})`);
 }
 
-test('twenty-four landmarks exist and a fresh garden has found none', async ({ page }) => {
+test('fifty landmarks exist and a fresh garden has found none', async ({ page }) => {
   await openWorld(page);
   const landmarks = await page.evaluate(() => window.__lennyWorld?.landmarks());
-  expect(landmarks!.length).toBe(24);
+  expect(landmarks!.length).toBe(50);
   expect(landmarks!.every((l) => !l.found)).toBe(true);
   expect(await page.evaluate(() => window.__lennyWorld?.foundCount())).toBe(0);
 });
 
 test('walking to a landmark discovers it — narration, plate, persistence', async ({ page }) => {
-  test.setTimeout(75_000); /* stage 11: places are worth a real walk now */
+  /* stage 14: the continent is vast and CI's software-GL rounds are
+     slow — the walk is still short (big-tree is near the spawn), the
+     CLOCK is what needed honest room */
+  test.setTimeout(180_000);
   await openWorld(page);
   const target = (await page.evaluate(() => window.__lennyWorld?.landmarks()))!.find(
     (l) => l.id === 'big-tree',
