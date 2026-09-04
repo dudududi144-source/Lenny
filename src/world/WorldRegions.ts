@@ -1,18 +1,18 @@
 /* ============================================================
- * WorldRegions — the continent beyond the garden (stage 12).
+ * WorldRegions — the continent beyond the garden (stage 12, 14-C).
  *
  * STAGE 11 built a journey-scale garden ring. The owner's verdict:
  * still condensed — "השביל מכונס בתוך עצמו" (the path folds into
- * itself). STAGE 12 opens the world for real:
+ * itself). STAGE 12 opened the world. STAGE 14-C made it VAST —
+ * the owner asked five times and got incremental nudges; this is
+ * the real one:
  *
- *   - SIX named REGIONS far from the hub garden (150–270 units):
- *     an enchanted forest, a snow land, a river valley, flower
- *     hills, sand dunes, and rocky hills — each with its own gate
- *     on a real road, its own scenery palette, its own landmarks
- *     and friends.
- *   - The zone ISLANDS (the game stages) are scattered across the
- *     regions — reaching the next stage is a JOURNEY now, with a
- *     road, signposts and a compass (Croc-style stage geography).
+ *   - SIX named REGIONS 340–450 units out (radii 112–130): each is
+ *     a DESTINATION with an interior worth exploring — its own gate
+ *     on a real road, its own scenery palette, landmarks, friends.
+ *   - The zone ISLANDS (the game stages) live inside the regions —
+ *     reaching the next stage is a JOURNEY now, with a road,
+ *     signposts and a compass (Croc-style stage geography).
  *   - TERRAIN: gentle rolling hills rise beyond the flat garden,
  *     and a river carves its valley through the river region —
  *     the walker's ground height follows the land.
@@ -53,60 +53,61 @@ export interface RegionDef {
   tint: string;
 }
 
-/** The six regions of the continent — ~60° apart, 208–234 units out. */
+/** The six regions of the continent — ~60° apart, 340–450 units out
+ *  (stage 14-C: regions are DESTINATIONS now, patches with interiors). */
 export const REGIONS: RegionDef[] = [
   {
     id: 'forest',
     name: 'יַעַר הַקְּסָמִים',
     line: 'יַעַר הַקְּסָמִים! הַצֵּל הַצִּנּוֹן וְהַפְּטְרִיּוֹת — כָּאן מִתְחַבֵּא כָּל מִינֵי קְסָמִים.',
-    x: -168,
-    z: -148,
-    radius: 82,
+    x: -330,
+    z: -290,
+    radius: 130,
     tint: '#2f6b3f',
   },
   {
     id: 'snow',
     name: 'אֶרֶץ הַשֶּׁלֶג',
     line: 'אֶרֶץ הַשֶּׁלֶג! רְכּוּת, קוֹר, וְנַחַת רַגְלַיִם שֶׁל שְׁתִיקָה לְבֵנָה.',
-    x: -212,
-    z: 55,
-    radius: 78,
+    x: -335,
+    z: 90,
+    radius: 118,
     tint: '#e6eef5',
   },
   {
     id: 'river',
     name: 'עֵמֶק הַנָּהָר',
     line: 'עֵמֶק הַנָּהָר! הַמַּיִם יוֹדְעִים אֶת הַדֶּרֶךְ — הֵם שָׁרִים בַּדֶּרֶךְ.',
-    x: -62,
-    z: 226,
-    radius: 82,
+    x: -100,
+    z: 390,
+    radius: 122,
     tint: '#4b97ad',
   },
   {
     id: 'flower',
     name: 'גִּבְעוֹת הַפְּרָחִים',
     line: 'גִּבְעוֹת הַפְּרָחִים! כָּל גִּבְעָה בְּצֶבַע אַחֵר — תִּפְתְּחוּ אֶת הָעֵינַיִם.',
-    x: 98,
-    z: 205,
-    radius: 76,
+    x: 195,
+    z: 395,
+    radius: 122,
     tint: '#d97fae',
   },
   {
     id: 'dunes',
     name: 'דְּיוּנוֹת הַחוֹל',
     line: 'דְּיוּנוֹת הַחוֹל! הָרוּחַ מְצַיֶּרֶת פֹּה גַּלִּים חֲדָשִׁים כָּל יוֹם.',
-    x: 212,
-    z: 96,
-    radius: 74,
+    x: 350,
+    z: 150,
+    radius: 112,
     tint: '#e3c184',
   },
   {
     id: 'rocky',
     name: 'הַרֵי הַסֶּלַע',
     line: 'הַרֵי הַסֶּלַע! אֲבָנִים עַתִּיקוֹת שׁוֹמְרוֹת פֹּה סוֹדִים יְשָׁנִים.',
-    x: 172,
-    z: -128,
-    radius: 72,
+    x: 370,
+    z: -245,
+    radius: 126,
     tint: '#93907f',
   },
 ];
@@ -138,9 +139,10 @@ export function nearestRegion(x: number, z: number, maxDist: number): { region: 
 /**
  * The ground height of the continent.
  *   - The hub garden (r < 148) stays FLAT — the stage-11 world never moves.
- *   - Rolling hills rise smoothly between 148 and 210 (smoothstep ramp),
- *     amplitude ~±4 — walkable relief, never a wall.
- *   - The river carves a soft valley along its spline (depth ~2.6 at the
+ *   - Rolling hills rise smoothly between 148 and 210 (smoothstep ramp).
+ *     14-C: the hill FIELDS are broader than stage 12 (a continent has
+ *     broad shoulders, and the coarse ground mesh follows them better).
+ *   - The river carves a soft valley along its spline (depth ~2.9 at the
  *     center line, gaussian falloff), gated by the same ramp.
  * Continuity is unit-pinned: the fox never meets a cliff.
  */
@@ -152,9 +154,9 @@ export function terrainHeight(x: number, z: number): number {
   const ramp = k * k * (3 - 2 * k);
 
   const hills =
-    2.1 * Math.sin(x * 0.021 + 0.8) * Math.cos(z * 0.019 - 0.4) +
-    1.2 * Math.sin(x * 0.043) * Math.sin(z * 0.037 + 1.2) +
-    0.7 * Math.sin((x + z) * 0.011);
+    2.4 * Math.sin(x * 0.012 + 0.8) * Math.cos(z * 0.011 - 0.4) +
+    1.5 * Math.sin(x * 0.023) * Math.sin(z * 0.02 + 1.2) +
+    0.8 * Math.sin((x + z) * 0.007);
 
   /* river valley: distance to the river's control polyline (dense enough
      for a soft carve — the worst seam error between controls is tiny) */
@@ -163,7 +165,7 @@ export function terrainHeight(x: number, z: number): number {
     const d = Math.hypot(x - p.x, z - p.z);
     if (d < dRiver) dRiver = d;
   }
-  const carve = 2.6 * Math.exp(-(dRiver * dRiver) / 100) - 0.18;
+  const carve = 2.9 * Math.exp(-(dRiver * dRiver) / 110) - 0.18;
 
   return ramp * (hills - Math.max(0, carve));
 }
@@ -172,15 +174,16 @@ export function terrainHeight(x: number, z: number): number {
 export const RIVER_WATER_Y = -1.15;
 
 /** The river's control polyline — enters from the far north, flows
-    through the river region, and fades out toward the hub ramp. */
+    through the river region (beside its heart, so the road's end
+    stays dry), and fades out toward the hub ramp. */
 export const RIVER_CONTROL: Array<{ x: number; z: number }> = [
-  { x: 46, z: 330 },
-  { x: -6, z: 292 },
-  { x: -52, z: 252 },
-  { x: -62, z: 226 },
-  { x: -40, z: 186 },
-  { x: -8, z: 152 },
-  { x: 18, z: 128 },
+  { x: 30, z: 620 },
+  { x: -20, z: 545 },
+  { x: -62, z: 462 },
+  { x: -72, z: 388 },
+  { x: -52, z: 320 },
+  { x: -20, z: 262 },
+  { x: 4, z: 224 },
 ];
 
 /** Sampled river polyline (Catmull-Rom, 10 per segment) — the water ribbon. */
@@ -297,8 +300,10 @@ export interface RegionsHandle {
   dispose(): void;
 }
 
-/** How far from the walker a region stays visible (draw-call stewardship). */
-const REGION_VISIBILITY = 155;
+/** How far from the walker a region stays visible (draw-call stewardship).
+ *  14-C: raised 155 → 330 — distant regions must SILHOUETTE on the
+ *  horizon; that is what makes a world read vast. */
+const REGION_VISIBILITY = 330;
 
 interface BuiltRegion {
   def: RegionDef;
@@ -390,8 +395,8 @@ export function buildRegions(scene: Scene): RegionsHandle {
     const len = Math.hypot(dx, dz) || 1;
     const nx = -dz / len;
     const nz = dx / len;
-    riverLeft.push(new Vector3(riverPts[i].x + nx * 4.6, RIVER_WATER_Y, riverPts[i].z + nz * 4.6));
-    riverRight.push(new Vector3(riverPts[i].x - nx * 4.6, RIVER_WATER_Y, riverPts[i].z - nz * 4.6));
+    riverLeft.push(new Vector3(riverPts[i].x + nx * 5.2, RIVER_WATER_Y, riverPts[i].z + nz * 5.2));
+    riverRight.push(new Vector3(riverPts[i].x - nx * 5.2, RIVER_WATER_Y, riverPts[i].z - nz * 5.2));
   }
   const river = MeshBuilder.CreateRibbon('rg-river', { pathArray: [riverLeft, riverRight] }, scene);
   river.material = waterMat;
@@ -408,20 +413,20 @@ export function buildRegions(scene: Scene): RegionsHandle {
 
     /** deterministic prop spot, never on the road, never inside the hub ramp */
     const propAt = (): { x: number; z: number } | null => {
-      for (let tries = 0; tries < 8; tries++) {
+      for (let tries = 0; tries < 14; tries++) {
         const a = rng() * Math.PI * 2;
         const rr = Math.sqrt(rng()) * region.radius * 0.94;
         const x = region.x + Math.cos(a) * rr;
         const z = region.z + Math.sin(a) * rr;
         let onRoad = false;
         for (const p of road) {
-          if (Math.hypot(p.x - x, p.z - z) < 6) {
+          if (Math.hypot(p.x - x, p.z - z) < 7) {
             onRoad = true;
             break;
           }
         }
         if (onRoad) continue;
-        if (Math.hypot(x, z) < 132) continue;
+        if (Math.hypot(x, z) < 170) continue;
         return { x, z };
       }
       return null;
@@ -437,10 +442,10 @@ export function buildRegions(scene: Scene): RegionsHandle {
     };
 
     if (region.id === 'forest') {
-      for (let i = 0; i < 24; i++) {
+      for (let i = 0; i < 44; i++) {
         const p = propAt();
         if (!p) continue;
-        const h = 2.2 + rng() * 2.4;
+        const h = 2.4 + rng() * 2.8;
         const trunk = MeshBuilder.CreateCylinder(`rg-f-tr${i}`, { diameterTop: 0.16, diameterBottom: 0.3, height: h, tessellation: 6 }, scene);
         put(trunk, trunkMat, p.x, p.z, h / 2 - 0.12);
         const crown1 = MeshBuilder.CreateCylinder(`rg-f-c1${i}`, { diameterTop: 0, diameterBottom: 1.7, height: 2.0, tessellation: 7 }, scene);
@@ -448,23 +453,23 @@ export function buildRegions(scene: Scene): RegionsHandle {
         const crown2 = MeshBuilder.CreateCylinder(`rg-f-c2${i}`, { diameterTop: 0, diameterBottom: 1.2, height: 1.6, tessellation: 7 }, scene);
         put(crown2, pineMat, p.x, p.z, h + 1.7);
       }
-      for (let i = 0; i < 9; i++) {
+      for (let i = 0; i < 16; i++) {
         const p = propAt();
         if (!p) continue;
         const cap = MeshBuilder.CreateSphere(`rg-f-mu${i}`, { diameter: 0.5 + rng() * 0.3, segments: 6, slice: 0.5 }, scene);
         put(cap, flowerA, p.x, p.z, 0.18);
       }
     } else if (region.id === 'snow') {
-      for (let i = 0; i < 18; i++) {
+      for (let i = 0; i < 34; i++) {
         const p = propAt();
         if (!p) continue;
-        const h = 2.0 + rng() * 2.0;
+        const h = 2.2 + rng() * 2.2;
         const trunk = MeshBuilder.CreateCylinder(`rg-s-tr${i}`, { diameterTop: 0.14, diameterBottom: 0.26, height: h, tessellation: 6 }, scene);
         put(trunk, trunkMat, p.x, p.z, h / 2 - 0.12);
         const crown = MeshBuilder.CreateCylinder(`rg-s-c${i}`, { diameterTop: 0, diameterBottom: 1.6, height: 2.4, tessellation: 7 }, scene);
         put(crown, pineSnowMat, p.x, p.z, h + 0.7);
       }
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 13; i++) {
         const p = propAt();
         if (!p) continue;
         const lump = MeshBuilder.CreateSphere(`rg-s-l${i}`, { diameter: 0.9 + rng() * 0.9, segments: 7 }, scene);
@@ -478,7 +483,7 @@ export function buildRegions(scene: Scene): RegionsHandle {
       const head = MeshBuilder.CreateSphere('rg-sm-h', { diameter: 0.7, segments: 8 }, scene);
       put(head, whiteMat, smx, smz, 1.22);
     } else if (region.id === 'river') {
-      for (let i = 0; i < 14; i++) {
+      for (let i = 0; i < 26; i++) {
         const p = propAt();
         if (!p) continue;
         for (let k = 0; k < 3; k++) {
@@ -486,28 +491,28 @@ export function buildRegions(scene: Scene): RegionsHandle {
           put(reed, bushMat, p.x + (rng() - 0.5) * 0.7, p.z + (rng() - 0.5) * 0.7, 0.35);
         }
       }
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 12; i++) {
         const p = propAt();
         if (!p) continue;
         const pad = MeshBuilder.CreateCylinder(`rg-r-lily${i}`, { diameter: 0.6, height: 0.04, tessellation: 9 }, scene);
         put(pad, bushMat, p.x, p.z, 0.02);
       }
     } else if (region.id === 'flower') {
-      for (let i = 0; i < 26; i++) {
+      for (let i = 0; i < 48; i++) {
         const p = propAt();
         if (!p) continue;
         const bush = MeshBuilder.CreateSphere(`rg-fl-b${i}`, { diameter: 0.7 + rng() * 0.6, segments: 7 }, scene);
         const kind = rng();
         put(bush, kind < 0.4 ? flowerA : kind < 0.75 ? flowerB : flowerC, p.x, p.z, 0.18);
       }
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 16; i++) {
         const p = propAt();
         if (!p) continue;
         const tuft = MeshBuilder.CreateCylinder(`rg-fl-t${i}`, { diameterTop: 0.04, diameterBottom: 0.12, height: 0.4, tessellation: 5 }, scene);
         put(tuft, bushMat, p.x, p.z, 0.2);
       }
     } else if (region.id === 'dunes') {
-      for (let i = 0; i < 13; i++) {
+      for (let i = 0; i < 26; i++) {
         const p = propAt();
         if (!p) continue;
         const h = 1.1 + rng() * 1.2;
@@ -518,7 +523,7 @@ export function buildRegions(scene: Scene): RegionsHandle {
           put(arm, cactusMat, p.x + 0.32, p.z, h * 0.55);
         }
       }
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 14; i++) {
         const p = propAt();
         if (!p) continue;
         const rock = MeshBuilder.CreateIcoSphere(`rg-d-r${i}`, { radius: 0.35 + rng() * 0.45, subdivisions: 1 }, scene);
@@ -526,14 +531,14 @@ export function buildRegions(scene: Scene): RegionsHandle {
       }
     } else {
       /* rocky */
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 30; i++) {
         const p = propAt();
         if (!p) continue;
         const boulder = MeshBuilder.CreateIcoSphere(`rg-k-b${i}`, { radius: 0.5 + rng() * 0.9, subdivisions: 1 }, scene);
         boulder.scaling.y = 0.7 + rng() * 0.3;
         put(boulder, rockMat, p.x, p.z, 0.22);
       }
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 8; i++) {
         const p = propAt();
         if (!p) continue;
         /* a small cairn: three stacked stones */
@@ -544,23 +549,24 @@ export function buildRegions(scene: Scene): RegionsHandle {
       }
     }
 
-    /* ---------- the gate: two posts + lintel (flagged color lives in the patch) ---------- */
+    /* ---------- the gate: two posts + lintel (a real gate the fox
+       walks through — 14-C proportion ladder: gate ≈ 4.7u tall) ---------- */
     const gate = roadOf(region.id).gate;
     const gy = terrainHeight(gate.x, gate.z);
     const sideX = Math.cos(gate.facing + Math.PI / 2);
     const sideZ = Math.sin(gate.facing + Math.PI / 2);
-    const postL = MeshBuilder.CreateCylinder(`rg-gate-pl-${region.id}`, { diameter: 0.26, height: 3.0, tessellation: 7 }, scene);
-    postL.position.set(gate.x + sideX * 1.5, gy + 1.42, gate.z + sideZ * 1.5);
+    const postL = MeshBuilder.CreateCylinder(`rg-gate-pl-${region.id}`, { diameter: 0.42, height: 4.6, tessellation: 7 }, scene);
+    postL.position.set(gate.x + sideX * 2.3, gy + 2.2, gate.z + sideZ * 2.3);
     postL.material = woodMat;
     postL.isPickable = false;
     parts.push(postL);
-    const postR = MeshBuilder.CreateCylinder(`rg-gate-pr-${region.id}`, { diameter: 0.26, height: 3.0, tessellation: 7 }, scene);
-    postR.position.set(gate.x - sideX * 1.5, gy + 1.42, gate.z - sideZ * 1.5);
+    const postR = MeshBuilder.CreateCylinder(`rg-gate-pr-${region.id}`, { diameter: 0.42, height: 4.6, tessellation: 7 }, scene);
+    postR.position.set(gate.x - sideX * 2.3, gy + 2.2, gate.z - sideZ * 2.3);
     postR.material = woodMat;
     postR.isPickable = false;
     parts.push(postR);
-    const lintel = MeshBuilder.CreateBox(`rg-gate-l-${region.id}`, { width: 3.4, height: 0.24, depth: 0.3 }, scene);
-    lintel.position.set(gate.x, gy + 2.98, gate.z);
+    const lintel = MeshBuilder.CreateBox(`rg-gate-l-${region.id}`, { width: 5.4, height: 0.4, depth: 0.5 }, scene);
+    lintel.position.set(gate.x, gy + 4.68, gate.z);
     lintel.rotation.y = gate.facing;
     lintel.material = woodMat;
     lintel.isPickable = false;
@@ -582,12 +588,14 @@ export function buildRegions(scene: Scene): RegionsHandle {
       cullables.push(parts[0]);
     }
 
-    /* the painted ground patch — its own mesh (alpha-blended, terrain-following) */
-    const patch = MeshBuilder.CreateGround(`rg-patch-${region.id}`, { width: region.radius * 2.1, height: region.radius * 2.1, subdivisions: 22 }, scene);
+    /* the painted ground patch — its own mesh (alpha-blended, terrain-following)
+       14-C: offset raised 0.045 → 0.09 (the coarser ground mesh sags a
+       little between its vertices; the patch must never sink under it) */
+    const patch = MeshBuilder.CreateGround(`rg-patch-${region.id}`, { width: region.radius * 2.1, height: region.radius * 2.1, subdivisions: 26 }, scene);
     const pos = patch.getVerticesData(VertexBuffer.PositionKind);
     if (pos) {
       for (let v = 0; v < pos.length; v += 3) {
-        pos[v + 1] = terrainHeight(region.x + pos[v], region.z + pos[v + 2]) + 0.045;
+        pos[v + 1] = terrainHeight(region.x + pos[v], region.z + pos[v + 2]) + 0.09;
       }
       patch.updateVerticesData(VertexBuffer.PositionKind, pos);
     }
@@ -600,24 +608,26 @@ export function buildRegions(scene: Scene): RegionsHandle {
     built.push({ def: region, root: rRoot, cullables, center: { x: region.x, z: region.z } });
   }
 
-  /* ---------- the vista: mountain ring + drifting clouds ---------- */
+  /* ---------- the vista: mountain ring + drifting clouds ----------
+     14-C: pushed out with the continent — the mountains must haunt
+     the horizon of a 600-unit world. */
   const mountainParts: Mesh[] = [];
   const mrng = mulberry32(20260912);
-  for (let i = 0; i < 9; i++) {
-    const ang = (i / 9) * Math.PI * 2 + mrng() * 0.3;
-    const d = 430 + mrng() * 110;
-    const h = 70 + mrng() * 70;
-    const w = 80 + mrng() * 50;
+  for (let i = 0; i < 11; i++) {
+    const ang = (i / 11) * Math.PI * 2 + mrng() * 0.3;
+    const d = 780 + mrng() * 160;
+    const h = 150 + mrng() * 120;
+    const w = 150 + mrng() * 80;
     const x = Math.cos(ang) * d;
     const z = Math.sin(ang) * d;
     const peak = MeshBuilder.CreateCylinder(`rg-mt-${i}`, { diameterTop: 0, diameterBottom: w, height: h, tessellation: 7 }, scene);
-    peak.position.set(x, h / 2 - 8, z);
+    peak.position.set(x, h / 2 - 12, z);
     peak.material = mountainMat;
     peak.isPickable = false;
     mountainParts.push(peak);
     if (i % 3 === 0) {
       const cap = MeshBuilder.CreateCylinder(`rg-mtc-${i}`, { diameterTop: 0, diameterBottom: w * 0.34, height: h * 0.24, tessellation: 7 }, scene);
-      cap.position.set(x, h - 8 - h * 0.12, z);
+      cap.position.set(x, h - 12 - h * 0.12, z);
       cap.material = capMat;
       cap.isPickable = false;
       mountainParts.push(cap);
@@ -632,13 +642,13 @@ export function buildRegions(scene: Scene): RegionsHandle {
   }
 
   const cloudParts: Mesh[] = [];
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 10; i++) {
     const ang = mrng() * Math.PI * 2;
-    const d = 60 + mrng() * 220;
-    const y = 30 + mrng() * 20;
+    const d = 120 + mrng() * 440;
+    const y = 60 + mrng() * 30;
     const cx = Math.cos(ang) * d;
     const cz = Math.sin(ang) * d;
-    const s = 5 + mrng() * 6;
+    const s = 9 + mrng() * 11;
     for (let k = 0; k < 3; k++) {
       const puff = MeshBuilder.CreateSphere(`rg-cl-${i}-${k}`, { diameter: s * (1 - k * 0.22), segments: 6 }, scene);
       puff.position.set(cx + (k - 1) * s * 0.7, y + (k % 2) * s * 0.2, cz);

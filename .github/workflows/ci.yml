@@ -10,7 +10,7 @@ concurrency:
 jobs:
   build-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,7 +26,12 @@ jobs:
       - run: npm run lint -- --max-warnings 0
       - run: npm run typecheck
       - run: npm run build
-      - run: npm run test:e2e
+      # three fresh processes: the world suite first (its minutes-long
+      # walks deserve the freshest runner), then core, then games —
+      # 104 tests in one browser process drowned SwiftShader by test 30
+      - run: npm run test:e2e:world || (echo '--- ERROR CONTEXTS ---'; find test-results -name 'error-context.md' -print -exec cat {} \; ; exit 1)
+      - run: npm run test:e2e:core || (echo '--- ERROR CONTEXTS ---'; find test-results -name 'error-context.md' -print -exec cat {} \; ; exit 1)
+      - run: npm run test:e2e:games || (echo '--- ERROR CONTEXTS ---'; find test-results -name 'error-context.md' -print -exec cat {} \; ; exit 1)
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

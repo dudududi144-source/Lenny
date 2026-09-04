@@ -48,7 +48,7 @@ describe('resolveWalkTarget — fog islands repel gently', () => {
   it('never resolves beyond the wanderable world (the meadow is open, the edge is not)', () => {
     const r = resolveWalkTarget(60, 60, locked);
     expect(Math.hypot(r.x, r.z)).toBeLessThanOrEqual(WANDER_RADIUS);
-    const far = resolveWalkTarget(400, 0, locked);
+    const far = resolveWalkTarget(700, 0, locked);
     expect(Math.hypot(far.x, far.z)).toBeCloseTo(WANDER_RADIUS, 6);
   });
 });

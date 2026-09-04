@@ -89,6 +89,9 @@ import {
   WORLD_ISLANDS,
 } from './WorldLayout';
 import { buildRegions, regionAt, terrainHeight, type RegionDef, type RegionsHandle } from './WorldRegions';
+import { buildClearings, type ClearingsHandle } from './WorldClearings';
+import { buildFlora, type FloraHandle } from './WorldFlora';
+import { nearestStation, STATIONS, STATION_NEAR_RADIUS, type StationBand } from './WorldStations';
 import { attachWorldInput } from './WorldInput';
 import { createWorldOnboard } from './WorldOnboard';
 import type { ZoneId } from '../data/garden';
@@ -127,6 +130,12 @@ export interface WorldAppEvents {
   onRegionNear?(region: RegionDef): void;
   /** A rare restful find appeared beside the walker in the meadow. */
   onMeadowFind?(kind: Exclude<MeadowFindKind, 'none'>): void;
+  /** The child stepped onto (or off) a game clearing's pad (stage 14). */
+  onStationNear?(station: { zone: ZoneId; band: StationBand } | null): void;
+  /** A clearing pad was tapped — the games of that band are offered. */
+  onStationTap?(station: { zone: ZoneId; band: StationBand }): void;
+  /** A path acorn was gathered (stage 14): id + total this session. */
+  onAcorn?(id: string, sessionTotal: number): void;
 }
 
 export type WorldPhaseLite = 'onboarding' | 'exploring';
@@ -187,7 +196,23 @@ async function createEngine(
   } catch {
     /* fall through — WebGL2 is the workhorse */
   }
-  const gl = new Engine(canvas, true, { stencil: false, preserveDrawingBuffer: false }, false);
+  /* stage 14 perf honesty: software GL (CI's SwiftShader, some old
+     school machines) pays 4x fragment samples for MSAA it cannot
+     afford — while real GPUs never notice it. One honest probe, one
+     flag: software renderers drop the AA, everyone else keeps the
+     crispness. The fps floor is a contract; so is the look. */
+  let antialias = true;
+  try {
+    const probe = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    if (probe) {
+      const dbg = probe.getExtension('WEBGL_debug_renderer_info');
+      const renderer = dbg ? String(probe.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
+      if (/swiftshader|llvmpipe|softpipe|software/i.test(renderer)) antialias = false;
+    }
+  } catch {
+    /* a shy probe keeps the default */
+  }
+  const gl = new Engine(canvas, antialias, { stencil: false, preserveDrawingBuffer: false }, false);
   if (gl.webGLVersion < 2) {
     gl.dispose();
     throw new WorldUnsupportedError('webgl2-unavailable');
@@ -420,6 +445,8 @@ export interface WorldApp {
   sparklesFound(): number;
   /** The daily journey's three targets keep their beacons (stage 12). */
   setDailyTargets(ids: ReadonlyArray<string>): void;
+  /** The well's wardrobe, worn on the fox (stage 14). */
+  setScarf(colorHex: string | null): void;
   dispose(): void;
 }
 
@@ -430,6 +457,10 @@ export interface WorldAppOptions {
   found?: ReadonlyArray<string>;
   /** Sparkle ids already collected (the meadow never respawns them). */
   sparkles?: ReadonlyArray<string>;
+  /** Acorn ids already gathered (the woods never respawn them, stage 14). */
+  acorns?: ReadonlyArray<string>;
+  /** The scarf the fox wears from the first frame (the well's memory). */
+  scarf?: string | null;
 }
 
 export async function createWorldApp(
@@ -445,6 +476,12 @@ export async function createWorldApp(
   /* stage 12: the fog receded with the world — regions ghost in from
      afar (wayfinding by silhouette), the mountains haunt the horizon */
   scene.fogDensity = 0.0034;
+
+  /* stage 14: the pro-grade color pass — a touch more exposure and
+     contrast reads as "picture", not "prototype" (StandardMaterial
+     applies image processing by default; the cost is a few ALUs) */
+  scene.imageProcessingConfiguration.exposure = 1.06;
+  scene.imageProcessingConfiguration.contrast = 1.16;
 
   /* the day the child walks into (visual only — hour never touches play) */
   let phase: DayPhase = phaseNow();
@@ -475,10 +512,19 @@ export async function createWorldApp(
   /* stage 12 — the continent: six regions, six roads, the vista */
   const regions: RegionsHandle = buildRegions(scene);
   const fox: FoxHandle = buildFox(scene);
+  fox.setScarf(options.scarf ?? null);
   const meadow: MeadowHandle = buildMeadow(scene, new Set(options.sparkles ?? []));
   const friends: FriendsHandle = buildFriends(scene);
   const road: RoadHandle = buildRoad(scene);
   const cottages: CottageHandle = buildCottages(scene);
+  /* stage 14 — the games leave the island: thirty clearings + the acorn woods */
+  const clearings: ClearingsHandle = buildClearings(scene);
+  const unlockedZonesAtBoot = islands.zones().filter((z) => z.unlocked).map((z) => z.id);
+  clearings.refresh(new Set(unlockedZonesAtBoot));
+  /* the woods remember every acorn ever gathered */
+  clearings.setCollectedAcorns(new Set(options.acorns ?? []));
+  /* stage 14 — the continent breathes: clouds, grass, wild flowers */
+  const flora: FloraHandle = buildFlora(scene);
 
   const hemi = new HemisphericLight('hemi', new Vector3(0.2, 1, 0.1), scene);
   const sun = new DirectionalLight('sun', new Vector3(...palette.sunDir), scene);
@@ -632,7 +678,7 @@ export async function createWorldApp(
   ringMat.disableLighting = true;
   ringMat.alpha = 0.5;
 
-  const presenceRing = MeshBuilder.CreateTorus('presence-ring', { diameter: 0.7, thickness: 0.045, tessellation: 22 }, scene);
+  const presenceRing = MeshBuilder.CreateTorus('presence-ring', { diameter: 0.85, thickness: 0.05, tessellation: 22 }, scene);
   presenceRing.scaling.y = 0.32;
   presenceRing.material = ringMat;
   presenceRing.isPickable = false;
@@ -674,6 +720,13 @@ export async function createWorldApp(
   let sparklesSession = 0;
   let jumpQueued = false; /* requestJump() — the touch button's queue */
   let nearRegionId: string | null = null;
+  /* stage 14: the clearing the child stands on right now (edge-triggered);
+     the unlocked set is hoisted — the hot loop allocates NOTHING */
+  let nearStationId: string | null = null;
+  let acornsSession = 0;
+  /* the unlocked set is hoisted here — the hot loop allocates NOTHING;
+     refresh() (and boot, below) are the only writers */
+  let unlockedZoneSet: ReadonlySet<string> = new Set<string>(unlockedZonesAtBoot);
 
   /** ground height under the feet: platform tops, then the land itself */
   function groundY(): number {
@@ -705,6 +758,23 @@ export async function createWorldApp(
     const h = nearestZone(home.x, home.z, 0.2);
     return h ? h.zone : null;
   })();
+
+  /* stage 14 perf honesty: the continent is mostly STATIC — frozen
+     world matrices skip the per-frame matrix math for every place
+     that never moves (the animated few keep theirs). On software GL
+     the scene graph, not the pixels, was the floor's real enemy:
+     the fps was flat while the resolution scaled 1.0 → 3.6. */
+  const ANIMATED_PREFIXES = [
+    'fox', 'lenny', 'presence-', 'dest-', 'balloon-', 'acorn-', 'station-',
+    'quest-', 'friend', 'creature', 'sparkle', 'bird', 'butterfly',
+    'landmark-beacon-', 'landmark-windmill', 'landmark-swing',
+    'landmark-campfire', 'landmark-balloon', 'landmark-fireflies',
+    'landmark-watermill', 'rg-clouds', 'flora-cloud',
+  ];
+  for (const m of scene.meshes) {
+    if (ANIMATED_PREFIXES.some((p) => m.name.startsWith(p))) continue;
+    m.freezeWorldMatrix();
+  }
 
   engine.runRenderLoop(() => {
     if (paused || disposed) return;
@@ -940,6 +1010,45 @@ export async function createWorldApp(
     friends.update(t, dt);
     road.update(t, dt, presencePos.x, presencePos.z);
     meadow.update(t, dt, presencePos.x, presencePos.z);
+    clearings.update(t, dt, presencePos.x, presencePos.z);
+    flora.update(t, dt);
+
+    /* stage 14: the clearings — step onto a pad and its games lean in */
+    const ns = nearestStation(
+      presencePos.x,
+      presencePos.z,
+      STATION_NEAR_RADIUS,
+      (zone) => unlockedZoneSet.has(zone),
+    );
+    const stationKey = ns ? `${ns.station.zone}:${ns.station.band}` : null;
+    if (stationKey !== nearStationId) {
+      nearStationId = stationKey;
+      if (ns) {
+        try {
+          events.onStationNear?.({ zone: ns.station.zone, band: ns.station.band });
+        } catch {
+          /* a clearing hello never crashes the garden */
+        }
+      } else {
+        try {
+          events.onStationNear?.(null);
+        } catch {
+          /* a clearing goodbye never crashes the garden */
+        }
+      }
+    }
+
+    /* stage 14: the acorn woods pay the walker, like the meadow does */
+    const gotAcorn = clearings.acornWithinReach(presencePos.x, presencePos.z, 0.66);
+    if (gotAcorn) {
+      acornsSession++;
+      clearings.setCollectedAcorns(new Set([gotAcorn.id]));
+      try {
+        events.onAcorn?.(gotAcorn.id, acornsSession);
+      } catch {
+        /* an acorn never crashes the garden */
+      }
+    }
 
     /* landmark proximity — the wandering child discovers the garden */
     const nl = nearestLandmark(presencePos.x, presencePos.z, NEAR_LANDMARK_DIST);
@@ -1098,6 +1207,25 @@ export async function createWorldApp(
         destRing.position.set(balloonPadSpot.x, terrainHeight(balloonPadSpot.x, balloonPadSpot.z) + 0.14, balloonPadSpot.z);
         destMat.alpha = 0.75;
       },
+      onStationTap: (zone, band) => {
+        /* a pad is a door, not a teleport: far away the tap SENDS the
+           child there; up close it opens that band's games (stage 14) */
+        if (onboard.active() || rideStart !== null) return;
+        const spot = STATIONS.find((s) => s.zone === zone && s.band === band);
+        if (!spot) return;
+        const d = Math.hypot(presencePos.x - spot.x, presencePos.z - spot.z);
+        if (d > STATION_NEAR_RADIUS * 0.95) {
+          walkTarget = { x: spot.x, z: spot.z };
+          destRing.position.set(spot.x, terrainHeight(spot.x, spot.z) + 0.14, spot.z);
+          destMat.alpha = 0.75;
+          return;
+        }
+        try {
+          events.onStationTap?.({ zone: zone as ZoneId, band: band as StationBand });
+        } catch {
+          /* a clearing tap never crashes the garden */
+        }
+      },
       onLockedTap: (zone) => {
         try {
           events.onLockedTap?.(zone);
@@ -1171,6 +1299,8 @@ export async function createWorldApp(
     refresh: (fresh: GardenData, grewZones?: ReadonlySet<string>) => {
       islands.refresh(fresh, grewZones);
       lanterns.setLit(lanternsFor(fresh.lights || 0), true);
+      unlockedZoneSet = new Set(islands.zones().filter((z) => z.unlocked).map((z) => z.id));
+      clearings.refresh(unlockedZoneSet);
     },
     setPaused(value: boolean): void {
       if (disposed) return;
@@ -1197,6 +1327,8 @@ export async function createWorldApp(
     },
     sparklesFound: () => sparklesSession,
     setDailyTargets: (ids) => landmarks.setDailyTargets(ids),
+    /** The well's wardrobe, worn on the fox (stage 14). */
+    setScarf: (colorHex: string | null) => fox.setScarf(colorHex),
     dispose(): void {
       if (disposed) return;
       disposed = true;
@@ -1208,6 +1340,8 @@ export async function createWorldApp(
       window.removeEventListener('resize', onResize);
       worldInput.detach();
       balloon.dispose();
+      clearings.dispose();
+      flora.dispose();
       engine.stopRenderLoop();
       lenny.dispose();
       fox.dispose();

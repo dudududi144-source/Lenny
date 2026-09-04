@@ -76,8 +76,9 @@ test('standing at an island lights its nearZone; open grass clears it', async ({
   /* the journey starts at light-path — nearZone is already lit */
   await expect.poll(() => page.evaluate(() => window.__lennyWorld?.nearZone() ?? null)).toBe('light-path');
 
-  /* tap far grass (top area of the screen maps away from the island) */
-  await tapAt(page, 0.5, 0.06);
+  /* tap far grass — the stage-14 camera keeps its horizon band lower,
+     so the open meadow starts ~16% down the frame (0.06 is sky now) */
+  await tapAt(page, 0.5, 0.16);
   await expect
     .poll(() => page.evaluate(() => window.__lennyWorld?.nearZone() ?? 'pending'), {
       timeout: 9000,

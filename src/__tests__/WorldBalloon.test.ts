@@ -50,9 +50,11 @@ describe('the balloon flight path leaves home and returns home', () => {
     for (let k = STEP; k <= 1.0001; k += STEP) {
       const p = balloonPose(Math.min(1, k), PAD.x, PAD.z);
       const jump = Math.hypot(p.x - prev.x, p.z - prev.z);
-      /* at 60fps a real frame covers ~2.5 units at cruise — anything
-         near 10 is a cut, a real teleport would be 100+ */
-      expect(jump).toBeLessThan(10);
+      /* a 0.002 slice of the ride legitimately covers ring × 4π × STEP
+         units at cruise (the ring grew r=205 → 460) — a real teleport
+         would still be 100+ units in one sample */
+      const sample = 2 * Math.PI * RIDE_RADIUS * 2 * STEP; /* two full turns */
+      expect(jump).toBeLessThan(sample * 1.5);
       expect(Math.abs(p.alt - prev.alt)).toBeLessThan(2.5);
       prev = p;
     }
@@ -86,7 +88,7 @@ describe('the ride is a journey, not a flash', () => {
   });
 
   it('the cruise altitude reads the regions from above', () => {
-    expect(RIDE_ALT).toBeGreaterThanOrEqual(40);
-    expect(RIDE_ALT).toBeLessThanOrEqual(80);
+    expect(RIDE_ALT).toBeGreaterThanOrEqual(90);
+    expect(RIDE_ALT).toBeLessThanOrEqual(140);
   });
 });

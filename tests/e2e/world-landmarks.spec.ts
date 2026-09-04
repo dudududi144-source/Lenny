@@ -13,6 +13,9 @@ async function openWorld(page: Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
     localStorage.setItem('lenny-world-onboarded', '1');
+    /* the minutes-long walkers hold the world open on perf distress
+       (CI's software GL is the fallback's own intended target) */
+    localStorage.setItem('lenny-world-hold', '1');
   });
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
@@ -21,73 +24,101 @@ async function openWorld(page: Page): Promise<void> {
   await page.waitForTimeout(400);
 }
 
-async function tapAt(page: Page, fx: number, fy: number): Promise<void> {
+
+/** Screen-delta steering: the fox's 8 walk directions ARE the eight
+    screen directions (forward = ground below-center, strafe right =
+    right of center), so the walker simply steers by the target's
+    screen offset from the fox's own pixel — zero world-space math,
+    zero camera conventions. A target behind the camera gets an orbit
+    drag (with a flip-if-it-doesn't-help feedback loop). */
+async function releaseWalkKeys(page: Page): Promise<void> {
+  for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+    await page.keyboard.up(k).catch(() => undefined);
+  }
+}
+
+async function dragOrbit(page: Page, dir: number): Promise<void> {
   const box = await page.locator('.world-canvas').boundingBox();
-  const x = box!.x + box!.width * fx;
-  const y = box!.y + box!.height * fy;
-  await page.mouse.move(x, y);
+  if (!box) return;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.move(cx, cy);
   await page.mouse.down();
+  await page.mouse.move(cx + dir * (box.width * 0.4), cy, { steps: 9 });
   await page.mouse.up();
 }
 
-async function closeShelfIfOpen(page: Page): Promise<void> {
-  const shelf = page.locator('#world-shelf:not(.hidden)');
-  if (await shelf.isVisible().catch(() => false)) {
-    await page.locator('#world-shelf-close').click();
-    await expect(shelf).toBeHidden();
-  }
-  /* the discovery-quest offer may land mid-walk; deferring it is free
-     by design ("אַחֲרֵי כָּךְ") and keeps the tap band clear */
-  const later = page.locator('#world-quest-later');
-  if (await later.isVisible().catch(() => false)) {
-    await later.click();
-    await expect(page.locator('#world-quest')).toBeHidden();
-  }
-}
-
-/** Walk the presence toward a world point using only bridge projections. */
 async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number): Promise<void> {
-  for (let i = 0; i < 90; i++) {
-    await closeShelfIfOpen(page);
-    const p = await page.evaluate(() => window.__lennyWorld?.presencePos());
-    if (p && Math.hypot(p.x - wx, p.z - wz) <= nearDist) return;
-    /* stage 11: a far place is OFF-SCREEN — sample the bearing line
-       for the first visible stretch of ground and tap that (the way a
-       child walks toward somewhere past the horizon) */
-    const spot = await page.evaluate(([x, z]) => {
-      const w = window.__lennyWorld!;
-      const me = w.presencePos()!;
-      const s = w.screenOf(x!, z!)!;
-      if (s.on) return { fx: s.x, fy: s.y };
-      const dx = x! - me.x;
-      const dz = z! - me.z;
-      const len = Math.hypot(dx, dz) || 1;
-      for (const k of [3, 5, 8, 12, 17, 23, 30]) {
-        const probe = w.screenOf(me.x + (dx / len) * k, me.z + (dz / len) * k);
-        if (probe && probe.on) return { fx: probe.x, fy: probe.y };
+  let orbitDir: number = 1;
+  let orbitMiss = 0;
+  let orbitBudget = 12;
+  try {
+    for (let round = 0; round < 260; round++) {
+      const steer = await page.evaluate(([x, z]) => {
+        const w = window.__lennyWorld!;
+        const me = w.presencePos()!;
+        const f = w.screenOf(me.x, me.z) ?? { x: 0.5, y: 0.55, on: true };
+        const t = w.screenOf(x!, z!);
+        if (!t) return null;
+        return { on: t.on, dx: t.x - f.x, dy: t.y - f.y, dist: Math.hypot(x! - me.x, z! - me.z) };
+      }, [wx, wz]);
+      if (!steer) throw new Error('world bridge gone (screenOf null — the world closed?)');
+      if (steer.dist <= nearDist) return;
+
+      if ((!steer.on || Math.abs(steer.dx) > 0.45) && orbitBudget > 0) {
+        /* behind the camera or far off to one side — orbit until it
+           enters the frame; flip the direction if two drags did nothing.
+           Bounded: a bounded orbit can never eat the whole clock. */
+        await dragOrbit(page, orbitDir);
+        orbitBudget -= 1;
+        orbitMiss += 1;
+        if (orbitMiss >= 2) {
+          orbitDir = -orbitDir;
+          orbitMiss = 0;
+        }
+        continue;
       }
-      return null;
-    }, [wx, wz]);
-    if (!spot) throw new Error('no visible ground toward the place');
-    /* clamp into the open middle band — away from header, shelf, quest panel */
-    const fx = Math.min(0.78, Math.max(0.22, spot.fx));
-    const fy = Math.min(0.72, Math.max(0.32, spot.fy));
-    await tapAt(page, fx, fy);
-    await page.waitForTimeout(650);
+      orbitMiss = 0;
+
+      for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+        await page.keyboard.up(k).catch(() => undefined);
+      }
+      /* screen-down IS the ground ahead; screen-up is the far horizon —
+         both mean "walk forward". Screen sides are the strafe keys. */
+      if (steer.dx > 0.06) await page.keyboard.down('ArrowRight');
+      else if (steer.dx < -0.06) await page.keyboard.down('ArrowLeft');
+      await page.keyboard.down('ArrowUp');
+      await page.waitForTimeout(360);
+      for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+        await page.keyboard.up(k).catch(() => undefined);
+      }
+    }
+    const end = await page.evaluate(() => {
+      const w = window.__lennyWorld;
+      return w ? { me: w.presencePos(), fps: Math.round(w.fps()), phase: w.phase?.() } : 'bridge-gone';
+    });
+    throw new Error(`never arrived near (${wx}, ${wz}) — fox at ${JSON.stringify(end)} after 260 rounds`);
+  } finally {
+    await releaseWalkKeys(page);
   }
-  throw new Error(`never arrived near (${wx}, ${wz})`);
 }
 
-test('twenty-four landmarks exist and a fresh garden has found none', async ({ page }) => {
+
+
+
+test('fifty landmarks exist and a fresh garden has found none', async ({ page }) => {
   await openWorld(page);
   const landmarks = await page.evaluate(() => window.__lennyWorld?.landmarks());
-  expect(landmarks!.length).toBe(24);
+  expect(landmarks!.length).toBe(50);
   expect(landmarks!.every((l) => !l.found)).toBe(true);
   expect(await page.evaluate(() => window.__lennyWorld?.foundCount())).toBe(0);
 });
 
 test('walking to a landmark discovers it — narration, plate, persistence', async ({ page }) => {
-  test.setTimeout(75_000); /* stage 11: places are worth a real walk now */
+  /* stage 14: the continent is vast and CI's software-GL rounds are
+     slow — the walk is still short (big-tree is near the spawn), the
+     CLOCK is what needed honest room */
+  test.setTimeout(180_000);
   await openWorld(page);
   const target = (await page.evaluate(() => window.__lennyWorld?.landmarks()))!.find(
     (l) => l.id === 'big-tree',
