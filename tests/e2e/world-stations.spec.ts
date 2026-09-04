@@ -32,15 +32,18 @@ async function tapAt(page: Page, fx: number, fy: number): Promise<void> {
 }
 
 /** Tap a canvas point that is NOT covered by a DOM overlay (quest
-    panel, entry card, compass…) — probe small offsets upward/sideways. */
+    panel, entry card, compass…) — probe small offsets around the TRUE
+    pixel and let elementFromPoint decide (a fixed clamp would bend
+    far pads' pixels into near ground — stage-14 camera keeps distant
+    places high in the frame). */
 async function tapClearAt(page: Page, fx: number, fy: number): Promise<boolean> {
   const box = await page.locator('.world-canvas').boundingBox();
   const offsets: Array<[number, number]> = [
-    [0, 0], [0, -0.05], [0, -0.1], [0, -0.16], [-0.07, -0.08], [0.07, -0.08], [0, 0.05],
+    [0, 0], [0, -0.04], [0, 0.04], [-0.06, 0], [0.06, 0], [0, -0.09], [0, 0.09],
   ];
   for (const [ox, oy] of offsets) {
-    const cx = Math.min(0.86, Math.max(0.14, fx + ox));
-    const cy = Math.min(0.74, Math.max(0.26, fy + oy));
+    const cx = Math.min(0.94, Math.max(0.06, fx + ox));
+    const cy = Math.min(0.94, Math.max(0.06, fy + oy));
     const clear = await page.evaluate(
       ([x, y]) => {
         const el = document.elementFromPoint(x!, y!);
@@ -66,6 +69,16 @@ async function closeOverlays(page: Page): Promise<void> {
   if (await later.isVisible().catch(() => false)) {
     await later.click();
     await expect(page.locator('#world-quest')).toBeHidden();
+  }
+}
+
+/** Wait until the fox has finished her current errand — a settled
+    walker projects honest pixels (a mid-stride camera drifts). */
+async function settleWalker(page: Page): Promise<void> {
+  for (let i = 0; i < 80; i++) {
+    const busy = await page.evaluate(() => window.__lennyWorld?.errand?.() != null);
+    if (!busy) return;
+    await page.waitForTimeout(300);
   }
 }
 
@@ -197,24 +210,41 @@ test('a far pad tap is a walk errand, not a teleport', async ({ page }) => {
     return Math.hypot(me.x - x!, me.z - z!);
   }, [station.x, station.z]);
   if (dist > 2.5) {
-    /* the discovery-quest offer may sit over the tap band — defer it,
-       THEN tap the pad through whichever pixel is actually canvas */
-    await closeOverlays(page);
-    const landed = await tapClearAt(page, tapped.fx, tapped.fy);
-    const errand = landed
-      ? await page.evaluate(() => window.__lennyWorld?.errand())
-      : null;
-    if (errand) {
-      expect(Math.hypot(errand.x - station.x, errand.z - station.z)).toBeLessThan(2.0);
-    } else {
-      /* the entry card intercepted the tap — its big PLAY button IS the
-         door opening (the owner's ask: a clear, comfortable entry) */
-      const shelf = page.locator('#world-shelf:not(.hidden)');
-      await expect(shelf).toBeVisible({ timeout: 6000 });
-      await expect(page.locator('#world-shelf .shelf-title')).toContainText('הַמִּשְׂחָקִים הַבָּאִים');
-      await page.locator('#world-shelf-close').click();
-      await expect(page.locator('#world-shelf')).toBeHidden();
+    /* far away the tap SENDS the walker — the errand must land AT the
+       pad (a walk, never a teleport). Small hands tap again when a tap
+       misses; the test earns the same grace: settle, re-aim, up to 3
+       rounds (an overlay-covered pixel or a grazing ray is a miss,
+       not a broken contract). */
+    let settled = false;
+    for (let round = 0; round < 3 && !settled; round++) {
+      await closeOverlays(page);
+      await settleWalker(page);
+      tapped = await page.evaluate(([x, z]) => {
+        const w = window.__lennyWorld!;
+        const s = w.screenOf(x!, z!)!;
+        return s.on ? { fx: s.x, fy: s.y } : null;
+      }, [station.x, station.z]);
+      if (!tapped) continue; /* the pad slipped behind the fox — re-aim */
+      const landed = await tapClearAt(page, tapped.fx, tapped.fy);
+      if (!landed) continue;
+      await page.waitForTimeout(350);
+      const errand = await page.evaluate(() => window.__lennyWorld?.errand());
+      if (!errand) {
+        /* no errand means the tap opened a surface — the door branch */
+        settled = true;
+        const shelf = page.locator('#world-shelf:not(.hidden)');
+        await expect(shelf).toBeVisible({ timeout: 6000 });
+        await expect(page.locator('#world-shelf .shelf-title')).toContainText('הַמִּשְׂחָקִים הַבָּאִים');
+        await page.locator('#world-shelf-close').click();
+        await expect(page.locator('#world-shelf')).toBeHidden();
+        break;
+      }
+      /* a walk errand: honest only if it points at the pad */
+      const miss = Math.hypot(errand.x - station.x, errand.z - station.z);
+      expect(miss).toBeLessThan(30); /* sanity: it walks TOWARD the pad */
+      if (miss < 2.0) settled = true;
     }
+    expect(settled).toBe(true);
   } else {
     /* the walker already stands at the pad — the walk loop itself
        was the errand chain; arrival is the proof */

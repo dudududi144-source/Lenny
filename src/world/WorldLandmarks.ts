@@ -95,7 +95,12 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
   tealMat.emissiveColor = hex('#52e0c4').scale(0.3);
   tealMat.specularColor = new Color3(0.03, 0.05, 0.05);
 
-  const allMats = [barkMat, leafMat, waterMat, stoneMat, goldMat, roseMat, tealMat];
+  /* stage 14-C: warm sand for the dunes region (pyramid, arch, ship) */
+  const sandMat = new StandardMaterial('lm-sand', scene);
+  sandMat.diffuseColor = hex('#dcb877');
+  sandMat.specularColor = new Color3(0.06, 0.05, 0.03);
+
+  const allMats = [barkMat, leafMat, waterMat, stoneMat, goldMat, roseMat, tealMat, sandMat];
   const allMeshes: Mesh[] = [];
 
   /* the parts of the CURRENT landmark, merged into one mesh per place —
@@ -570,6 +575,449 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
         rock2.material = stoneMat;
         break;
       }
+      /* ---------- stage 14-C: twenty more silhouettes, one per line ---------- */
+      case 'watch-tower': {
+        /* the forest hero — a tall lookout, ~12u of stacked stone */
+        const base = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateCylinder(`landmark-${l.id}-b`, { diameter: 3.4, height: 1.1, tessellation: 10 }, scene));
+        base.position.set(l.x, 0.55 + gy, l.z);
+        base.material = stoneMat;
+        const shaft = mesh(`landmark-${l.id}-s`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s`, { diameterBottom: 2.6, diameterTop: 2.0, height: 8.4, tessellation: 10 }, scene));
+        shaft.position.set(l.x, 5.0 + gy, l.z);
+        shaft.material = stoneMat;
+        const rail = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateCylinder(`landmark-${l.id}-r`, { diameter: 2.9, height: 0.5, tessellation: 10 }, scene));
+        rail.position.set(l.x, 9.7 + gy, l.z);
+        rail.material = barkMat;
+        const roof = mesh(`landmark-${l.id}-rf`, MeshBuilder.CreateCylinder(`landmark-${l.id}-rf`, { diameterTop: 0, diameterBottom: 3.2, height: 1.8, tessellation: 10 }, scene));
+        roof.position.set(l.x, 10.8 + gy, l.z);
+        roof.material = leafMat;
+        break;
+      }
+      case 'giant-mushrooms': {
+        /* the forest hero — three friendly giants, tallest ~9u */
+        const specs: Array<[number, number, number, number]> = [
+          [1.7, 4.6, 2.6, 0], [1.1, 3.1, 2.9, 2.6], [0.9, 2.4, 2.2, -2.4],
+        ]; /* [stemR, capY, capR, zOff] */
+        for (let i = 0; i < specs.length; i++) {
+          const [sr, cy, cr, zo] = specs[i];
+          const stem = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateCylinder(`landmark-${l.id}-s${i}`, { diameterBottom: sr * 1.25, diameterTop: sr, height: cy * 0.78, tessellation: 9 }, scene));
+          stem.position.set(l.x + zo * 0.4, (cy * 0.78) / 2 + gy, l.z + zo);
+          stem.material = goldMat;
+          const cap = mesh(`landmark-${l.id}-c${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-c${i}`, { diameterX: cr * 2, diameterY: cr * 1.1, diameterZ: cr * 2, segments: 6 }, scene));
+          cap.position.set(l.x + zo * 0.4, cy + gy, l.z + zo);
+          cap.material = roseMat;
+        }
+        break;
+      }
+      case 'hollow-stump': {
+        /* a big old stump you can peek into, ~4.5u */
+        const body = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateCylinder(`landmark-${l.id}-b`, { diameterBottom: 3.4, diameterTop: 2.9, height: 4.2, tessellation: 12 }, scene));
+        body.position.set(l.x, 2.1 + gy, l.z);
+        body.material = barkMat;
+        const rim = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateTorus(`landmark-${l.id}-r`, { diameter: 2.9, thickness: 0.5, tessellation: 12 }, scene));
+        rim.position.set(l.x, 4.2 + gy, l.z);
+        rim.rotation.x = Math.PI / 2;
+        rim.material = barkMat;
+        const hole = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateDisc(`landmark-${l.id}-h`, { radius: 1.2, tessellation: 12 }, scene));
+        hole.position.set(l.x, 4.16 + gy, l.z);
+        hole.rotation.x = Math.PI / 2;
+        hole.material = stoneMat;
+        break;
+      }
+      case 'wood-arch': {
+        /* two leaning logs holding a fallen branch — the forest gate, ~6u */
+        const p1 = mesh(`landmark-${l.id}-p1`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p1`, { diameter: 0.8, height: 5.6, tessellation: 8 }, scene));
+        p1.position.set(l.x - 1.7, 2.8 + gy, l.z);
+        p1.rotation.z = 0.07;
+        p1.material = barkMat;
+        const p2 = mesh(`landmark-${l.id}-p2`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p2`, { diameter: 0.8, height: 5.6, tessellation: 8 }, scene));
+        p2.position.set(l.x + 1.7, 2.8 + gy, l.z);
+        p2.rotation.z = -0.07;
+        p2.material = barkMat;
+        const top = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameter: 0.9, height: 4.2, tessellation: 8 }, scene));
+        top.position.set(l.x, 5.9 + gy, l.z);
+        top.rotation.z = Math.PI / 2;
+        top.material = barkMat;
+        const tuft = mesh(`landmark-${l.id}-tf`, MeshBuilder.CreateSphere(`landmark-${l.id}-tf`, { diameter: 1.4, segments: 5 }, scene));
+        tuft.position.set(l.x - 1.2, 6.2 + gy, l.z);
+        tuft.material = leafMat;
+        break;
+      }
+      case 'ice-arch': {
+        /* the snow hero — a frozen gate of glittering ice, ~7u */
+        const iL = mesh(`landmark-${l.id}-il`, MeshBuilder.CreateBox(`landmark-${l.id}-il`, { width: 0.9, height: 6.0, depth: 0.9 }, scene));
+        iL.position.set(l.x - 1.6, 3.0 + gy, l.z);
+        iL.rotation.z = 0.05;
+        iL.material = tealMat;
+        const iR = mesh(`landmark-${l.id}-ir`, MeshBuilder.CreateBox(`landmark-${l.id}-ir`, { width: 0.9, height: 5.4, depth: 0.9 }, scene));
+        iR.position.set(l.x + 1.6, 2.7 + gy, l.z);
+        iR.rotation.z = -0.06;
+        iR.material = tealMat;
+        const iT = mesh(`landmark-${l.id}-it`, MeshBuilder.CreateBox(`landmark-${l.id}-it`, { width: 4.4, height: 0.9, depth: 1.0 }, scene));
+        iT.position.set(l.x, 6.4 + gy, l.z);
+        iT.material = tealMat;
+        const iS = mesh(`landmark-${l.id}-is`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-is`, { type: 1, size: 0.5 }, scene));
+        iS.position.set(l.x + 2.6, 0.5 + gy, l.z + 1.1);
+        iS.material = tealMat;
+        break;
+      }
+      case 'igloo': {
+        /* a snow home with its entrance tunnel, ~4u */
+        const dome = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateSphere(`landmark-${l.id}-d`, { diameterX: 6.4, diameterY: 3.6, diameterZ: 6.4, segments: 7, slice: 0.5 }, scene));
+        dome.position.set(l.x, 0.05 + gy, l.z);
+        dome.material = tealMat;
+        const tun = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameter: 1.7, height: 2.4, tessellation: 9, cap: Mesh.CAP_ALL }, scene));
+        tun.position.set(l.x, 0.85 + gy, l.z + 3.4);
+        tun.rotation.x = Math.PI / 2;
+        tun.material = tealMat;
+        break;
+      }
+      case 'ice-crystal': {
+        /* three frozen spikes catching the light, ~6.5u */
+        const c1 = mesh(`landmark-${l.id}-c1`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-c1`, { type: 1, size: 1.5 }, scene));
+        c1.position.set(l.x, 2.6 + gy, l.z);
+        c1.scaling.y = 2.2;
+        c1.material = tealMat;
+        const c2 = mesh(`landmark-${l.id}-c2`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-c2`, { type: 1, size: 1.0 }, scene));
+        c2.position.set(l.x + 1.9, 1.4 + gy, l.z + 0.7);
+        c2.scaling.y = 1.7;
+        c2.rotation.z = 0.22;
+        c2.material = tealMat;
+        const c3 = mesh(`landmark-${l.id}-c3`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-c3`, { type: 1, size: 0.8 }, scene));
+        c3.position.set(l.x - 1.6, 1.1 + gy, l.z - 0.8);
+        c3.scaling.y = 1.5;
+        c3.rotation.z = -0.18;
+        c3.material = tealMat;
+        break;
+      }
+      case 'waterfall-rock': {
+        /* the river hero — a cliff the water sings down, ~10u */
+        const cliff = mesh(`landmark-${l.id}-cl`, MeshBuilder.CreateBox(`landmark-${l.id}-cl`, { width: 5.4, height: 9.4, depth: 3.0 }, scene));
+        cliff.position.set(l.x, 4.7 + gy, l.z - 0.6);
+        cliff.rotation.y = 0.12;
+        cliff.material = stoneMat;
+        const fall = mesh(`landmark-${l.id}-f`, MeshBuilder.CreatePlane(`landmark-${l.id}-f`, { width: 2.6, height: 8.6 }, scene));
+        fall.position.set(l.x, 4.3 + gy, l.z + 1.05);
+        fall.material = waterMat;
+        const pool = mesh(`landmark-${l.id}-p`, MeshBuilder.CreateDisc(`landmark-${l.id}-p`, { radius: 2.6, tessellation: 14 }, scene));
+        pool.position.set(l.x, 0.06 + gy, l.z + 2.2);
+        pool.rotation.x = Math.PI / 2;
+        pool.material = waterMat;
+        const mist = mesh(`landmark-${l.id}-m`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-m`, { radius: 0.9, subdivisions: 1 }, scene));
+        mist.position.set(l.x, 1.1 + gy, l.z + 2.2);
+        mist.material = waterMat;
+        break;
+      }
+      case 'ferry-boat': {
+        /* the river hero — a little boat waiting at the bank, ~9u */
+        const hull = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateCylinder(`landmark-${l.id}-h`, { diameterTop: 3.4, diameterBottom: 1.6, height: 1.5, tessellation: 7, cap: Mesh.CAP_ALL }, scene));
+        hull.position.set(l.x, 0.75 + gy, l.z);
+        hull.rotation.y = 0.5;
+        hull.material = barkMat;
+        const deck = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateBox(`landmark-${l.id}-d`, { width: 2.8, height: 0.25, depth: 1.7 }, scene));
+        deck.position.set(l.x, 1.6 + gy, l.z);
+        deck.rotation.y = 0.5;
+        deck.material = barkMat;
+        const mast = mesh(`landmark-${l.id}-m`, MeshBuilder.CreateCylinder(`landmark-${l.id}-m`, { diameter: 0.22, height: 6.4, tessellation: 7 }, scene));
+        mast.position.set(l.x, 4.6 + gy, l.z);
+        mast.material = barkMat;
+        const sail = mesh(`landmark-${l.id}-s`, MeshBuilder.CreatePlane(`landmark-${l.id}-s`, { width: 2.9, height: 3.4 }, scene));
+        sail.position.set(l.x + 1.15, 5.4 + gy, l.z - 0.65);
+        sail.rotation.y = 0.5;
+        sail.material = roseMat;
+        break;
+      }
+      case 'willow-tree': {
+        /* the river's curtain tree — trunk + falling canopy, ~8u */
+        const trunk = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameterBottom: 1.5, diameterTop: 0.9, height: 5.2, tessellation: 9 }, scene));
+        trunk.position.set(l.x, 2.6 + gy, l.z);
+        trunk.rotation.z = 0.06;
+        trunk.material = barkMat;
+        const crown = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateSphere(`landmark-${l.id}-c`, { diameterX: 8.4, diameterY: 5.4, diameterZ: 8.4, segments: 6 }, scene));
+        crown.position.set(l.x, 6.6 + gy, l.z);
+        crown.material = leafMat;
+        const skirt = mesh(`landmark-${l.id}-sk`, MeshBuilder.CreateCylinder(`landmark-${l.id}-sk`, { diameterTop: 8.0, diameterBottom: 5.2, height: 2.6, tessellation: 12, cap: Mesh.NO_CAP }, scene));
+        skirt.position.set(l.x, 3.4 + gy, l.z);
+        skirt.material = leafMat;
+        break;
+      }
+      case 'giant-tulip': {
+        /* the flower hero — one tulip taller than the fox's whole day, ~8u */
+        const stem = mesh(`landmark-${l.id}-st`, MeshBuilder.CreateCylinder(`landmark-${l.id}-st`, { diameterBottom: 0.75, diameterTop: 0.45, height: 5.6, tessellation: 8 }, scene));
+        stem.position.set(l.x, 2.8 + gy, l.z);
+        stem.material = leafMat;
+        const leafA = mesh(`landmark-${l.id}-la`, MeshBuilder.CreateBox(`landmark-${l.id}-la`, { width: 0.3, height: 3.2, depth: 1.1 }, scene));
+        leafA.position.set(l.x - 0.9, 2.0 + gy, l.z);
+        leafA.rotation.z = 0.5;
+        leafA.material = leafMat;
+        const cup = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateCylinder(`landmark-${l.id}-c`, { diameterBottom: 1.1, diameterTop: 2.6, height: 2.8, tessellation: 8, cap: Mesh.CAP_ALL }, scene));
+        cup.position.set(l.x, 7.0 + gy, l.z);
+        cup.material = roseMat;
+        const petA = mesh(`landmark-${l.id}-pa`, MeshBuilder.CreateSphere(`landmark-${l.id}-pa`, { diameterX: 2.2, diameterY: 1.1, diameterZ: 0.5, segments: 5 }, scene));
+        petA.position.set(l.x, 8.2 + gy, l.z - 1.1);
+        petA.rotation.x = -0.4;
+        petA.material = roseMat;
+        const petB = mesh(`landmark-${l.id}-pb`, MeshBuilder.CreateSphere(`landmark-${l.id}-pb`, { diameterX: 0.5, diameterY: 1.1, diameterZ: 2.2, segments: 5 }, scene));
+        petB.position.set(l.x - 1.1, 8.2 + gy, l.z);
+        petB.rotation.z = 0.4;
+        petB.material = roseMat;
+        break;
+      }
+      case 'dandelion-tower': {
+        /* a seed-head on a stalk — the wind's tower, ~7u */
+        const stalk = mesh(`landmark-${l.id}-st`, MeshBuilder.CreateCylinder(`landmark-${l.id}-st`, { diameterBottom: 0.4, diameterTop: 0.22, height: 5.4, tessellation: 7 }, scene));
+        stalk.position.set(l.x, 2.7 + gy, l.z);
+        stalk.material = leafMat;
+        const head = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-h`, { radius: 1.9, subdivisions: 1 }, scene));
+        head.position.set(l.x, 7.1 + gy, l.z);
+        head.material = goldMat;
+        const seed1 = mesh(`landmark-${l.id}-s1`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-s1`, { type: 1, size: 0.24 }, scene));
+        seed1.position.set(l.x + 2.3, 8.0 + gy, l.z + 0.6);
+        seed1.material = goldMat;
+        const seed2 = mesh(`landmark-${l.id}-s2`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-s2`, { type: 1, size: 0.2 }, scene));
+        seed2.position.set(l.x - 2.0, 8.4 + gy, l.z - 0.9);
+        seed2.material = goldMat;
+        break;
+      }
+      case 'petal-arch': {
+        /* an arch of pink petals — walk through it slowly, ~5.5u */
+        const aL = mesh(`landmark-${l.id}-al`, MeshBuilder.CreateCylinder(`landmark-${l.id}-al`, { diameter: 0.55, height: 4.4, tessellation: 7 }, scene));
+        aL.position.set(l.x - 1.4, 2.2 + gy, l.z);
+        aL.rotation.z = 0.32;
+        aL.material = roseMat;
+        const aR = mesh(`landmark-${l.id}-ar`, MeshBuilder.CreateCylinder(`landmark-${l.id}-ar`, { diameter: 0.55, height: 4.4, tessellation: 7 }, scene));
+        aR.position.set(l.x + 1.4, 2.2 + gy, l.z);
+        aR.rotation.z = -0.32;
+        aR.material = roseMat;
+        const crown = mesh(`landmark-${l.id}-cr`, MeshBuilder.CreateTorus(`landmark-${l.id}-cr`, { diameter: 3.4, thickness: 0.5, tessellation: 12 }, scene));
+        crown.position.set(l.x, 4.9 + gy, l.z);
+        crown.rotation.x = Math.PI / 2;
+        crown.material = roseMat;
+        break;
+      }
+      case 'rose-ring': {
+        /* a circle of rose bushes around one open middle, ~6u across */
+        for (let i = 0; i < 7; i++) {
+          const ang = (i / 7) * Math.PI * 2;
+          const bx = l.x + Math.cos(ang) * 2.9;
+          const bz = l.z + Math.sin(ang) * 2.9;
+          const bush = mesh(`landmark-${l.id}-b${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-b${i}`, { diameterX: 1.9, diameterY: 1.4, diameterZ: 1.9, segments: 5 }, scene));
+          bush.position.set(bx, 0.6 + gy, bz);
+          bush.material = leafMat;
+          const bloom = mesh(`landmark-${l.id}-f${i}`, MeshBuilder.CreateSphere(`landmark-${l.id}-f${i}`, { diameterX: 0.85, diameterY: 0.6, diameterZ: 0.85, segments: 5 }, scene));
+          bloom.position.set(bx, 1.35 + gy, bz);
+          bloom.material = roseMat;
+        }
+        break;
+      }
+      case 'sand-pyramid': {
+        /* the dunes hero — three stepped pyramids of sand, tallest ~9u */
+        const p1 = mesh(`landmark-${l.id}-p1`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p1`, { diameterTop: 0, diameterBottom: 7.2, height: 8.8, tessellation: 4 }, scene));
+        p1.position.set(l.x, 4.4 + gy, l.z);
+        p1.rotation.y = Math.PI / 4;
+        p1.material = sandMat;
+        const p2 = mesh(`landmark-${l.id}-p2`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p2`, { diameterTop: 0, diameterBottom: 4.4, height: 5.2, tessellation: 4 }, scene));
+        p2.position.set(l.x + 5.6, 2.6 + gy, l.z + 2.4);
+        p2.rotation.y = Math.PI / 4;
+        p2.material = sandMat;
+        const p3 = mesh(`landmark-${l.id}-p3`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p3`, { diameterTop: 0, diameterBottom: 2.8, height: 3.0, tessellation: 4 }, scene));
+        p3.position.set(l.x - 4.6, 1.5 + gy, l.z + 3.4);
+        p3.rotation.y = Math.PI / 4;
+        p3.material = sandMat;
+        break;
+      }
+      case 'dune-arch': {
+        /* the wind carved a gate through the sand, ~6u */
+        const dL = mesh(`landmark-${l.id}-dl`, MeshBuilder.CreateCylinder(`landmark-${l.id}-dl`, { diameterBottom: 1.6, diameterTop: 1.2, height: 5.4, tessellation: 8 }, scene));
+        dL.position.set(l.x - 1.9, 2.7 + gy, l.z);
+        dL.rotation.z = 0.05;
+        dL.material = sandMat;
+        const dR = mesh(`landmark-${l.id}-dr`, MeshBuilder.CreateCylinder(`landmark-${l.id}-dr`, { diameterBottom: 1.5, diameterTop: 1.1, height: 4.8, tessellation: 8 }, scene));
+        dR.position.set(l.x + 1.9, 2.4 + gy, l.z);
+        dR.rotation.z = -0.07;
+        dR.material = sandMat;
+        const dT = mesh(`landmark-${l.id}-dt`, MeshBuilder.CreateCylinder(`landmark-${l.id}-dt`, { diameter: 1.3, height: 4.6, tessellation: 8 }, scene));
+        dT.position.set(l.x, 5.8 + gy, l.z);
+        dT.rotation.z = Math.PI / 2;
+        dT.material = sandMat;
+        break;
+      }
+      case 'buried-ship': {
+        /* the dunes hero — an old hull the sand keeps, ~10u long */
+        const hull = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateCylinder(`landmark-${l.id}-h`, { diameterTop: 4.4, diameterBottom: 2.2, height: 9.2, tessellation: 6, cap: Mesh.CAP_ALL }, scene));
+        hull.position.set(l.x, 1.4 + gy, l.z);
+        hull.rotation.z = Math.PI / 2;
+        hull.rotation.y = 0.35;
+        hull.material = barkMat;
+        const ribA = mesh(`landmark-${l.id}-ra`, MeshBuilder.CreateBox(`landmark-${l.id}-ra`, { width: 0.4, height: 3.2, depth: 0.4 }, scene));
+        ribA.position.set(l.x + 1.4, 2.6 + gy, l.z - 1.6);
+        ribA.rotation.z = 0.4;
+        ribA.material = barkMat;
+        const ribB = mesh(`landmark-${l.id}-rb`, MeshBuilder.CreateBox(`landmark-${l.id}-rb`, { width: 0.4, height: 2.4, depth: 0.4 }, scene));
+        ribB.position.set(l.x - 1.6, 2.1 + gy, l.z + 1.4);
+        ribB.rotation.z = -0.35;
+        ribB.material = barkMat;
+        const dune = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-d`, { radius: 2.6, subdivisions: 1 }, scene));
+        dune.position.set(l.x - 4.2, 0.3 + gy, l.z + 2.8);
+        dune.scaling.y = 0.45;
+        dune.material = sandMat;
+        break;
+      }
+      case 'ruined-gate': {
+        /* the rocky hero — a mountain gate that lost its top, ~11u */
+        const gL = mesh(`landmark-${l.id}-gl`, MeshBuilder.CreateBox(`landmark-${l.id}-gl`, { width: 1.7, height: 10.4, depth: 1.7 }, scene));
+        gL.position.set(l.x - 2.4, 5.2 + gy, l.z);
+        gL.rotation.z = 0.04;
+        gL.material = stoneMat;
+        const gR = mesh(`landmark-${l.id}-gr`, MeshBuilder.CreateBox(`landmark-${l.id}-gr`, { width: 1.7, height: 7.2, depth: 1.7 }, scene));
+        gR.position.set(l.x + 2.4, 3.6 + gy, l.z);
+        gR.rotation.z = -0.06;
+        gR.material = stoneMat;
+        const fall = mesh(`landmark-${l.id}-f`, MeshBuilder.CreateBox(`landmark-${l.id}-f`, { width: 3.6, height: 0.9, depth: 1.4 }, scene));
+        fall.position.set(l.x + 1.2, 0.45 + gy, l.z + 2.6);
+        fall.rotation.y = 0.7;
+        fall.material = stoneMat;
+        const block = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-b`, { radius: 0.9, subdivisions: 1 }, scene));
+        block.position.set(l.x - 1.4, 0.5 + gy, l.z + 3.1);
+        block.material = stoneMat;
+        break;
+      }
+      case 'crystal-cluster': {
+        /* the rocky's glitter — a family of snow-remembering crystals, ~7u */
+        const k1 = mesh(`landmark-${l.id}-k1`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-k1`, { type: 1, size: 1.6 }, scene));
+        k1.position.set(l.x, 2.8 + gy, l.z);
+        k1.scaling.y = 2.1;
+        k1.material = tealMat;
+        const k2 = mesh(`landmark-${l.id}-k2`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-k2`, { type: 1, size: 1.1 }, scene));
+        k2.position.set(l.x + 2.1, 1.5 + gy, l.z + 0.8);
+        k2.scaling.y = 1.6;
+        k2.rotation.z = 0.24;
+        k2.material = goldMat;
+        const k3 = mesh(`landmark-${l.id}-k3`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-k3`, { type: 1, size: 0.9 }, scene));
+        k3.position.set(l.x - 1.9, 1.2 + gy, l.z - 0.9);
+        k3.scaling.y = 1.5;
+        k3.rotation.z = -0.2;
+        k3.material = tealMat;
+        const k4 = mesh(`landmark-${l.id}-k4`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-k4`, { type: 1, size: 0.6 }, scene));
+        k4.position.set(l.x + 0.6, 0.6 + gy, l.z - 1.9);
+        k4.scaling.y = 1.3;
+        k4.material = goldMat;
+        break;
+      }
+      case 'stone-circle': {
+        /* the rocky hero — ancient stones waiting in a ring, ~8u tall ring */
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2;
+          const sx = l.x + Math.cos(ang) * 3.4;
+          const sz = l.z + Math.sin(ang) * 3.4;
+          const hgt = 3.4 + (i % 3) * 1.5;
+          const stone = mesh(`landmark-${l.id}-s${i}`, MeshBuilder.CreateBox(`landmark-${l.id}-s${i}`, { width: 1.05, height: hgt, depth: 0.75 }, scene));
+          stone.position.set(sx, hgt / 2 + gy, sz);
+          stone.rotation.y = ang;
+          stone.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.05;
+          stone.material = stoneMat;
+        }
+        const heart = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateDisc(`landmark-${l.id}-h`, { radius: 1.3, tessellation: 12 }, scene));
+        heart.position.set(l.x, 0.05 + gy, l.z);
+        heart.rotation.x = Math.PI / 2;
+        heart.material = goldMat;
+        break;
+      }
+      /* ---------- stage 14-E: the far reaches ---------- */
+      case 'honey-tree': {
+        /* a golden-leaved tree at the far west, ~8u */
+        const trunk = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateCylinder(`landmark-${l.id}-t`, { diameterBottom: 1.3, diameterTop: 0.8, height: 4.8, tessellation: 8 }, scene));
+        trunk.position.set(l.x, 2.4 + gy, l.z);
+        trunk.rotation.z = 0.05;
+        trunk.material = barkMat;
+        const crown = mesh(`landmark-${l.id}-c`, MeshBuilder.CreateSphere(`landmark-${l.id}-c`, { diameterX: 6.8, diameterY: 5.0, diameterZ: 6.8, segments: 6 }, scene));
+        crown.position.set(l.x, 6.4 + gy, l.z);
+        crown.material = goldMat;
+        const drop = mesh(`landmark-${l.id}-d`, MeshBuilder.CreateIcoSphere(`landmark-${l.id}-d`, { radius: 0.32, subdivisions: 1 }, scene));
+        drop.position.set(l.x + 1.6, 3.4 + gy, l.z + 1.1);
+        drop.material = goldMat;
+        break;
+      }
+      case 'moon-pond': {
+        /* a night-remembering pond with its little moon, ~4u across */
+        const rim = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateTorus(`landmark-${l.id}-r`, { diameter: 4.4, thickness: 0.4, tessellation: 14 }, scene));
+        rim.position.set(l.x, 0.12 + gy, l.z);
+        rim.scaling.y = 0.4;
+        rim.material = stoneMat;
+        const water = mesh(`landmark-${l.id}-w`, MeshBuilder.CreateDisc(`landmark-${l.id}-w`, { radius: 2.1, tessellation: 18 }, scene));
+        water.position.set(l.x, 0.08 + gy, l.z);
+        water.rotation.x = Math.PI / 2;
+        water.material = tealMat;
+        const moon = mesh(`landmark-${l.id}-m`, MeshBuilder.CreateSphere(`landmark-${l.id}-m`, { diameter: 1.5, segments: 7 }, scene));
+        moon.position.set(l.x, 0.35 + gy, l.z);
+        moon.material = goldMat;
+        break;
+      }
+      case 'snow-friend': {
+        /* a snow friend with a carrot smile, ~4.5u */
+        const base = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateSphere(`landmark-${l.id}-b`, { diameterX: 3.0, diameterY: 2.4, diameterZ: 3.0, segments: 6 }, scene));
+        base.position.set(l.x, 1.1 + gy, l.z);
+        base.material = tealMat;
+        const head = mesh(`landmark-${l.id}-h`, MeshBuilder.CreateSphere(`landmark-${l.id}-h`, { diameter: 2.0, segments: 6 }, scene));
+        head.position.set(l.x, 3.1 + gy, l.z);
+        head.material = tealMat;
+        const nose = mesh(`landmark-${l.id}-n`, MeshBuilder.CreateCylinder(`landmark-${l.id}-n`, { diameterBottom: 0.1, diameterTop: 0.22, height: 0.9, tessellation: 6 }, scene));
+        nose.position.set(l.x, 3.2 + gy, l.z + 1.1);
+        nose.rotation.x = Math.PI / 2;
+        nose.material = goldMat;
+        const eyeL = mesh(`landmark-${l.id}-el`, MeshBuilder.CreateSphere(`landmark-${l.id}-el`, { diameter: 0.22, segments: 4 }, scene));
+        eyeL.position.set(l.x - 0.35, 3.5 + gy, l.z + 0.9);
+        eyeL.material = stoneMat;
+        const eyeR = mesh(`landmark-${l.id}-er`, MeshBuilder.CreateSphere(`landmark-${l.id}-er`, { diameter: 0.22, segments: 4 }, scene));
+        eyeR.position.set(l.x + 0.35, 3.5 + gy, l.z + 0.9);
+        eyeR.material = stoneMat;
+        break;
+      }
+      case 'reed-hut': {
+        /* a river-reed hut with a soft roof, ~5u */
+        const wall = mesh(`landmark-${l.id}-w`, MeshBuilder.CreateCylinder(`landmark-${l.id}-w`, { diameterBottom: 3.0, diameterTop: 1.6, height: 3.6, tessellation: 9 }, scene));
+        wall.position.set(l.x, 1.8 + gy, l.z);
+        wall.material = leafMat;
+        const door = mesh(`landmark-${l.id}-d`, MeshBuilder.CreatePlane(`landmark-${l.id}-d`, { width: 0.9, height: 1.5 }, scene));
+        door.position.set(l.x, 0.75 + gy, l.z + 1.5);
+        door.material = barkMat;
+        const top = mesh(`landmark-${l.id}-t`, MeshBuilder.CreateSphere(`landmark-${l.id}-t`, { diameterX: 2.0, diameterY: 1.2, diameterZ: 2.0, segments: 5 }, scene));
+        top.position.set(l.x, 3.9 + gy, l.z);
+        top.material = goldMat;
+        const reed = mesh(`landmark-${l.id}-r`, MeshBuilder.CreateCylinder(`landmark-${l.id}-r`, { diameter: 0.1, height: 1.6, tessellation: 5 }, scene));
+        reed.position.set(l.x + 2.1, 0.8 + gy, l.z + 1.4);
+        reed.material = leafMat;
+        break;
+      }
+      case 'sun-clock': {
+        /* an ancient stone sundial, ~4u */
+        const base = mesh(`landmark-${l.id}-b`, MeshBuilder.CreateCylinder(`landmark-${l.id}-b`, { diameter: 3.2, height: 0.7, tessellation: 12 }, scene));
+        base.position.set(l.x, 0.35 + gy, l.z);
+        base.material = stoneMat;
+        const pillar = mesh(`landmark-${l.id}-p`, MeshBuilder.CreateCylinder(`landmark-${l.id}-p`, { diameterBottom: 0.5, diameterTop: 0.3, height: 3.4, tessellation: 8 }, scene));
+        pillar.position.set(l.x, 2.2 + gy, l.z);
+        pillar.rotation.z = 0.2;
+        pillar.material = stoneMat;
+        const ring = mesh(`landmark-${l.id}-rg`, MeshBuilder.CreateTorus(`landmark-${l.id}-rg`, { diameter: 1.4, thickness: 0.16, tessellation: 12 }, scene));
+        ring.position.set(l.x + 0.5, 3.6 + gy, l.z);
+        ring.rotation.y = 0.4;
+        ring.material = goldMat;
+        break;
+      }
+      case 'star-stone': {
+        /* a fallen star — a five-pointed monolith, ~7u */
+        for (let i = 0; i < 5; i++) {
+          const ang = (i / 5) * Math.PI * 2;
+          const arm = mesh(`landmark-${l.id}-a${i}`, MeshBuilder.CreateBox(`landmark-${l.id}-a${i}`, { width: 0.7, height: 5.2, depth: 0.5 }, scene));
+          arm.position.set(l.x + Math.cos(ang) * 1.4, 2.2 + gy, l.z + Math.sin(ang) * 1.4);
+          arm.rotation.y = -ang;
+          arm.rotation.z = 0.14;
+          arm.material = stoneMat;
+        }
+        const core = mesh(`landmark-${l.id}-c`, MeshBuilder.CreatePolyhedron(`landmark-${l.id}-c`, { type: 1, size: 1.0 }, scene));
+        core.position.set(l.x, 4.6 + gy, l.z);
+        core.material = goldMat;
+        break;
+      }
     }
 
     /* merge the place's static parts into ONE mesh (multi-material keeps
@@ -614,7 +1062,13 @@ export function buildLandmarks(scene: Scene): LandmarksHandle {
 
   const beacons = new Map<string, Mesh>();
   const bobbers: Bobber[] = [];
-  const HEROES = new Set<string>(['giant-tree', 'wood-hut', 'ice-tower', 'watermill', 'mega-flower', 'obelisk', 'oasis', 'stone-arch']);
+  /* stage 14-C: every region now has interior heroes too */
+  const HEROES = new Set<string>([
+    'giant-tree', 'wood-hut', 'ice-tower', 'watermill', 'mega-flower', 'obelisk', 'oasis', 'stone-arch',
+    'watch-tower', 'giant-mushrooms', 'waterfall-rock', 'ferry-boat', 'giant-tulip', 'sand-pyramid',
+    'buried-ship', 'ruined-gate', 'crystal-cluster', 'stone-circle',
+    'honey-tree', 'snow-friend', 'star-stone',
+  ]);
   for (const l of LANDMARKS) {
     const bgy = terrainHeight(l.x, l.z);
     const bh = HEROES.has(l.id) ? 5.2 : 2.9;

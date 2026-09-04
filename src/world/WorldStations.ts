@@ -132,11 +132,16 @@ export function nearestStation(
   return best;
 }
 
-/** The pad radius — step on it and the games offer themselves. */
-export const STATION_PAD_RADIUS = 0.95;
+/** The pad radius — step on it and the games offer themselves
+ *  (14-C ladder: a ~2.3u disc a fox-sized child reads as a place). */
+export const STATION_PAD_RADIUS = 1.15;
 
 /** Standing on the pad counts as "on station" (the pad reads from afar, enters from near). */
-export const STATION_NEAR_RADIUS = 1.15;
+export const STATION_NEAR_RADIUS = 1.5;
+
+/** A plain-grass tap within this distance of an open pad pulls to the
+ *  pad's rim (stage 14: small hands + grazing rays deserve fat targets). */
+export const STATION_TAP_SNAP = 3.4;
 
 /* ---------- clearance invariants (unit-pinned) ---------- */
 
@@ -146,8 +151,8 @@ export const STATION_ROAD_CLEARANCE = 1.9;
 export const STATION_LANDMARK_CLEARANCE = 1.0;
 /** min distance to another zone island's rim */
 export const STATION_ISLAND_CLEARANCE = 2.2;
-/** min distance between two clearings */
-export const STATION_SPACING = 2.4;
+/** min distance between two clearings (14-C: grown pads need grown gaps) */
+export const STATION_SPACING = 3.0;
 
 function minDistToPath(pts: Array<{ x: number; z: number }>, x: number, z: number): number {
   let best = Infinity;

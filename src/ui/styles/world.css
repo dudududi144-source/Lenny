@@ -1,12 +1,67 @@
 /* ============================================================
-   world.css — the 3D garden screen (Stage 7).
-   The canvas IS the screen; DOM stays as thin floating glass.
-   RTL, mobile-first, safe-area aware.
+   world.css — the 3D world HUD (stage 14-B commercial redesign).
+
+   The canvas IS the screen; DOM is one disciplined instrument
+   layer. Everything below consumes the token block — no ad-hoc
+   values. RTL (dir=rtl on <html>) via logical properties only.
+
+   The z-ladder (never improvise):
+     plates 4 < bubble 5 < controls 7 < HUD 10 < sparkle 12
+     < sheets 30 (entry / well / shelf) < modal 40 (reserved).
+
+   The one panel: every floating surface shares --wz-panel-*.
    ============================================================ */
 
 .screen--world {
+  /* ---- spacing (4 / 8 / 12 / 16 / 24) ---- */
+  --wz-s1: 4px;
+  --wz-s2: 8px;
+  --wz-s3: 12px;
+  --wz-s4: 16px;
+  --wz-s5: 24px;
+
+  /* ---- radii (12 / 16 / 20) ---- */
+  --wz-r-s: 12px;
+  --wz-r-m: 16px;
+  --wz-r-l: 20px;
+  --wz-r-full: 999px;
+
+  /* ---- typographic scale (13 / 15 / 17 / 22) ---- */
+  --wz-fs-xs: 13px;
+  --wz-fs-sm: 15px;
+  --wz-fs-md: 17px;
+  --wz-fs-lg: 22px;
+
+  /* ---- z ladder ---- */
+  --wz-z-plate: 4;
+  --wz-z-bubble: 5;
+  --wz-z-hud: 10;
+  --wz-z-sparkle: 12;
+  --wz-z-sheet: 30;
+  --wz-z-modal: 40;
+
+  /* ---- ink on the day sky ---- */
+  --wz-ink: #22371f;
+  --wz-ink-soft: #4c6a44;
+  --wz-gold: #ffd76a;
+
+  /* ---- THE panel (frosted cream, one for every surface) ---- */
+  --wz-panel-bg: rgba(255, 253, 244, 0.94);
+  --wz-panel-border: 1px solid rgba(255, 215, 106, 0.65);
+  --wz-panel-shadow: 0 12px 32px rgba(20, 40, 30, 0.22);
+  --wz-panel-blur: blur(10px);
+
+  /* the safe-area baseline every fixed element rides on */
+  --wz-safe-top: env(safe-area-inset-top, 0px);
+  --wz-safe-bottom: env(safe-area-inset-bottom, 0px);
+
   background: #bfe3f2; /* behind the first paint of the canvas */
   overflow: hidden;
+}
+
+.screen--world,
+.screen--world * {
+  box-sizing: border-box;
 }
 
 .world-stage {
@@ -22,7 +77,17 @@
   touch-action: none; /* Babylon pointer input owns the gestures */
 }
 
-/* ---------- loading veil (only until the engine boots) ---------- */
+/* the world canvas keeps a render budget on wide screens — the
+   garden layout widens, the GPU budget does not explode (perf
+   floor protects weak renderers from the distress fallback) */
+@media (min-width: 900px) {
+  .world-stage {
+    max-width: 720px;
+    margin-inline: auto;
+  }
+}
+
+/* ============ loading veil (until the engine boots) ============ */
 
 .world-loading {
   position: absolute;
@@ -31,9 +96,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--wz-s3);
   background: linear-gradient(180deg, #bfe3f2 0%, #e6f4d7 100%);
-  z-index: 3;
+  z-index: var(--wz-z-modal);
 }
 
 .world-loading.hidden {
@@ -42,14 +107,15 @@
 
 .world-loading-star {
   font-size: 34px;
-  color: #ffd76a;
+  color: var(--wz-gold);
   text-shadow: 0 0 18px rgba(255, 215, 106, 0.85);
   animation: world-star-pulse 1.4s ease-in-out infinite;
 }
 
 .world-loading-text {
-  font-weight: 600;
-  color: #2c4a30;
+  font-size: var(--wz-fs-sm);
+  font-weight: 700;
+  color: var(--wz-ink);
   opacity: 0.85;
 }
 
@@ -65,18 +131,21 @@
   }
 }
 
-/* ---------- floating glass header ---------- */
+/* ============ the top bar — one system, two groups ============
+   status chips (acorns + the day's journey) hug the inline-start
+   edge; menu buttons (wardrobe / sound / back) hug the inline-end
+   edge. Display-only elements never take pointers — the canvas
+   stays walkable everywhere except the real controls. */
 
 .world-head {
   position: absolute;
-  top: calc(10px + env(safe-area-inset-top, 0px));
-  left: 12px;
-  right: 12px;
+  top: calc(var(--wz-s2) + var(--wz-safe-top));
+  inset-inline: var(--wz-s2);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  z-index: 4;
+  gap: var(--wz-s2);
+  z-index: var(--wz-z-hud);
   pointer-events: none;
 }
 
@@ -84,65 +153,201 @@
   pointer-events: none;
 }
 
-.world-title {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #223d26;
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.75),
-    0 0 14px rgba(255, 255, 255, 0.35);
+.world-head button {
+  pointer-events: auto;
 }
 
-.world-sub {
-  margin: 2px 0 0;
-  font-size: 0.8rem;
-  color: #3a5c3e;
-  opacity: 0.9;
-}
-
-.world-head-side {
+.world-status,
+.world-menu {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--wz-s2);
+  min-width: 0;
 }
 
-.screen--world .light-chip {
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(6px);
-  color: #7a5a00;
+.world-status {
+  flex-wrap: wrap;
+  max-width: 60vw;
 }
 
-/* ---------- grown-up corner ---------- */
+/* ---- the Lenny wordmark: one small, elegant signature ----
+   The game's name lives ONCE in the world HUD — a quiet gold-star
+   monogram, never a wrapping column of text (the owner: the title
+   must be elegant and commercial). No pointers: it's a signature,
+   not a button. */
+.world-brand {
+  position: absolute;
+  top: calc(var(--wz-s2) + var(--wz-safe-top));
+  inset-inline-start: 50%;
+  transform: translateX(50%); /* RTL-safe centering */
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px 6px;
+  border-radius: var(--wz-r-full);
+  background: linear-gradient(180deg, rgba(255, 253, 244, 0.96), rgba(255, 246, 214, 0.92));
+  border: 1px solid rgba(202, 165, 61, 0.55);
+  box-shadow: 0 6px 18px rgba(20, 40, 30, 0.18);
+  backdrop-filter: var(--wz-panel-blur);
+  z-index: var(--wz-z-hud);
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.world-brand .brand-star {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: #caa53d;
+  filter: drop-shadow(0 1px 2px rgba(120, 85, 20, 0.35));
+}
+
+.world-brand .brand-name {
+  font-size: var(--wz-fs-md);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #6b4a2c;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* narrow phones: a smaller signature, and the bar steps DOWN one
+   row so nothing ever wraps into an ugly vertical sliver */
+@media (max-width: 640px) {
+  .world-brand {
+    padding: 3px 10px 4px;
+  }
+
+  .world-brand .brand-star {
+    width: 15px;
+    height: 15px;
+  }
+
+  .world-brand .brand-name {
+    font-size: var(--wz-fs-sm);
+  }
+
+  .world-head {
+    top: calc(var(--wz-s2) + var(--wz-safe-top) + 34px);
+  }
+}
+
+/* ---- the one chip style; each instrument tints its accent ---- */
+
+.world-status .light-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 4px 12px;
+  border-radius: var(--wz-r-full);
+  font-size: var(--wz-fs-sm);
+  font-weight: 800;
+  color: var(--chip-ink, #6b4a2c);
+  background: var(--wz-panel-bg);
+  border: 1px solid var(--chip-line, rgba(255, 215, 106, 0.65));
+  box-shadow: 0 4px 14px rgba(20, 40, 30, 0.14);
+  backdrop-filter: var(--wz-panel-blur);
+  white-space: nowrap;
+}
+
+.world-status .light-chip .light-star {
+  font-size: 0.9em;
+  filter: none;
+}
+
+.screen--world .light-chip.acorn-chip {
+  --chip-ink: #6b4a2c;
+  --chip-line: rgba(201, 138, 75, 0.55);
+}
+
+.screen--world .light-chip.acorn-chip .acorn-star {
+  color: #a06a38;
+  filter: drop-shadow(0 0 5px rgba(201, 138, 75, 0.8));
+  transform: rotate(180deg); /* ▲ reads as an acorn's cap-point */
+  display: inline-block;
+  font-size: 0.85em;
+}
+
+.screen--world .light-chip.daily-chip {
+  --chip-ink: #a05a1c;
+  --chip-line: rgba(255, 165, 82, 0.55);
+}
+
+/* ---- the one menu-button style ---- */
+
+.world-menu .ui-btn,
+.world-menu button.ui-btn--ghost {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border-radius: var(--wz-r-full);
+  font-size: var(--wz-fs-sm);
+  font-weight: 800;
+  color: var(--wz-ink);
+  background: var(--wz-panel-bg);
+  border: 1px solid rgba(58, 43, 18, 0.16);
+  box-shadow: 0 4px 14px rgba(20, 40, 30, 0.14);
+  backdrop-filter: var(--wz-panel-blur);
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease;
+}
+
+.world-menu .ui-btn--ghost:hover {
+  background: #fffdf4;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(20, 40, 30, 0.2);
+}
+
+.world-menu .ui-btn:active {
+  transform: scale(0.96);
+}
+
+.screen--world .sound-toggle {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px 12px;
+  color: var(--wz-ink);
+  background: var(--wz-panel-bg);
+  border: 1px solid rgba(58, 43, 18, 0.16);
+  box-shadow: 0 4px 14px rgba(20, 40, 30, 0.14);
+  backdrop-filter: var(--wz-panel-blur);
+}
+
+/* ============ the grown-up corner (bottom, inline edges) ============ */
 
 .world-foot {
   position: absolute;
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-  left: 12px;
-  right: 12px;
+  bottom: calc(var(--wz-s2) + var(--wz-safe-bottom));
+  inset-inline: var(--wz-s2);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  z-index: 8; /* above the touch controls — the exit is never covered */
+  gap: var(--wz-s2);
+  z-index: var(--wz-z-hud); /* above the touch controls — the exit is never covered */
+  pointer-events: none;
 }
 
 .world-parents-link,
 .world-classic-link {
+  pointer-events: auto;
   appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(6px);
-  color: #33502f;
+  border: 1px solid rgba(58, 43, 18, 0.16);
+  background: rgba(255, 253, 244, 0.8);
+  backdrop-filter: var(--wz-panel-blur);
+  color: var(--wz-ink-soft);
   font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 7px 14px;
-  border-radius: 999px;
+  font-size: var(--wz-fs-xs);
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--wz-r-full);
   cursor: pointer;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
+  box-shadow: 0 4px 14px rgba(20, 40, 30, 0.12);
   transition:
     transform 0.15s ease,
     background 0.2s ease;
@@ -150,7 +355,7 @@
 
 .world-parents-link:hover,
 .world-classic-link:hover {
-  background: rgba(255, 255, 255, 0.75);
+  background: #fffdf4;
   transform: translateY(-1px);
 }
 
@@ -159,21 +364,83 @@
   transform: scale(0.96);
 }
 
+/* the classic garden's chip to the world (lives in the 2D garden) */
+.world-chip {
+  position: absolute;
+  bottom: calc(var(--wz-s3) + var(--wz-safe-bottom));
+  inset-inline-end: var(--wz-s3);
+  z-index: 6;
+  appearance: none;
+  border: 1px solid rgba(255, 215, 106, 0.8);
+  background: rgba(24, 34, 28, 0.55);
+  backdrop-filter: var(--wz-panel-blur);
+  color: var(--wz-gold);
+  font: inherit;
+  font-size: var(--wz-fs-xs);
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--wz-r-full);
+  cursor: pointer;
+  min-height: 44px;
+  box-shadow: 0 4px 14px rgba(10, 20, 14, 0.35);
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease;
+}
+
+.world-chip:hover {
+  background: rgba(30, 44, 36, 0.75);
+  transform: translateY(-1px);
+}
+
+.world-chip:active {
+  transform: scale(0.96);
+}
+
+.world-chip.hidden {
+  display: none;
+}
+
+/* ============ the bottom-center guidance slot ============
+   ONE surface at a time owns the bottom-center: the compass in
+   plain exploring, the offered quest while one is live, the
+   clearing sheet on a pad. Mutual exclusion lives in the state
+   classes the shell toggles (entry-open / well-open / shelf-open). */
+
+/* the wayfinding compass — guidance under the eye, above thumbs */
+.screen--world .zone-compass {
+  inset-block-start: auto;
+  inset-block-end: calc(88px + var(--wz-safe-bottom));
+  padding: 6px 14px;
+  border-radius: var(--wz-r-full);
+  background: rgba(24, 34, 28, 0.6);
+  border: 1px solid rgba(255, 215, 106, 0.45);
+  color: #fff8e8;
+  font-size: var(--wz-fs-sm);
+  font-weight: 700;
+  max-width: min(78vw, 340px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: var(--wz-z-hud);
+  pointer-events: none; /* taps fall through to the world */
+}
+
 /* ---------- Lenny's arrival bubble ---------- */
 
 .lenny-bubble {
   position: absolute;
   transform: translate(-50%, -100%);
   max-width: 62%;
-  background: rgba(255, 253, 244, 0.94);
+  background: var(--wz-panel-bg);
   border: 1.5px solid rgba(255, 215, 106, 0.85);
-  border-radius: 16px 16px 16px 4px;
-  box-shadow: 0 6px 22px rgba(20, 40, 30, 0.22);
-  padding: 9px 14px;
-  z-index: 5;
+  border-radius: var(--wz-r-m) var(--wz-r-m) var(--wz-r-m) 4px;
+  box-shadow: var(--wz-panel-shadow);
+  padding: 8px 14px;
+  z-index: var(--wz-z-bubble);
   pointer-events: none;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-size: var(--wz-fs-sm);
+  font-weight: 700;
   color: #3a2b12;
   line-height: 1.45;
   animation: bubble-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -208,114 +475,21 @@
   }
 }
 
-/* ---------- the classic garden's chip to the world ---------- */
-
-.world-chip {
-  position: absolute;
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-  inset-inline-end: 12px;
-  z-index: 6;
-  appearance: none;
-  border: 1px solid rgba(255, 215, 106, 0.8);
-  background: rgba(24, 34, 28, 0.55);
-  backdrop-filter: blur(6px);
-  color: #ffd76a;
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 999px;
-  cursor: pointer;
-  min-height: 40px;
-  box-shadow: 0 4px 14px rgba(10, 20, 14, 0.35);
-  transition:
-    transform 0.15s ease,
-    background 0.2s ease;
-}
-
-.world-chip:hover {
-  background: rgba(30, 44, 36, 0.75);
-  transform: translateY(-1px);
-}
-
-.world-chip:active {
-  transform: scale(0.96);
-}
-
-.world-chip.hidden {
-  display: none;
-}
-
-/* respect reduced-motion */
-@media (prefers-reduced-motion: reduce) {
-  .world-loading-star {
-    animation: none;
-  }
-  .lenny-bubble {
-    animation: none;
-  }
-}
-
-/* audit 9-b follow-up: the world canvas keeps a render budget on wide
-   screens — the garden layout widens, the GPU budget does not explode.
-   Real hardware GPUs hold 60fps at any width; this protects weak ones
-   from the distress fallback. */
-@media (min-width: 900px) {
-  .world-stage {
-    max-width: 720px;
-    margin-inline: auto;
-  }
-}
-
-/* audit fix: ONLY real controls take pointers in the world header.
-   Display-only elements (title, light chip, sound label row) were
-   swallowing canvas taps: the sound toggle widened the side group past
-   the center line and a top-area walk tap landed on the light chip and
-   died there. Header stays see-through; buttons stay clickable. */
-.world-head button {
-  pointer-events: auto;
-}
-
-/* ============================================================
-   critic round B — discovery layer: quest HUD, landmark name
-   plates, found chip, celebration sparkles.
-   ============================================================ */
-
-.screen--world .light-chip.found-chip {
-  color: #6b4d8f;
-}
-
-/* stage 12: the regions + the daily journey */
-.screen--world .light-chip.region-chip {
-  color: #1f6e83;
-}
-
-.screen--world .light-chip.daily-chip {
-  color: #a05a1c;
-}
-
-.landmark-plate.region-plate {
-  border-color: rgba(120, 200, 235, 0.55);
-  color: #eaf7fb;
-  font-size: 1rem;
-  padding: 4px 14px;
-}
-
-/* ---------- landmark name plates (environmental print) ---------- */
+/* ---------- name plates (environmental print) ---------- */
 
 .landmark-plate {
   position: absolute;
   transform: translate(-50%, -100%);
-  background: rgba(24, 34, 28, 0.6);
+  background: rgba(24, 34, 28, 0.62);
   backdrop-filter: blur(4px);
   border: 1px solid rgba(255, 215, 106, 0.5);
   color: #fff3cf;
-  font-size: 0.86rem;
+  font-size: var(--wz-fs-sm);
   font-weight: 700;
   line-height: 1.5;
   padding: 3px 12px;
-  border-radius: 999px;
-  z-index: 4;
+  border-radius: var(--wz-r-full);
+  z-index: var(--wz-z-plate);
   pointer-events: none;
   white-space: nowrap;
   animation: plate-in 0.4s ease;
@@ -323,6 +497,13 @@
 
 .landmark-plate.hidden {
   display: none;
+}
+
+.landmark-plate.region-plate {
+  border-color: rgba(120, 200, 235, 0.55);
+  color: #eaf7fb;
+  font-size: var(--wz-fs-md);
+  padding: 4px 14px;
 }
 
 @keyframes plate-in {
@@ -336,20 +517,21 @@
   }
 }
 
-/* ---------- the quest panel ---------- */
+/* ---------- the quest panel (bottom-center guidance slot) ---------- */
 
 .world-quest {
   position: absolute;
-  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(64px + var(--wz-safe-bottom));
   left: 50%;
   transform: translateX(-50%);
   width: min(92%, 420px);
-  background: rgba(255, 253, 244, 0.94);
-  border: 1.5px solid rgba(255, 215, 106, 0.85);
-  border-radius: 18px;
-  box-shadow: 0 8px 26px rgba(20, 40, 30, 0.25);
-  padding: 10px 14px 12px;
-  z-index: 8; /* above the journey's touch controls — an offered quest is never covered */
+  background: var(--wz-panel-bg);
+  border: var(--wz-panel-border);
+  border-radius: var(--wz-r-l);
+  box-shadow: var(--wz-panel-shadow);
+  backdrop-filter: var(--wz-panel-blur);
+  padding: var(--wz-s3) var(--wz-s4) var(--wz-s3);
+  z-index: var(--wz-z-hud); /* above the touch controls — an offered quest is never covered */
   animation: bubble-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -358,8 +540,8 @@
 }
 
 .world-quest-line {
-  margin: 0 0 8px;
-  font-size: 1.02rem;
+  margin: 0 0 var(--wz-s2);
+  font-size: var(--wz-fs-md);
   font-weight: 800;
   color: #3a2b12;
   line-height: 1.4;
@@ -368,7 +550,7 @@
 .world-quest-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--wz-s2);
   flex-wrap: wrap;
 }
 
@@ -377,9 +559,9 @@
   border: 1px solid rgba(255, 215, 106, 0.7);
   color: #6b4d00;
   font-weight: 800;
-  font-size: 1rem;
-  padding: 8px 14px;
-  border-radius: 999px;
+  font-size: var(--wz-fs-md);
+  padding: var(--wz-s2) 14px;
+  border-radius: var(--wz-r-full);
 }
 
 .world-quest.hidden .world-quest-count {
@@ -388,7 +570,7 @@
 
 .world-quest-chips {
   display: flex;
-  gap: 10px;
+  gap: var(--wz-s2);
   align-items: center;
 }
 
@@ -402,7 +584,7 @@
   color: #3a2b12;
   min-width: 56px;
   min-height: 56px;
-  border-radius: 16px;
+  border-radius: var(--wz-r-m);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -433,9 +615,13 @@
   background: #6fd8c5;
 }
 
+.quest-chip-num {
+  background: #fffdf4;
+}
+
 .world-quest .ui-btn,
 .world-quest button.world-ghost {
-  font-size: 0.82rem;
+  font-size: var(--wz-fs-xs);
   min-height: 44px;
 }
 
@@ -447,8 +633,8 @@
 
 .quest-sparkle {
   position: absolute;
-  z-index: 7;
-  color: #ffd76a;
+  z-index: var(--wz-z-sparkle);
+  color: var(--wz-gold);
   font-size: 1.5rem;
   text-shadow: 0 0 16px rgba(255, 215, 106, 0.9);
   pointer-events: none;
@@ -469,132 +655,251 @@
   }
 }
 
-/* the quest panel steps aside while the shelf is open */
-.screen--world[data-world-phase='shelf-open'] .world-quest {
-  display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .quest-sparkle,
-  .landmark-plate,
-  .world-quest {
-    animation: none;
-  }
-}
-
 /* ============================================================
- * Stage 14 — the living continent: entry card, acorn chip, well
- * ============================================================ */
-
-/* the HUD chip row never overflows the header again — it wraps
-   (the owner: "העיצוב יוצא מפרופורציות") */
-.world-head-side {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  row-gap: 6px;
-  max-width: min(72vw, 560px);
-}
-
-.screen--world .light-chip {
-  padding: 4px 11px;
-  font-size: 0.86rem;
-}
-
-.screen--world .light-chip.acorn-chip {
-  color: #6b4a2c;
-  border-color: rgba(201, 138, 75, 0.55);
-  background: rgba(255, 244, 224, 0.6);
-}
-
-.screen--world .light-chip.acorn-chip .acorn-star {
-  color: #a06a38;
-  filter: drop-shadow(0 0 5px rgba(201, 138, 75, 0.8));
-  transform: rotate(180deg); /* ▲ reads as an acorn's cap-point */
-  display: inline-block;
-  font-size: 0.8em;
-}
-
-/* ---------- the clearing's entry card ---------- */
+   THE STATION ENTRY CARD — the store front of 30 clearings.
+   Mobile: a bottom sheet (full-width, thumb-reachable, slides
+   up). Desktop (≥768px): the same surface as a centered card,
+   max-width 420px. The sheet BODY takes no pointers — the world
+   stays walkable under it; only the real controls respond.
+   Accent = the zone's own color via --sc.
+   ============================================================ */
 
 .world-entry {
   position: absolute;
-  bottom: calc(86px + env(safe-area-inset-bottom, 0px));
-  left: 50%;
-  transform: translateX(-50%);
+  inset-inline: 0;
+  bottom: 0;
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 12px 10px 18px;
-  background: rgba(255, 253, 244, 0.93);
-  border: 1.5px solid rgba(255, 215, 106, 0.9);
-  border-radius: 18px;
-  box-shadow: 0 10px 30px rgba(20, 40, 30, 0.28);
-  z-index: 7;
-  animation: entry-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  max-width: min(92vw, 430px);
+  flex-direction: column;
+  gap: var(--wz-s2);
+  padding: var(--wz-s2) var(--wz-s4) calc(var(--wz-s4) + var(--wz-safe-bottom));
+  background: var(--wz-panel-bg);
+  border: var(--wz-panel-border);
+  border-bottom: none;
+  border-radius: var(--wz-r-l) var(--wz-r-l) 0 0;
+  box-shadow: 0 -10px 34px rgba(20, 40, 30, 0.24);
+  backdrop-filter: var(--wz-panel-blur);
+  max-height: min(64vh, 460px);
+  width: min(100%, 420px);
+  margin-inline: auto;
+  z-index: var(--wz-z-sheet);
+  animation: entry-sheet-up 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none; /* the world stays walkable under the sheet body */
 }
 
 .world-entry.hidden {
   display: none;
 }
 
-.entry-text {
+.world-entry button {
+  pointer-events: auto; /* only the real controls respond */
+}
+
+.entry-grip {
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: var(--wz-r-full);
+  background: rgba(58, 43, 18, 0.22);
+  margin: 0 auto;
+  flex: 0 0 auto;
+}
+
+.entry-head {
+  display: flex;
+  align-items: center;
+  gap: var(--wz-s2);
+  padding-inline-start: 10px;
+  border-inline-start: 4px solid var(--sc, var(--wz-gold)); /* the zone's color */
+  flex: 0 0 auto;
+}
+
+.entry-id {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  flex: 1;
 }
 
 .entry-title {
-  font-size: 1.02rem;
+  font-size: var(--wz-fs-md);
   font-weight: 800;
-  color: #223d26;
+  color: var(--wz-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .entry-sub {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #5a7a56;
+  font-size: var(--wz-fs-xs);
+  font-weight: 700;
+  color: var(--wz-ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.world-entry .btn,
-.world-entry button:not(.well-close) {
-  min-height: 52px;
-  min-width: 96px;
+.entry-close {
+  appearance: none;
+  border: 1px solid rgba(58, 43, 18, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--wz-ink);
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: var(--wz-r-full);
   font-size: 1rem;
   font-weight: 800;
-  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease;
 }
 
-@keyframes entry-pop {
+.entry-close:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.entry-close:active {
+  transform: scale(0.94);
+}
+
+/* the games of this band offer themselves — a 2-column grid of
+   big, comfortable buttons (≥52px), locked states honest */
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--wz-s2);
+  overflow-y: auto;
+  min-height: 0;
+  padding-block-end: var(--wz-s1);
+  flex: 1 1 auto;
+}
+
+.entry-game {
+  appearance: none;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: var(--wz-s2);
+  min-height: 52px;
+  padding: var(--wz-s2) var(--wz-s3);
+  border-radius: var(--wz-r-s);
+  border: 1.5px solid color-mix(in srgb, var(--sc, var(--wz-gold)) 55%, transparent);
+  background: color-mix(in srgb, var(--sc, var(--wz-gold)) 16%, #fffdf4);
+  color: var(--wz-ink);
+  cursor: pointer;
+  text-align: start;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.entry-game:hover:not(.locked) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--sc, var(--wz-gold)) 35%, transparent);
+}
+
+.entry-game:active:not(.locked) {
+  transform: scale(0.97);
+}
+
+.entry-game-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--wz-fs-sm);
+  font-weight: 800;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.entry-game-go {
+  font-size: 0.8em;
+  color: color-mix(in srgb, var(--sc, var(--wz-gold)) 70%, #22371f);
+}
+
+/* locked = visibly locked, never broken-looking */
+.entry-game.locked,
+.entry-game:disabled {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1.5px dashed rgba(58, 43, 18, 0.28);
+  color: rgba(34, 55, 31, 0.55);
+}
+
+.entry-game.locked .entry-game-name {
+  font-weight: 700;
+}
+
+.entry-game-lock {
+  font-size: var(--wz-fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* the ONE obvious primary action */
+.entry-actions {
+  flex: 0 0 auto;
+}
+
+.entry-actions .ui-btn--primary {
+  width: 100%;
+  min-height: 52px;
+  border-radius: var(--wz-r-m);
+  font-size: var(--wz-fs-md);
+  font-weight: 800;
+}
+
+@keyframes entry-sheet-up {
   0% {
-    transform: translateX(-50%) scale(0.7);
+    transform: translateY(28px);
     opacity: 0;
   }
   100% {
-    transform: translateX(-50%) scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
 }
 
-/* ---------- the well's shop ---------- */
+/* desktop: the same surface as a centered card, off the bottom edge */
+@media (min-width: 768px) {
+  .world-entry {
+    bottom: calc(var(--wz-s4) + var(--wz-safe-bottom));
+    border-bottom: var(--wz-panel-border);
+    border-radius: var(--wz-r-l);
+    padding: var(--wz-s3) var(--wz-s4) var(--wz-s4);
+    box-shadow: var(--wz-panel-shadow);
+  }
+
+  .entry-grip {
+    display: none;
+  }
+}
+
+/* ============================================================
+   THE WELL'S SHOP — same sheet language, acorns become scarves.
+   (This one is a real shop: it keeps its pointers, it is modal
+   in feel — a tap meant for the shop must never walk the fox.)
+   ============================================================ */
 
 .world-well {
   position: absolute;
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
-  inset-inline-start: 50%;
-  transform: translateX(50%); /* rtl-safe centering */
-  width: min(92vw, 400px);
-  background: rgba(255, 253, 244, 0.96);
-  border: 1.5px solid rgba(201, 138, 75, 0.7);
-  border-radius: 20px;
-  box-shadow: 0 14px 38px rgba(20, 40, 30, 0.3);
-  z-index: 7;
-  padding: 14px 16px;
-  animation: entry-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  inset-inline: 0;
+  bottom: 0;
+  width: min(100%, 400px);
+  margin-inline: auto;
+  background: var(--wz-panel-bg);
+  border: var(--wz-panel-border);
+  border-bottom: none;
+  border-radius: var(--wz-r-l) var(--wz-r-l) 0 0;
+  box-shadow: 0 -10px 34px rgba(20, 40, 30, 0.24);
+  backdrop-filter: var(--wz-panel-blur);
+  z-index: var(--wz-z-sheet);
+  padding: var(--wz-s3) var(--wz-s4) calc(var(--wz-s4) + var(--wz-safe-bottom));
+  max-height: min(62vh, 440px);
+  display: flex;
+  flex-direction: column;
+  animation: entry-sheet-up 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .world-well.hidden {
@@ -604,8 +909,9 @@
 .well-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--wz-s2);
+  margin-bottom: var(--wz-s3);
+  flex: 0 0 auto;
 }
 
 .well-title-wrap {
@@ -616,46 +922,55 @@
 }
 
 .well-title {
-  font-size: 1.05rem;
+  font-size: var(--wz-fs-md);
   font-weight: 800;
-  color: #223d26;
+  color: var(--wz-ink);
 }
 
 .well-sub {
-  font-size: 0.74rem;
-  color: #5a7a56;
-  font-weight: 600;
+  font-size: var(--wz-fs-xs);
+  color: var(--wz-ink-soft);
+  font-weight: 700;
 }
 
 .well-balance {
-  font-size: 0.8rem;
+  font-size: var(--wz-fs-xs);
   font-weight: 800;
   color: #6b4a2c;
   background: rgba(201, 138, 75, 0.14);
   border: 1px solid rgba(201, 138, 75, 0.4);
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 5px 10px;
+  border-radius: var(--wz-r-full);
   white-space: nowrap;
 }
 
 .well-close {
   appearance: none;
-  border: 1px solid rgba(60, 80, 60, 0.25);
-  background: rgba(255, 255, 255, 0.7);
-  color: #33502f;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  border-radius: 999px;
-  font-size: 0.95rem;
+  border: 1px solid rgba(58, 43, 18, 0.2);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--wz-ink);
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: var(--wz-r-full);
+  font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease;
+}
+
+.well-close:hover {
+  background: #ffffff;
+}
+
+.well-close:active {
+  transform: scale(0.94);
 }
 
 .well-rows {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--wz-s2);
   max-height: 34vh;
   overflow-y: auto;
 }
@@ -663,11 +978,11 @@
 .well-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--wz-s2);
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(201, 138, 75, 0.3);
-  border-radius: 14px;
-  padding: 8px 10px;
+  border-radius: var(--wz-r-s);
+  padding: var(--wz-s2) 10px;
 }
 
 .well-row.wearing {
@@ -679,34 +994,215 @@
   width: 22px;
   height: 22px;
   min-width: 22px;
-  border-radius: 8px;
+  border-radius: var(--wz-r-s);
   box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .well-name {
   flex: 1;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: var(--wz-fs-sm);
   color: #3a2b12;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .well-row button,
 .well-row .btn {
-  min-height: 42px;
+  min-height: 44px;
   min-width: 84px;
-  font-size: 0.86rem;
-  border-radius: 11px;
+  font-size: var(--wz-fs-xs);
+  border-radius: var(--wz-r-s);
 }
 
-@media (max-width: 560px) {
-  .world-entry {
-    gap: 10px;
-    padding-inline: 14px;
-  }
-  .entry-title {
-    font-size: 0.94rem;
-  }
+@media (min-width: 768px) {
   .world-well {
-    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--wz-s4) + var(--wz-safe-bottom));
+    border-bottom: var(--wz-panel-border);
+    border-radius: var(--wz-r-l);
+    box-shadow: var(--wz-panel-shadow);
+  }
+}
+
+/* ============================================================
+   THE WORLD GAME SHELF (#world-shelf) — the full picker. Same
+   panel language as every other surface: frosted cream, ink
+   text, zone-color accents, a uniform 2-column card grid with
+   band section headers when the whole zone offers itself.
+   (The dark game-screen shelf is untouched — these overrides
+   are scoped to the world's own shelf id.)
+   ============================================================ */
+
+#world-shelf .shelf-panel {
+  width: min(100%, 560px);
+  margin: 0 auto calc(var(--wz-s4) + var(--wz-safe-bottom));
+  padding: var(--wz-s4);
+  border-radius: var(--wz-r-l);
+  background: var(--wz-panel-bg);
+  border: var(--wz-panel-border);
+  box-shadow: var(--wz-panel-shadow);
+  max-height: calc(100% - 48px - var(--wz-safe-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+#world-shelf .shelf-title {
+  font-size: var(--wz-fs-md);
+  font-weight: 800;
+  color: var(--wz-ink);
+}
+
+#world-shelf .shelf-close {
+  color: var(--wz-ink);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(58, 43, 18, 0.2);
+}
+
+#world-shelf .shelf-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--wz-s2);
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block-end: var(--wz-s1);
+  min-height: 0;
+}
+
+@media (min-width: 480px) {
+  #world-shelf .shelf-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* band section headers (the whole-zone shelf groups its games) */
+#world-shelf .shelf-group-title {
+  grid-column: 1 / -1;
+  font-size: var(--wz-fs-xs);
+  font-weight: 800;
+  color: var(--wz-ink-soft);
+  letter-spacing: 0.02em;
+  padding-block-start: var(--wz-s2);
+  margin-block-start: var(--wz-s1);
+  border-top: 1px solid rgba(58, 43, 18, 0.1);
+}
+
+#world-shelf .shelf-group-title:first-child {
+  margin-block-start: 0;
+  padding-block-start: 0;
+  border-top: none;
+}
+
+#world-shelf .shelf-card {
+  width: auto;
+  min-height: 96px;
+  height: 100%;
+  justify-content: center;
+  border-radius: var(--wz-r-s);
+  border: 1.5px solid color-mix(in srgb, var(--sc) 50%, transparent);
+  background: color-mix(in srgb, var(--sc) 14%, #fffdf4);
+  color: var(--wz-ink);
+  padding: var(--wz-s3) var(--wz-s2);
+}
+
+#world-shelf .shelf-card:hover:not(.locked):not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--sc) 35%, transparent);
+}
+
+/* locked = visibly locked: solid muted surface, dashed edge, no ghosting */
+#world-shelf .shelf-card.locked {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1.5px dashed rgba(58, 43, 18, 0.26);
+  color: rgba(34, 55, 31, 0.55);
+}
+
+#world-shelf .shelf-card.locked .shelf-icon {
+  opacity: 0.4;
+  filter: grayscale(0.8);
+}
+
+#world-shelf .shelf-name {
+  font-size: var(--wz-fs-xs);
+  color: inherit;
+}
+
+#world-shelf .shelf-dot {
+  background: rgba(34, 55, 31, 0.18);
+}
+
+#world-shelf .shelf-lockhint {
+  color: rgba(34, 55, 31, 0.6);
+}
+
+/* ============================================================
+   STATE EXCLUSIONS — one primary surface at a time owns the
+   bottom-center. The shell toggles entry-open / well-open on
+   the screen root; the shelf-open phase already existed.
+   ============================================================ */
+
+.screen--world.entry-open .world-quest,
+.screen--world.well-open .world-quest,
+.screen--world[data-world-phase='shelf-open'] .world-quest {
+  display: none;
+}
+
+.screen--world.entry-open .zone-compass,
+.screen--world.well-open .zone-compass,
+.screen--world[data-world-phase='shelf-open'] .zone-compass {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* the sheet owns the thumbs — the joystick and jump rest while
+   the clearing (or the well) offers itself */
+.screen--world.entry-open .world-controls .world-joy,
+.screen--world.entry-open .world-controls .world-jump-btn,
+.screen--world.well-open .world-controls .world-joy,
+.screen--world.well-open .world-controls .world-jump-btn {
+  display: none;
+}
+
+/* the grown-up corner rests too — the sheet's own close button is
+   the way out (nothing stays clickable-but-covered) */
+.screen--world.entry-open .world-foot,
+.screen--world.well-open .world-foot {
+  display: none;
+}
+
+/* ---------- narrow screens stay readable at 320px ---------- */
+
+@media (max-width: 359px) {
+  .world-status .light-chip {
+    min-height: 36px;
+    padding: 3px 9px;
+    font-size: var(--wz-fs-xs);
+  }
+
+  .world-menu .ui-btn,
+  .world-menu button.ui-btn--ghost {
+    padding: 8px 10px;
+  }
+
+  .entry-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .world-loading-star,
+  .lenny-bubble,
+  .landmark-plate,
+  .world-quest,
+  .quest-sparkle,
+  .world-entry,
+  .world-well {
+    animation: none;
   }
 }

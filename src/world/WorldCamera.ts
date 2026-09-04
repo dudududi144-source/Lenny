@@ -22,13 +22,17 @@ export const CHILD_CAMERA = {
   betaMin: 0.15,
   betaMax: 1.25,
   radiusMin: 3.4,
-  radiusMax: 34,
+  radiusMax: 46,
   inertia: 0.92,
   /** default angular sensibility 1000 → slower = bigger value */
   angularSensibility: Math.round(1000 / 0.6),
   startAlpha: -Math.PI / 2,
-  startBeta: 1.02,
-  startRadius: 15,
+  /* stage 14-B/C composition: beta 0.93 (~37° above the horizon) — the
+     child SEES the road and the next clearing ahead (the stage-13 angle
+     hid the ground only ~9u in front of the paws) and still keeps the
+     horizon band where the continent shows off */
+  startBeta: 0.93,
+  startRadius: 16,
 } as const;
 
 export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamera {
@@ -57,8 +61,9 @@ export function createWorldCamera(scene: Scene, target: Vector3): ArcRotateCamer
   camera.pinchDeltaPercentage = 0.01;
 
   camera.minZ = 0.4;
-  /* stage 12: the continent + the mountain ring live far away */
-  camera.maxZ = 900;
+  /* stage 14-C: the continent + the mountain ring live FAR away now
+     (peaks at ~940u) — the far plane follows the horizon */
+  camera.maxZ = 2400;
 
   camera.attachControl();
 

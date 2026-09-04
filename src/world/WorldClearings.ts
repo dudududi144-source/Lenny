@@ -109,6 +109,15 @@ function buildAcorn(scene: Scene, x: number, z: number): TransformNode {
   stem.position.y = 0.8;
   stem.material = acornCapMat;
   stem.parent = root;
+  /* one acorn = ONE draw call (44 woods × 3 parts would tax software
+     renderers) — the multi-material merge keeps both looks */
+  const parts = [nut, cap, stem];
+  const merged = Mesh.MergeMeshes(parts, true, false, undefined, false, true);
+  if (merged) {
+    merged.name = 'acorn-body';
+    merged.parent = root;
+    merged.isPickable = false;
+  }
   return root;
 }
 
@@ -243,6 +252,11 @@ export function buildClearings(scene: Scene): ClearingsHandle {
 
   let visibleZones: ReadonlySet<string> = new Set(zoneSet);
 
+  /* stage 14 perf honesty: distance culling for the woods + the pads
+     (the fog already hides everything past ~450u — drawing it is waste) */
+  const ACORN_DRAW_RADIUS = 90;
+  const STATION_DRAW_RADIUS = 260;
+
   return {
     refresh(unlockedZones: ReadonlySet<string>): void {
       visibleZones = unlockedZones;
@@ -251,18 +265,26 @@ export function buildClearings(scene: Scene): ClearingsHandle {
         s.root.setEnabled(on);
       }
     },
-    update(t, _dt, _px, _pz): void {
+    update(t, dt, px, pz): void {
       /* pads pulse softly, pennants wave, acorns bob — transforms only */
       const pulse = 1 + Math.sin(t * 2.4) * 0.07;
       for (const s of stations) {
-        if (!s.root.isEnabled()) continue;
+        const show =
+          visibleZones.has(s.spot.zone) &&
+          Math.hypot(px - s.spot.x, pz - s.spot.z) < STATION_DRAW_RADIUS;
+        if (s.root.isEnabled() !== show) s.root.setEnabled(show);
+        if (!show) continue;
         s.padGlow.scaling.x = pulse;
         s.padGlow.scaling.z = pulse;
         s.pillar.visibility = 0.1 + Math.sin(t * 1.7 + s.spot.dist) * 0.035;
         s.pennant.rotation.y = s.spot.facing + Math.sin(t * 1.9 + s.spot.x) * 0.12;
       }
       for (const a of acornNodes) {
-        if (!a.node.isEnabled()) continue;
+        const show =
+          !collected.has(a.spot.id) &&
+          Math.hypot(px - a.spot.x, pz - a.spot.z) < ACORN_DRAW_RADIUS;
+        if (a.node.isEnabled() !== show) a.node.setEnabled(show);
+        if (!show) continue;
         a.node.rotation.y = t * 0.8 + a.spot.x;
         a.node.position.y = terrainHeight(a.spot.x, a.spot.z) + Math.sin(t * 2.2 + a.spot.z) * 0.05;
       }

@@ -88,7 +88,7 @@ describe('WorldLayout', () => {
     const inside = clampToWalkArea(3, 4);
     expect(inside.x).toBe(3);
     expect(inside.z).toBe(4);
-    const outside = clampToWalkArea(400, 400);
+    const outside = clampToWalkArea(700, 700);
     expect(Math.hypot(outside.x, outside.z)).toBeCloseTo(WORLD_WALK_RADIUS, 6);
   });
 

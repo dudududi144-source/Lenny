@@ -1,19 +1,21 @@
 /* ============================================================
  * WorldLayout — the pure geometry of the 3D world (unit-tested).
  *
- * STAGE 12 — the GREAT WIDE WORLD (the owner's verdict on stage 11:
- * "עדיין מכונס בתוך עצמו" — still folded into itself):
- *   - The ten zone islands no longer share one small spiral. THREE
- *     stay in the hub garden (the first steps of the journey) and
- *     SEVEN travel to the far REGIONS (WorldRegions) — reaching the
- *     next stage of the unlock chain is a real journey now, along a
- *     road, with signposts and a compass.
- *   - The curated world grew ~×34 in area (WALK_RADIUS 51 → 300):
- *     the hub ring, the six region patches, the roads between them.
- *   - TWENTY-FOUR named landmarks (the 16 beloved + 8 region heroes),
- *     SEVEN named friends, and signposts that make it all legible.
- *   - Beyond the curated world: the endless meadow, now at
- *     continent scale (WANDER_RADIUS 330), terrain-aware.
+ * STAGE 14-C — the VAST CONTINENT (the owner's 6th verdict: the map
+ * expansion he asked for five times was never actually delivered,
+ * and "הכל יוצא מפרופורציה" — the sizes of things were incoherent):
+ *   - The SIX REGIONS move out to 340–450 units (radii 112–130) —
+ *     every region is now a DESTINATION with an interior worth
+ *     exploring, not a patch beside the garden.
+ *   - WORLD_WALK_RADIUS 300 → 600, WANDER 330 → 640: the whole
+ *     continent is walkable, end to end.
+ *   - The landmark census grows 24 → 44: every region hosts 3–4 NEW
+ *     places of distinct silhouettes (towers, arches, a ship, a
+ *     waterfall, crystal fields, a henge...) beside its hero.
+ *   - THE PROPORTION LADDER: one coherent scale for everything —
+ *     fox ~1.2u, friends ~0.8-1.2, cottages ~2.8, trees 5-10,
+ *     landmarks 7-16 (heroes), stations pad ~2.3u + pennant 3.4u.
+ *     The landmark keep-outs grew with their bodies.
  *
  * Pure math only: positions, distances, proximity. No Babylon,
  * no DOM — the unit tests pin every number the world depends on.
@@ -47,13 +49,15 @@ const ISLAND_TABLE: Record<ZoneId, [number, number]> = {
   'light-path': [0, -8.2],
   'memory-hill': [-16.8, -3.4],
   'breath-pool': [13.5, 11.5],
-  'attention-stream': [-136, -110],
-  'thinking-forest': [-172, -152],
-  'space-sky': [-196, 42],
-  'words-valley': [-42, 190],
-  'feelings-garden': [82, 186],
-  'creativity-meadow': [118, 232],
-  'rhythm-square': [196, 82],
+  /* the far stages live INSIDE their regions now — off each region's
+     road axis, deep enough that the patch has an interior to roam */
+  'attention-stream': [-347.2, -336.9],
+  'thinking-forest': [-381.2, -298.5],
+  'space-sky': [-381, 76.2],
+  'words-valley': [-87.6, 438.4],
+  'feelings-garden': [193, 445],
+  'creativity-meadow': [243.5, 420.9],
+  'rhythm-square': [397.5, 143.1],
 };
 
 /** The islands that share the hub's golden spiral ribbon (in journey order). */
@@ -86,11 +90,11 @@ export function islandCenter(zone: ZoneId): { x: number; z: number } {
 /** The hub garden ring (the flat stage-11 world): its own curated place. */
 export const HUB_RADIUS = 51;
 
-/** The curated continent: hub + regions + roads + landmarks. */
-export const WORLD_WALK_RADIUS = 300;
+/** The curated continent: hub + regions + roads + landmarks (14-C: the whole map). */
+export const WORLD_WALK_RADIUS = 600;
 
 /** Beyond the curated continent — the endless meadow (WorldMeadow chunks). */
-export const WANDER_RADIUS = 330;
+export const WANDER_RADIUS = 640;
 
 /** Clamp a target point into the whole wanderable world (the child stays in the world, the world never ends visibly). */
 export function clampToWanderArea(x: number, z: number): { x: number; z: number } {
@@ -111,8 +115,9 @@ export function clampToWalkArea(x: number, z: number): { x: number; z: number } 
 /* ---------- calm walking (critic round B, W4) ---------- */
 
 /** Peak walk speed — brisk enough that a region-to-region journey is an
-    adventure (30–60s of scenery), never a chore on a continent this big. */
-export const MAX_WALK_SPEED = 7.2;
+    adventure (30–60s of scenery), never a chore on a continent this big
+    (14-C: the continent doubled, so the stride did too). */
+export const MAX_WALK_SPEED = 9.6;
 
 /** Distance at which a walk target counts as reached. */
 export const WALK_ARRIVE_EPS = 0.09;
@@ -191,7 +196,38 @@ export type LandmarkKind =
   | 'mega-flower'
   | 'obelisk'
   | 'oasis'
-  | 'stone-arch';
+  | 'stone-arch'
+  /* stage 14-C — twenty more silhouettes: every region gets an
+     interior worth exploring (arch / tower / ship / waterfall /
+     crystal / henge / mushroom ring...) */
+  | 'watch-tower'
+  | 'giant-mushrooms'
+  | 'hollow-stump'
+  | 'wood-arch'
+  | 'ice-arch'
+  | 'igloo'
+  | 'ice-crystal'
+  | 'waterfall-rock'
+  | 'ferry-boat'
+  | 'willow-tree'
+  | 'giant-tulip'
+  | 'dandelion-tower'
+  | 'petal-arch'
+  | 'rose-ring'
+  | 'sand-pyramid'
+  | 'dune-arch'
+  | 'buried-ship'
+  | 'ruined-gate'
+  | 'crystal-cluster'
+  | 'stone-circle'
+  /* stage 14-E — the far reaches: six more places on the continent's
+     edges, so even the long walk between regions always has a somewhere */
+  | 'honey-tree'
+  | 'moon-pond'
+  | 'snow-friend'
+  | 'reed-hut'
+  | 'sun-clock'
+  | 'star-stone';
 
 export interface LandmarkDef {
   id: LandmarkKind;
@@ -210,7 +246,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'זֶה הָעֵץ הַגָּדוֹל! הֶעָלִים שֶׁלּוֹ מִתְנַדְנָדִים בָּרוּחַ.',
     x: -8.87,
     z: 32.14,
-    keep: 1.7,
+    keep: 2.0,
   },
   {
     id: 'pond',
@@ -218,7 +254,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'הַבְּרֵכָה! רוֹאִים בָּהּ אֶת הַשֶּׁמֶשׁ מְנַצְנֵצֶת עַל הַמַּיִם.',
     x: 4.29,
     z: -29.39,
-    keep: 1.3,
+    keep: 2.8,
   },
   {
     id: 'mushrooms',
@@ -226,7 +262,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'מַעְגַּל פְּטְרִיּוֹת! הֵן גָּדְלוּ כָּאן בְּמָעוֹל, אַחַת לְיַד הַשְּׁנִיָּה.',
     x: 20.32,
     z: -1.69,
-    keep: 1.3,
+    keep: 2.0,
   },
   {
     id: 'windmill',
@@ -234,7 +270,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'טַחֲנַת הָרוּחַ! הַכַּנְפַיִם שֶׁלָּהּ מִסְתּוֹבְבוֹת לְאַט, לְאַט.',
     x: 28.21,
     z: -20.81,
-    keep: 1.5,
+    keep: 1.9,
   },
   {
     id: 'rainbow',
@@ -242,7 +278,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'קֶשֶׁת! צְבָעִים בָּאִים לְבַקֵּר אֶת הַגַּן.',
     x: 0.65,
     z: 11.74,
-    keep: 1.6,
+    keep: 1.8,
   },
   {
     id: 'fireflies',
@@ -250,7 +286,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'קְרֵחַת הַנְּצִנְצִים! כָּאן הָאוֹר מְנַצְנֵץ גַּם בַּלַּיְלָה.',
     x: -45.03,
     z: 14.24,
-    keep: 1.3,
+    keep: 1.6,
   },
   {
     id: 'beehive',
@@ -258,7 +294,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'בֵּית הַדְּבוֹרִים! בּוּם, בּוּם — הַדְּבוֹרִים עוֹבְדוֹת כָּאן.',
     x: 16.83,
     z: 21.53,
-    keep: 1.8,
+    keep: 2.0,
   },
   {
     id: 'turtle-rock',
@@ -266,7 +302,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'אֶבֶן הַצָּב! הִיא נִרְאֵית כְּמוֹ צָב יָשֵׁן וְחָכָם.',
     x: -3.08,
     z: -37.12,
-    keep: 1.5,
+    keep: 1.9,
   },
   {
     id: 'orchard',
@@ -274,7 +310,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'הַפַּרְדֵּס! עֵצֵי תַּפּוּחַ טְעוּנִים בְּפֵרוֹת אֲדֻמִּים.',
     x: -25.1,
     z: 31.32,
-    keep: 1.4,
+    keep: 3.0,
   },
   {
     id: 'hollow-log',
@@ -282,7 +318,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'בּוֹל חָלוּל! מִי גָּר בְּפֶנִים? אוּלַי קִפּוּד קָטָן.',
     x: -41.28,
     z: -16.17,
-    keep: 1.6,
+    keep: 3.0,
   },
   {
     id: 'swing',
@@ -290,7 +326,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'נְדָנְדָּה! הַמוֹשָׁב מִתְנַדְנֵד בָּרוּחַ, קָדִימָה וְאָחוֹרָה.',
     x: -35.27,
     z: -24.54,
-    keep: 1.3,
+    keep: 1.9,
   },
   {
     id: 'well',
@@ -298,7 +334,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'הַבְּאֵר! זוֹרְקִים פֶּה לְתוֹךְ הַמַּיִם וְשׁוֹמְעִים בֻּלְבֻּל.',
     x: 34.93,
     z: 28.07,
-    keep: 1.4,
+    keep: 1.8,
   },
   {
     id: 'balloon',
@@ -306,7 +342,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'בָּלוּן עָנָק! הוּא קָשׁוּר לַקַּרְקַע וּמְנַפְנֵף לְמַעְלָה.',
     x: -22.72,
     z: 37.85,
-    keep: 1.5,
+    keep: 1.7,
   },
   {
     id: 'sunflower',
@@ -314,7 +350,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'חַמָּנִית עָנָקִית! הִיא מַסְתַּכֶּלֶת אֶל הַשֶּׁמֶשׁ כָּל הַיּוֹם.',
     x: -10.54,
     z: -29.82,
-    keep: 1.4,
+    keep: 1.8,
   },
   {
     id: 'crystal-cave',
@@ -322,7 +358,7 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'הַמָּעָרָה! הַבִּדּוּלִיּוֹת בְּפֶנִים מְנַצְנְצוֹת כְּמוֹ כּוֹכָבִים.',
     x: -47.47,
     z: 8.26,
-    keep: 1.3,
+    keep: 1.8,
   },
   {
     id: 'campfire',
@@ -330,72 +366,284 @@ export const LANDMARKS: LandmarkDef[] = [
     line: 'מַדּוּרָה! סָבִיב הָאוֹר יוֹשְׁבִים וּמְסַפְּרִים סִפּוּרִים.',
     x: -10.58,
     z: -2.47,
-    keep: 1.3,
+    keep: 1.5,
   },
-  /* ---- stage 12: the region heroes (tall silhouettes for wayfinding) ---- */
+  /* ---- stage 12: the region heroes (tall silhouettes for wayfinding) —
+     stage 14-C: they moved OUT with their regions ---- */
   {
     id: 'giant-tree',
     name: 'עֵץ הָעָנָק',
     line: 'עֵץ הָעָנָק! הַצִּמֶרֶת שֶׁלּוֹ נוֹגַעַת כְּמַעַט בָּעֲנָנִים.',
-    x: -186,
-    z: -132,
-    keep: 2.0,
+    x: -285,
+    z: -300,
+    keep: 3.2,
   },
   {
     id: 'wood-hut',
     name: 'בִּקְתַּת הַיַּעַר',
     line: 'בִּקְתָּה! מִי גָּר כָּאן? אוּלַי נַמֵּר צָנוּעַ.',
-    x: -142,
-    z: -172,
-    keep: 1.5,
+    x: -344,
+    z: -242,
+    keep: 2.4,
   },
   {
     id: 'ice-tower',
     name: 'מִגְדַּל הַקֶּרַח',
     line: 'מִגְדַּל קֶרַח! הוּא מְנַצְנֵץ כְּמוֹ מַגְדָּל שֶׁל כּוֹכָבִים.',
-    x: -228,
-    z: 44,
-    keep: 2.0,
+    x: -357,
+    z: 47,
+    keep: 3.2,
   },
   {
     id: 'watermill',
     name: 'טַחֲנַת הַמַּיִם',
     line: 'טַחֲנַת מַיִם! הַגַּלְגִּל מִסְתּוֹבֵב עִם הַזְּרִימָה.',
-    x: -84,
-    z: 240,
-    keep: 2.0,
+    x: -80,
+    z: 430,
+    keep: 3.0,
   },
   {
     id: 'mega-flower',
     name: 'הַפֶּרַח הֶעָנָק',
     line: 'פֶּרַח עָנָק! הַדְּבוֹרוֹת נוֹחֲתוֹת עָלָיו כְּמוֹ בְּמֵעִית.',
-    x: 112,
-    z: 224,
-    keep: 1.8,
+    x: 233,
+    z: 403,
+    keep: 3.0,
   },
   {
     id: 'obelisk',
     name: 'מַצֵּבַת הַחוֹל',
     line: 'מַצֵּבָה! אִישׁ אֵינוֹ יוֹדֵעַ מִי הִצִּיב אוֹתָהּ כָּאן.',
-    x: 228,
-    z: 112,
-    keep: 2.0,
+    x: 345,
+    z: 190,
+    keep: 3.2,
   },
   {
     id: 'oasis',
     name: 'נָוֶה קָטָן',
     line: 'נָוֶה! מַיִם בְּתוֹךְ הַחוֹל — מַתָּנָה קְטַנָּה שֶׁל הַמִּדְבָּר.',
-    x: 188,
-    z: 52,
-    keep: 1.4,
+    x: 367,
+    z: 107,
+    keep: 2.6,
   },
   {
     id: 'stone-arch',
     name: 'קֶשֶׁת הָאֲבָנִים',
     line: 'קֶשֶׁת אֲבָנִים! מִי בָּנָה פֹּה שַׁעַר לְפָנִים רַבּוֹת?',
-    x: 184,
-    z: -146,
-    keep: 2.2,
+    x: 388,
+    z: -207,
+    keep: 3.4,
+  },
+  /* ---- stage 14-C: twenty more places — every region gets an
+     interior worth exploring, each a distinct silhouette ---- */
+  {
+    id: 'watch-tower',
+    name: 'מִגְדַּל הַשְּׁמִירָה',
+    line: 'מִגְדָּל! מִלְמַעְלָה רוֹאִים אֶת כָּל הַיַּעַר — מִי עוֹלֶה אִתִּי?',
+    x: -311,
+    z: -342,
+    keep: 3.0,
+  },
+  {
+    id: 'giant-mushrooms',
+    name: 'פְּטְרִיּוֹת הָעֲנָק',
+    line: 'פְּטְרִיּוֹת עֲנָקִיּוֹת! תַּחַת לָהֶן מִסְתַּתֵּר גֶּשֶׁם.',
+    x: -385,
+    z: -261,
+    keep: 3.6,
+  },
+  {
+    id: 'hollow-stump',
+    name: 'הַגְּדִיעָה הַחֲלוּלָה',
+    line: 'גְּדִיעָה חֲלוּלָה! מִי גָּר בְּתוֹכָהּ? שָׁקֵט, נַקְשִׁיב.',
+    x: -268,
+    z: -258,
+    keep: 2.6,
+  },
+  {
+    id: 'wood-arch',
+    name: 'קֶשֶׁת הָעֵצִים',
+    line: 'קֶשֶׁת שֶׁל עֵצִים חַיִּים! הַעֲנָפִים מִתְקַשְׁרִים מֵעַל הַדֶּרֶךְ.',
+    x: -304,
+    z: -238,
+    keep: 2.6,
+  },
+  {
+    id: 'ice-arch',
+    name: 'קֶשֶׁת הַקֶּרַח',
+    line: 'קֶשֶׁת קֶרַח! הִיא מְנַצְנֵצֶת כְּמוֹ שַׁעַר שֶׁל מַמְלֶכֶת הַשֶּׁלֶג.',
+    x: -324,
+    z: 149,
+    keep: 3.0,
+  },
+  {
+    id: 'igloo',
+    name: 'בֵּית הַשֶּׁלֶג',
+    line: 'בַּיִת מִשֶּׁלֶג! חָם בְּפֶנִים, קָר מִבַּחוּץ — כְּמוֹ חֲבָקָה.',
+    x: -297,
+    z: 50,
+    keep: 3.0,
+  },
+  {
+    id: 'ice-crystal',
+    name: 'הַבִּדּוּלִית הָעָנְקִית',
+    line: 'בִּדּוּלִית עָנְקִית! הָאוֹר מְשַׂחֵק בְּתוֹכָהּ כְּמוֹ קַשְׁת.',
+    x: -261,
+    z: 100,
+    keep: 2.6,
+  },
+  {
+    id: 'waterfall-rock',
+    name: 'סֶלַע הַמְפָל',
+    line: 'מְפָל! הַמַּיִם נוֹפְלִים מִלְמַעְלָה וְשָׁרִים שִׁיר.',
+    x: -159,
+    z: 379,
+    keep: 3.4,
+  },
+  {
+    id: 'ferry-boat',
+    name: 'סִירַת הַמַּעֲבָר',
+    line: 'סִירָה! הִיא מְחַכָּה לְהַפְלָגָה בַּנְּהָר הַשָּׁקֵט.',
+    x: -50,
+    z: 434,
+    keep: 3.2,
+  },
+  {
+    id: 'willow-tree',
+    name: 'עֵץ הָעֲרָבָה',
+    line: 'עֲרָבָה! שְׂעָרוֹת שֶׁלָּהֶן נוֹגְעוֹת כְּמַעַט בַּמַּיִם.',
+    x: -166,
+    z: 363,
+    keep: 3.4,
+  },
+  {
+    id: 'giant-tulip',
+    name: 'הַצַּבָּצוֹן הֶעָנָק',
+    line: 'צַבָּצוֹן עָנָק! אֶפְשָׁר לְהִסְתַּכֵּל לְתוֹךְ הַכּוּס.',
+    x: 148,
+    z: 417,
+    keep: 2.6,
+  },
+  {
+    id: 'dandelion-tower',
+    name: 'מִגְדַּל הַשַּׁעִיר',
+    line: 'שַּׁעִיר עָנָק! נְשִׁיפָה קְטַנָּה — וְכָל הַפְּרָחִים עָפִים.',
+    x: 222,
+    z: 344,
+    keep: 2.6,
+  },
+  {
+    id: 'petal-arch',
+    name: 'קֶשֶׁת הַעָלִים',
+    line: 'קֶשֶׁת שֶׁל עָלִים וּפְרָחִים! כָּל צֶבַע עוֹבֵר פֹּה.',
+    x: 146,
+    z: 357,
+    keep: 2.8,
+  },
+  {
+    id: 'rose-ring',
+    name: 'מַעְגַּל הַוְּרָדִים',
+    line: 'מַעְגַּל וְרָדִים! מִסְבִיב רֵיחַ מְתוּק שֶׁל קִץ.',
+    x: 180,
+    z: 327,
+    keep: 3.4,
+  },
+  {
+    id: 'sand-pyramid',
+    name: 'הַפִּרְמִידָה',
+    line: 'פִּרְמִידָה מֵחוֹל! מִי בָּנָה אוֹתָהּ? וְלָמָּה הִיא כָּל כָּךְ גְּדוֹלָה?',
+    x: 297,
+    z: 168,
+    keep: 3.4,
+  },
+  {
+    id: 'dune-arch',
+    name: 'קֶשֶׁת הַחוֹל',
+    line: 'קֶשֶׁת אֲבָנִים בַּמִּדְבָּר! הָרוּחַ חָצְבָה אוֹתָהּ לְאַט, לְאַט.',
+    x: 315,
+    z: 101,
+    keep: 3.0,
+  },
+  {
+    id: 'buried-ship',
+    name: 'סְפִינָה בַּחוֹל',
+    line: 'סְפִינָה! פַּעַם שָׁטָה בַּיָּם — וְהַיּוֹם הַחוֹל מַטְמִין אוֹתָהּ.',
+    x: 285,
+    z: 139,
+    keep: 3.2,
+  },
+  {
+    id: 'ruined-gate',
+    name: 'שַׁעַר הֶהָרִים',
+    line: 'שַׁעַר עָתִיק שֶׁנִּשְׁבָּר! מִי עָבַר בּוֹ פַעַם?',
+    x: 343,
+    z: -294,
+    keep: 3.2,
+  },
+  {
+    id: 'crystal-cluster',
+    name: 'גִּבְעוֹת הַבִּדּוּלִיּוֹת',
+    line: 'בִּדּוּלִיּוֹת! כֻּלָּן מְנַצְנְצוֹת — כְּמוֹ שֶׁלֶג שֶׁזוֹכֵר אוֹר.',
+    x: 342,
+    z: -187,
+    keep: 2.8,
+  },
+  {
+    id: 'stone-circle',
+    name: 'מַעְגַּל הָאֲבָנִים',
+    line: 'מַעְגַּל אֲבָנִים עָתִיק! הֵן מְחַכּוֹת פֹּה כְּבָר שָׁנִים רַבּוֹת.',
+    x: 301,
+    z: -232,
+    keep: 3.6,
+  },
+  /* ---------- stage 14-E: the far reaches ---------- */
+  {
+    id: 'honey-tree',
+    name: 'עֵץ הַדְּבַשׁ',
+    line: 'עֵץ מַתָּק! הֶעָלִים שֶׁלּוֹ מִנַּצְנְצִים כְּמוֹ דְּבַשׁ בַּשֶּׁמֶשׁ.',
+    x: -520,
+    z: -80,
+    keep: 2.6,
+  },
+  {
+    id: 'moon-pond',
+    name: 'בְּרֵכַת הַיָּרֵחַ',
+    line: 'בְּרֵכָה שֶׁזוֹכֶרֶת אֶת הַלַּיְלָה! בְּתוֹכָהּ יָרֵחַ קָטָן שֶׁל מַיִם.',
+    x: 60,
+    z: 555,
+    keep: 2.8,
+  },
+  {
+    id: 'snow-friend',
+    name: 'יֶדִיד הַשֶּׁלֶג',
+    line: 'חָבֵר מִשֶּׁלֶג! עַל הָאֹפֶן שֶׁלּוֹ חִיָּוךְ — מְחַכֶּה לְחִבּוּק.',
+    x: -480,
+    z: 300,
+    keep: 2.6,
+  },
+  {
+    id: 'reed-hut',
+    name: 'בִּקְתַת הַקָּנִים',
+    line: 'בִּקְתָה מִקְּנֵי נָהָר! פֹּה הַרוּחַ שָׁרָה שִׁירֵי קָנִים.',
+    x: 500,
+    z: 285,
+    keep: 2.6,
+  },
+  {
+    id: 'sun-clock',
+    name: 'שְׁעוֹן הַשֶּׁמֶשׁ',
+    line: 'שָׁעוֹן עָתִיק מֵאֲבָנִים! הַצֵּל מְסַפֵּר אֶת הַשָּׁעָה בַּיּוֹם.',
+    x: 425,
+    z: -390,
+    keep: 2.6,
+  },
+  {
+    id: 'star-stone',
+    name: 'אֶבֶן הַכּוֹכָבִים',
+    line: 'אֶבֶן בְּצוּרַת כּוֹכָב! אוֹמְרִים שֶׁנָּפְלָה מִמָּעַל בְּלַיְלָה בָּהִיר.',
+    x: 150,
+    z: -500,
+    keep: 2.8,
   },
 ];
 
@@ -719,27 +967,27 @@ export const FRIENDS: FriendDef[] = [
     x: 4.0,
     z: -20.3,
   },
-  /* ---- stage 12: friends out in the regions ---- */
+  /* ---- stage 12: friends out in the regions (14-C: they moved out too) ---- */
   {
     id: 'hedgehog',
     name: 'קוּצִי הַקִפּוֹד',
     line: 'פִּיף, פִּיף! בַּיַּעַר כָּל קוּץ מְגַן — וְכָל פֶּרַח מְנַשֶּׁב.',
-    x: -152,
-    z: -122,
+    x: -322,
+    z: -268,
   },
   {
     id: 'penguin',
     name: 'פֶּנְגּוּ הַפִּנְגּוִין',
     line: 'אִיִּיח! הַקֶּרַח כָּאן מַחֲלִיק — רוֹצֶה לְנַסּוֹת?',
-    x: -206,
-    z: 74,
+    x: -350,
+    z: 82,
   },
   {
     id: 'lizard',
     name: 'שָׁמִישׁ הַלִטְפָּן',
     line: 'צְּצְצְ... חַם פֹּה! אֲנִי אוֹהֵב לְהִשָּׁקֵט עַל הַאֲבָנִים.',
-    x: 226,
-    z: 70,
+    x: 372,
+    z: 148,
   },
 ];
 

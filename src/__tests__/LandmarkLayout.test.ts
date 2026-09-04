@@ -17,16 +17,16 @@ describe('LANDMARKS — the places beyond the path (critic round B, W1)', () => 
     return m;
   };
 
-  it('has twenty-four named places, each with a Hebrew name and a narration line', () => {
-    expect(LANDMARKS.length).toBe(24);
+  it('has fifty named places, each with a Hebrew name and a narration line', () => {
+    expect(LANDMARKS.length).toBe(50);
     for (const l of LANDMARKS) {
       expect(l.name.length).toBeGreaterThan(2);
       expect(l.line.length).toBeGreaterThan(8);
       expect(l.keep).toBeGreaterThan(0.8);
-      expect(l.keep).toBeLessThanOrEqual(2.2);
+      expect(l.keep).toBeLessThanOrEqual(3.6);
     }
     const ids = new Set(LANDMARKS.map((l) => l.id));
-    expect(ids.size).toBe(24);
+    expect(ids.size).toBe(50);
   });
 
   it('every landmark sits inside the walkable world with a margin', () => {

@@ -1,9 +1,10 @@
 # Lenny — Garden of Lights
 
 A cognitive garden for children ages 4-7, in Hebrew (full niqqud).
-Ten zones on a winding path — in a 3D world you walk through, or on the
-classic 2D map — each hosting real, playable games. Local-only data,
-no ads, no purchases, no third-party requests.
+Ten zones of real games on a living continent — a 3D world you walk
+through (six far regions, thirty game clearings, a balloon vista, a
+garden well), or the classic 2D map. Local-only data, no ads, no
+purchases, no third-party requests.
 
 Bound by docs/ETHICS.md (the binding charter). Product truth in
 docs/GARDEN.md + docs/GDD.md.
@@ -45,27 +46,39 @@ exact ledger — no inflated claims, no hidden shrinkage.
   spec-driven content (`src/games/builder/`, `src/content/`); cognitive
   core (`src/games/core/` — DDA, progress, signals, skill graph).
 - **3D world** (`src/world/`): Babylon.js world on a LAZY chunk — and
-  since stage 12, a CONTINENT: you are a little fox who walks, turns and
-  jumps (third-person camera, keyboard/joystick/tap-to-walk, jump on
-  space or the thumb button) across a great wide world ~×34 the size of
-  the stage-11 garden. SIX far regions — יער הקסמים (enchanted forest),
-  ארץ השלג (snow land), עמק הנהר (river valley with a real carved river),
-  גבעות הפרחים (flower hills), דיונות החול (sand dunes) and הרי הסלע
-  (rocky hills) — each behind its own gate on its own road, each with
-  its own scenery palette, landmarks and friends. The ten zone islands
-  (the game stages) are SCATTERED across the regions: reaching the next
-  stage of the unlock chain is a real journey along plank roads with
-  Hebrew signposts and waystones. The land itself rolls: gentle hills
-  rise beyond the flat garden and the walker's ground follows them. 24
-  named landmarks (the 16 beloved + 8 region heroes tall enough to find
-  from afar), 7 named friends, and a mountain-and-clouds vista on the
-  horizon. Beyond the continent rolls the endless meadow (deterministic
-  seeded chunks, region-dressed, terrain-aware) with golden sparkles in
-  an honest local ledger. THE JOURNEY OF THE DAY: every local day, three
-  named places light their beacons — a fresh little expedition daily,
-  forever. Wayfinding compass, hour skies, bloom fields, Lenny the star
-  companion, fps governor, and the silent fallback chain (WebGPU →
-  WebGL2 → classic garden) all stay. Details in docs/ARCHITECTURE.md.
+  since stage 14, a LIVING CONTINENT: you are a little fox who walks,
+  turns and jumps (third-person camera, keyboard/joystick/tap-to-walk,
+  jump on space or the thumb button) across a walkable world ~600 units
+  in radius — the whole continent, hub to rim. SIX far REGIONS — יער
+  הקסמים (enchanted forest), ארץ השלג (snow land), עמק הנהר (river
+  valley with a real carved river), גבעות הפרחים (flower hills), דיונות
+  החול (sand dunes) and הרי הסלע (rocky hills) — are real DESTINATIONS
+  now: each sits far out on its own road, each with its own palette,
+  interior landmarks worth exploring and friends. 50 named landmarks
+  (16 beloved garden places + 8 stage-12 region heroes + 20 stage-14
+  interiors: watch-tower, giant mushrooms, waterfall rock, ferry boat,
+  giant tulip, sand pyramids, buried ship, ruined gate, crystal
+  cluster, stone circle... + 6 far reaches: the honey tree, the moon
+  pond, the snow friend, the reed hut, the sun clock, the star
+  stone). THE GAMES LIVE IN THE LAND: thirty game
+  clearings — three around every zone island, one per difficulty band
+  (הראשונים / הבאים / האמיץ) — light their pennants and pillars across
+  the map; stepping on a clearing pad opens its entry card (a bottom
+  sheet on the phone, a centered card on the desk) and offers that
+  band's games; the ten zone islands keep their full shelves. THE
+  GARDEN WELL: the acorns a child gathers on her walks are honest money
+  — spend them at the well on the fox's scarves, and the scarf is ON
+  the fox in the 3D world (local wardrobe only). THE JOURNEY OF THE
+  DAY: every local day, three named places light their beacons — a
+  fresh little expedition daily, forever. THE BALLOON VISTA (stage 13):
+  one tap on the balloon by the home meadow sends the fox up a 26-second
+  scenic flight that sees the whole continent — and lands exactly back
+  on its pad; a view, never a shortcut. The land rolls, the meadow
+  beyond is endless (deterministic seeded chunks, region-dressed,
+  terrain-aware), the compass and hour skies and bloom fields and Lenny
+  the star companion stay, the fps governor keeps honest renderers
+  alive, and the silent fallback chain (WebGPU → WebGL2 → classic
+  garden) never breaks a session. Details in docs/ARCHITECTURE.md.
 - **Sound** (`src/audio/`): fully synthesized music engine — silent by
   default (ETHICS §9); sound on is an explicit, remembered choice.
 - **ParentLens** (`src/ui/parentlens/`): a read-only dashboard over the

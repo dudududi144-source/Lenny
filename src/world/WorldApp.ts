@@ -196,7 +196,23 @@ async function createEngine(
   } catch {
     /* fall through — WebGL2 is the workhorse */
   }
-  const gl = new Engine(canvas, true, { stencil: false, preserveDrawingBuffer: false }, false);
+  /* stage 14 perf honesty: software GL (CI's SwiftShader, some old
+     school machines) pays 4x fragment samples for MSAA it cannot
+     afford — while real GPUs never notice it. One honest probe, one
+     flag: software renderers drop the AA, everyone else keeps the
+     crispness. The fps floor is a contract; so is the look. */
+  let antialias = true;
+  try {
+    const probe = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    if (probe) {
+      const dbg = probe.getExtension('WEBGL_debug_renderer_info');
+      const renderer = dbg ? String(probe.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
+      if (/swiftshader|llvmpipe|softpipe|software/i.test(renderer)) antialias = false;
+    }
+  } catch {
+    /* a shy probe keeps the default */
+  }
+  const gl = new Engine(canvas, antialias, { stencil: false, preserveDrawingBuffer: false }, false);
   if (gl.webGLVersion < 2) {
     gl.dispose();
     throw new WorldUnsupportedError('webgl2-unavailable');
@@ -742,6 +758,23 @@ export async function createWorldApp(
     const h = nearestZone(home.x, home.z, 0.2);
     return h ? h.zone : null;
   })();
+
+  /* stage 14 perf honesty: the continent is mostly STATIC — frozen
+     world matrices skip the per-frame matrix math for every place
+     that never moves (the animated few keep theirs). On software GL
+     the scene graph, not the pixels, was the floor's real enemy:
+     the fps was flat while the resolution scaled 1.0 → 3.6. */
+  const ANIMATED_PREFIXES = [
+    'fox', 'lenny', 'presence-', 'dest-', 'balloon-', 'acorn-', 'station-',
+    'quest-', 'friend', 'creature', 'sparkle', 'bird', 'butterfly',
+    'landmark-beacon-', 'landmark-windmill', 'landmark-swing',
+    'landmark-campfire', 'landmark-balloon', 'landmark-fireflies',
+    'landmark-watermill', 'rg-clouds', 'flora-cloud',
+  ];
+  for (const m of scene.meshes) {
+    if (ANIMATED_PREFIXES.some((p) => m.name.startsWith(p))) continue;
+    m.freezeWorldMatrix();
+  }
 
   engine.runRenderLoop(() => {
     if (paused || disposed) return;

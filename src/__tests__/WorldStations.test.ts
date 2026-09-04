@@ -17,7 +17,7 @@ import {
   tierBandOf,
   type StationSpot,
 } from '../world/WorldStations';
-import { WORLD_ISLANDS, LANDMARKS, WANDER_RADIUS, type LandmarkDef } from '../world/WorldLayout';
+import { WORLD_ISLANDS, LANDMARKS, WANDER_RADIUS } from '../world/WorldLayout';
 import { REGIONS } from '../world/WorldRegions';
 import { ZONES } from '../data/garden';
 

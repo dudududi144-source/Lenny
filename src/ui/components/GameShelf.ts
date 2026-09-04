@@ -2,7 +2,7 @@ import { CATEGORIES } from '../../data/games';
 import type { GameSpec } from '../../games/builder/GameSpec';
 import { zoneCatalog, tierUnlocked, tierMissing, displayNameFor } from '../../content/catalog';
 import { zoneName } from '../../games/core/ProgressStore';
-import { specsForBand, BAND_NAMES, type StationBand } from '../../world/WorldStations';
+import { specsForBand, BAND_NAMES, BAND_COUNT, type StationBand } from '../../world/WorldStations';
 import { ZONE_ICONS } from './zoneIcons';
 import { h } from './common/el';
 
@@ -23,9 +23,13 @@ export interface GameShelfHandle {
 }
 
 /** Optional shell metadata (Stage 7): a distinct DOM id when more than
- *  one shelf lives on the page (the world has its own). */
+ *  one shelf lives on the page (the world has its own), and whether a
+ *  whole-zone shelf groups its games under band section headers
+ *  (stage 14-B: the world shelf reads like a real game's menu; the
+ *  dark game-screen shelf keeps its flat row). */
 export interface GameShelfOptions {
   id?: string;
+  grouped?: boolean;
 }
 
 function hex(color: number): string {
@@ -113,6 +117,51 @@ export function createGameShelf(callbacks: GameShelfCallbacks, options: GameShel
     callbacks.onClose?.();
   }
 
+  function cardFor(spec: GameSpec, activeSpecId: string | null, zoneId: string): HTMLElement {
+    /* the game the garden's path brought the child to is ALWAYS open —
+       the shelf lock governs free choice, never the guided journey */
+    const unlocked = tierUnlocked(spec.category, spec.baseTier) || spec.id === activeSpecId;
+    const missing = unlocked ? 0 : tierMissing(spec.category, spec.baseTier);
+    const current = spec.id === activeSpecId;
+
+    const iconHolder = h('span', { class: 'shelf-icon', 'aria-hidden': 'true' });
+    iconHolder.innerHTML = ZONE_ICONS[zoneId] ?? '';
+
+    return h(
+      'button',
+      {
+        class: `shelf-card${unlocked ? '' : ' locked'}${current ? ' current' : ''}`,
+        type: 'button',
+        role: 'listitem',
+        'data-spec': spec.id,
+        'data-tier': String(spec.baseTier),
+        'aria-label': current
+          ? `${spec.id} — הַמִּשְׂחָק הַנּוֹכְחִי`
+          : unlocked
+            ? `${spec.id} — שִׂחֲקוּ עַכְשָׁו`
+            : `${spec.id} — נָעוּל, עוֹד ${missing} הַשְׁלָמוֹת`,
+        style: `--sc: ${hex(CATEGORIES[spec.category].color)}`,
+        disabled: !unlocked,
+        onClick: () => {
+          if (!unlocked) return;
+          close();
+          callbacks.onPick(spec);
+        },
+      },
+      iconHolder,
+      h('span', { class: 'shelf-name' }, displayNameFor(spec)),
+      tierDots(spec),
+      unlocked
+        ? h('span', { class: 'shelf-go', 'aria-hidden': 'true' }, '▶')
+        : h(
+            'span',
+            { class: 'shelf-lockhint' },
+            lockChipSvg(),
+            ` עוֹד ${missing} הַשְׁלָמוֹת`,
+          ),
+    );
+  }
+
   function build(zoneId: string, activeSpecId: string | null, band: StationBand | null): void {
     const all = zoneCatalog(zoneId);
     const specs = band === null || band === undefined ? all : specsForBand(all, band);
@@ -122,50 +171,20 @@ export function createGameShelf(callbacks: GameShelfCallbacks, options: GameShel
         : `${BAND_NAMES[band]} · ${zoneName(zoneId)}`;
     row.replaceChildren();
 
+    if (options.grouped === true && (band === null || band === undefined)) {
+      /* stage 14-B: the whole-zone shelf groups its games under the
+         journey's band names — three clear sections, no scroll soup */
+      for (let b = 0 as StationBand; b < BAND_COUNT; b = (b + 1) as StationBand) {
+        const groupSpecs = specsForBand(specs, b);
+        if (groupSpecs.length === 0) continue;
+        row.append(h('div', { class: 'shelf-group-title' }, BAND_NAMES[b]));
+        for (const spec of groupSpecs) row.append(cardFor(spec, activeSpecId, zoneId));
+      }
+      return;
+    }
+
     for (const spec of specs) {
-      /* the game the garden's path brought the child to is ALWAYS open —
-         the shelf lock governs free choice, never the guided journey */
-      const unlocked = tierUnlocked(spec.category, spec.baseTier) || spec.id === activeSpecId;
-      const missing = unlocked ? 0 : tierMissing(spec.category, spec.baseTier);
-      const current = spec.id === activeSpecId;
-
-      const iconHolder = h('span', { class: 'shelf-icon', 'aria-hidden': 'true' });
-      iconHolder.innerHTML = ZONE_ICONS[zoneId] ?? '';
-
-      const card = h(
-        'button',
-        {
-          class: `shelf-card${unlocked ? '' : ' locked'}${current ? ' current' : ''}`,
-          type: 'button',
-          role: 'listitem',
-          'data-spec': spec.id,
-          'data-tier': String(spec.baseTier),
-          'aria-label': current
-            ? `${spec.id} — הַמִּשְׂחָק הַנּוֹכְחִי`
-            : unlocked
-              ? `${spec.id} — שִׂחֲקוּ עַכְשָׁו`
-              : `${spec.id} — נָעוּל, עוֹד ${missing} הַשְׁלָמוֹת`,
-          style: `--sc: ${hex(CATEGORIES[spec.category].color)}`,
-          disabled: !unlocked,
-          onClick: () => {
-            if (!unlocked) return;
-            close();
-            callbacks.onPick(spec);
-          },
-        },
-        iconHolder,
-        h('span', { class: 'shelf-name' }, displayNameFor(spec)),
-        tierDots(spec),
-        unlocked
-          ? h('span', { class: 'shelf-go', 'aria-hidden': 'true' }, '▶')
-          : h(
-              'span',
-              { class: 'shelf-lockhint' },
-              lockChipSvg(),
-              ` עוֹד ${missing} הַשְׁלָמוֹת`,
-            ),
-      );
-      row.append(card);
+      row.append(cardFor(spec, activeSpecId, zoneId));
     }
   }
 

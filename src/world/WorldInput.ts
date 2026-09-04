@@ -18,6 +18,7 @@ import type { Camera } from '@babylonjs/core/Cameras/camera';
 import type { Scene } from '@babylonjs/core/scene';
 import { isDragDistance, pressEnd, pressStart, type PointerSnapshot } from './Gestures';
 import { resolveWalkTarget, type WalkResolution } from './WorldLayout';
+import { nearestStation, STATION_PAD_RADIUS, STATION_TAP_SNAP } from './WorldStations';
 import type { ZoneId } from '../data/garden';
 
 export interface WorldInputEvents {
@@ -200,6 +201,23 @@ export function attachWorldInput(
     }
 
     const resolved = resolveWalkTarget(pick.pickedPoint.x, pick.pickedPoint.z, isZoneLocked);
+    /* stage 14: a tap NEAR a clearing pad is a tap FOR the pad — small
+       hands and grazing rays land a step short of the disc, and the
+       owner's ask is a clear, comfortable entry: plain-grass targets
+       within STATION_TAP_SNAP of an open pad pull to its rim. Landmark
+       rims and locked-fog blocks keep their own (stronger) meanings. */
+    if (!resolved.blocked && !resolved.landmark) {
+      const near = nearestStation(resolved.x, resolved.z, STATION_TAP_SNAP, (zone) => !isZoneLocked(zone));
+      if (near) {
+        const s = near.station;
+        const dx = resolved.x - s.x;
+        const dz = resolved.z - s.z;
+        const d = Math.hypot(dx, dz) || 1;
+        const rim = STATION_PAD_RADIUS + 0.06;
+        resolved.x = s.x + (dx / d) * rim;
+        resolved.z = s.z + (dz / d) * rim;
+      }
+    }
     if (resolved.blocked && resolved.blockedZone) {
       const now = performance.now();
       if (now - lockedToastAt > LOCKED_TOAST_MS) {

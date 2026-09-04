@@ -19,7 +19,7 @@ import { STATIONS } from './WorldStations';
 import { REGIONS, type RegionDef } from './WorldRegions';
 import { WorldDaily } from './worldDaily';
 import { isWorldOnboarded, markWorldOnboarded } from './worldMode';
-import { loadFound, markFound, countRegionsFound } from './worldFound';
+import { loadFound, markFound } from './worldFound';
 import { loadSparkles, markSparkle } from './worldCollect';
 import { loadAcorns, loadWallet, markAcorn, spendAcorns } from './worldAcorns';
 import {
@@ -30,7 +30,8 @@ import {
   SCARF_ITEMS,
   type WardrobeState,
 } from './worldWardrobe';
-import { BAND_NAMES, type StationBand } from './WorldStations';
+import { BAND_NAMES, specsForBand, type StationBand } from './WorldStations';
+import { zoneCatalog, tierUnlocked, tierMissing, displayNameFor } from '../content/catalog';
 import {
   WorldQuests,
   buildPatternQuest,
@@ -185,7 +186,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       }
       app?.setKeyboardEnabled(true);
     },
-  }, { id: 'world-shelf' });
+  }, { id: 'world-shelf', grouped: true });
 
   const stage = h('div', { class: 'world-stage', id: 'world-stage' });
   const loading = h(
@@ -195,32 +196,23 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     h('span', { class: 'world-loading-text' }, 'הַגַּן מִתְעוֹרֵר...'),
   );
 
-  const lightCount = h('span', { class: 'light-count' }, '0');
-  const lightChip = h(
-    'span',
-    { class: 'light-chip', 'aria-label': 'אורות שנאספו' },
-    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✦'),
-    lightCount,
-  );
+  /* stage 14-B HUD: ONE top-bar system. Two instrument chips only —
+     the acorns (the road's wallet, the shop's currency) and the
+     journey of the day. Everything else lives where it belongs:
+     discovery speaks through bubbles + plates, ledgers live in the
+     parent's lens. Fewer, bigger, clearer. */
 
-  /* the discovered-places chip — environment knowledge, honest count
-     (stage 12: landmarks and regions count separately) */
-  const landmarkCount = (): number => foundIds.filter((id) => !id.startsWith('region:')).length;
-  const foundCount = h('span', { class: 'found-count' }, String(landmarkCount()));
-  const foundChip = h(
-    'span',
-    { class: 'light-chip found-chip', id: 'world-found-chip', 'aria-label': 'מקומות שהתגלו בגן' },
-    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✪'),
-    foundCount,
-  );
+  /* stage 11: the meadow's golden sparkles — the walker's honest ledger
+     (kept for the engine + bridge; the chip left the HUD in 14-B) */
+  let sparkleLedger: string[] = loadSparkles();
 
-  /* stage 12: the regions chip — how far the journeys have reached */
-  const regionCount = h('span', { class: 'region-count' }, String(countRegionsFound(foundIds)));
-  const regionChip = h(
+  /* stage 14: the acorn chip — the road pays the walker */
+  const acornCount = h('span', { class: 'acorn-count' }, String(acornWallet));
+  const acornChip = h(
     'span',
-    { class: 'light-chip region-chip', id: 'world-region-chip', 'aria-label': 'אזורים שהתגלו בעולם' },
-    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '❖'),
-    regionCount,
+    { class: 'light-chip acorn-chip', id: 'world-acorn-chip', 'aria-label': 'בלוטים שנאספו בדרך' },
+    h('span', { class: 'light-star acorn-star', 'aria-hidden': 'true' }, '▲'),
+    acornCount,
   );
 
   /* stage 12: the daily journey chip — three places, every day anew */
@@ -232,25 +224,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     { class: 'light-chip daily-chip', id: 'world-daily-chip', 'aria-label': DAILY_TEXT.chip },
     h('span', { class: 'light-star', 'aria-hidden': 'true' }, '☀'),
     dailyCount,
-  );
-
-  /* stage 11: the meadow's golden sparkles — the walker's honest ledger */
-  let sparkleLedger: string[] = loadSparkles();
-  const sparkleCount = h('span', { class: 'sparkle-count' }, String(sparkleLedger.length));
-  const sparkleChip = h(
-    'span',
-    { class: 'light-chip sparkle-chip', id: 'world-sparkle-chip', 'aria-label': 'ניצוצות שנאספו במרחב' },
-    h('span', { class: 'light-star', 'aria-hidden': 'true' }, '✧'),
-    sparkleCount,
-  );
-
-  /* stage 14: the acorn chip — the road pays the walker */
-  const acornCount = h('span', { class: 'acorn-count' }, String(acornWallet));
-  const acornChip = h(
-    'span',
-    { class: 'light-chip acorn-chip', id: 'world-acorn-chip', 'aria-label': 'בלוטים שנאספו בדרך' },
-    h('span', { class: 'light-star acorn-star', 'aria-hidden': 'true' }, '▲'),
-    acornCount,
   );
 
   /* stage 11: the wayfinding compass — an arrow on the HUD that
@@ -313,24 +286,49 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     h('div', { class: 'world-quest-row' }, questCounter, questChips, questLater),
   );
 
-  /* stage 14: the clearing's entry card — the door speaks its name
-     and offers ONE big, comfortable play button (the owner: the entry
-     to the games must be clear) */
+  /* stage 14-B: the clearing's entry card — the store front of the
+     thirty clearings. The band's games offer THEMSELVES here (a
+     2-column grid of big buttons, locked states honest, the zone's
+     own color on the accent), one obvious close affordance, and one
+     primary action that opens the band's full shelf. On a phone it
+     slides up as a bottom sheet; on a desk it is a centered card. */
   const entryTitle = h('strong', { class: 'entry-title' }, '');
   const entrySub = h('span', { class: 'entry-sub' }, '');
+  const entryGrid = h('div', { class: 'entry-grid', role: 'group', 'aria-label': 'משחקי התחנה' });
   const entryCard = h(
-    'div',
+    'section',
     { class: 'world-entry hidden', id: 'world-entry', role: 'region', 'aria-label': 'כניסה למשחקי התחנה' },
-    h('div', { class: 'entry-text' }, entryTitle, entrySub),
-    uiButton({
-      label: 'לְשַׂחֵק!',
-      variant: 'primary',
-      id: 'world-entry-play',
-      ariaLabel: 'לשחק את משחקי התחנה',
-      onPress: () => {
-        if (nearStation) openStationShelf(nearStation.zone, nearStation.band);
-      },
-    }),
+    h('span', { class: 'entry-grip', 'aria-hidden': 'true' }),
+    h(
+      'header',
+      { class: 'entry-head' },
+      h('div', { class: 'entry-id' }, entryTitle, entrySub),
+      h(
+        'button',
+        {
+          class: 'entry-close',
+          id: 'world-entry-close',
+          type: 'button',
+          'aria-label': 'סגירת כרטיס התחנה',
+          onClick: () => hideStationCard(),
+        },
+        '✕',
+      ),
+    ),
+    entryGrid,
+    h(
+      'div',
+      { class: 'entry-actions' },
+      uiButton({
+        label: 'לְשַׂחֵק!',
+        variant: 'primary',
+        id: 'world-entry-play',
+        ariaLabel: 'לשחק את משחקי התחנה',
+        onPress: () => {
+          if (nearStation) openStationShelf(nearStation.zone, nearStation.band);
+        },
+      }),
+    ),
   );
 
   /* stage 14: the well's shop — acorns become scarves, scarves become
@@ -345,7 +343,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       { class: 'well-head' },
       h('div', { class: 'well-title-wrap' }, h('strong', { class: 'well-title' }, 'בְּאֵר הַגַּן'), h('span', { class: 'well-sub' }, 'אֶפְשָׁר לְקַנּוֹת צָעִיף לְשׁוּעָלָה')), 
       wellBalance,
-      h('button', { class: 'well-close', id: 'well-close', type: 'button', 'aria-label': 'סגירת הבאר', onClick: () => wellPanel.classList.add('hidden') }, '✕'),
+      h('button', { class: 'well-close', id: 'well-close', type: 'button', 'aria-label': 'סגירת הבאר', onClick: () => closeWell() }, '✕'),
     ),
     wellRows,
   );
@@ -408,6 +406,14 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   function openWell(): void {
     rebuildWell();
     wellPanel.classList.remove('hidden');
+    root.classList.add('well-open');
+    /* one primary surface at a time — the shop outranks the clearing */
+    hideStationCard();
+  }
+
+  function closeWell(): void {
+    wellPanel.classList.add('hidden');
+    root.classList.remove('well-open');
   }
 
   /* found-landmark name plates — environmental print, appears on discovery */
@@ -435,6 +441,25 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     regionPlates.set(r.id, plate);
   }
 
+  /* the Lenny signature's star (a quiet inline SVG — no assets) */
+  const starIcon = (): HTMLElement => {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('class', 'brand-star');
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute(
+      'd',
+      'M12 2.6l2.5 6.1 6.6.5-5 4.3 1.5 6.4L12 16.4l-5.6 3.5 1.5-6.4-5-4.3 6.6-.5z',
+    );
+    path.setAttribute('fill', 'currentColor');
+    svg.appendChild(path);
+    const wrap = h('span', { 'aria-hidden': 'true' });
+    wrap.style.display = 'contents';
+    wrap.appendChild(svg);
+    return wrap;
+  };
+
   const root = h(
     'section',
     { class: 'screen screen--world hidden', id: 'world-screen', 'aria-label': 'הגן התלת-ממדי' },
@@ -448,16 +473,32 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     compass,
     loading,
     buildTouchControls(),
+    /* stage 14-B top bar: instruments on the journey's side, actions
+       on the other; the Lenny signature rides top-center — one
+       elegant wordmark, never a wrapping column of text */
+    h(
+      'div',
+      { class: 'world-brand', 'aria-hidden': 'true' },
+      starIcon(),
+      h('span', { class: 'brand-name' }, 'לני'),
+    ),
     h(
       'header',
       { class: 'world-head' },
+      h('div', { class: 'world-status' }, acornChip, dailyChip),
       h(
         'div',
-        {},
-        h('h2', { class: 'world-title' }, 'הַגַּן שֶׁל לֶנִי'),
-        h('p', { class: 'world-sub' }, 'בּוֹא נְטַיֵּל בָּעוֹלָם הַגָּדוֹל'),
+        { class: 'world-menu' },
+        uiButton({
+          label: 'הַצָּעִיף',
+          variant: 'ghost',
+          id: 'world-wardrobe-btn',
+          ariaLabel: 'ארון הצעיפים של השועלה',
+          onPress: () => openWell(),
+        }),
+        createSoundToggle('world-sound-toggle'),
+        back,
       ),
-      h('div', { class: 'world-head-side' }, lightChip, sparkleChip, acornChip, foundChip, regionChip, dailyChip, createSoundToggle('world-sound-toggle'), back),
     ),
     h(
       'footer',
@@ -494,6 +535,16 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   /* stage 14: the clearing the child stands on (the entry card lives here) */
   let nearStation: { zone: string; band: StationBand } | null = null;
+  let entryShownFor: string | null = null;
+
+  /** The station card leaves — the child walked off, closed it, or a
+      bigger surface (shelf / well) took over. State stays honest. */
+  function hideStationCard(): void {
+    nearStation = null;
+    entryShownFor = null;
+    entryCard.classList.add('hidden');
+    root.classList.remove('entry-open');
+  }
 
   /** The clearing's door opens: the shelf slides in with ONLY that
       band's games. The island's own shelf keeps every game (the
@@ -508,21 +559,71 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     phase = 'shelf-open';
     root.dataset.worldPhase = 'shelf-open';
     app?.setKeyboardEnabled(false);
-    entryCard.classList.add('hidden');
-    wellPanel.classList.add('hidden');
+    hideStationCard();
+    closeWell();
   }
 
-  /** The child stepped onto (or off) a clearing pad — the card leans in. */
+  /** The child stepped onto (or off) a clearing pad — the card leans in
+      with THAT band's games. One primary surface at a time: the card
+      outranks the quest guidance and rests while the shelf is open. */
   function handleStationNear(station: { zone: string; band: StationBand } | null): void {
     nearStation = station;
     if (!station || phase !== 'exploring' || shelf.isOpen()) {
       entryCard.classList.add('hidden');
+      root.classList.remove('entry-open');
       return;
     }
-    const zone = getZone(station.zone as ZoneId);
-    entryTitle.textContent = BAND_NAMES[station.band];
-    entrySub.textContent = zone ? zone.name : '';
+    const key = `${station.zone}:${station.band}`;
+    if (entryShownFor !== key) {
+      entryShownFor = key;
+      const zone = getZone(station.zone as ZoneId);
+      entryTitle.textContent = BAND_NAMES[station.band];
+      entrySub.textContent = zone ? zone.name : '';
+      rebuildEntryGrid(station.zone, station.band);
+    }
     entryCard.classList.remove('hidden');
+    root.classList.add('entry-open');
+    /* the clearing outranks the well — one offer, never a pile-up */
+    closeWell();
+  }
+
+  /** The band's games, dressed in the zone's own color: unlocked ones
+      launch straight away, locked ones say honestly what is missing. */
+  function rebuildEntryGrid(zone: string, band: StationBand): void {
+    entryGrid.replaceChildren();
+    const accent = getZone(zone as ZoneId)?.uiColor ?? '#ffd76a';
+    entryCard.style.setProperty('--sc', accent);
+    const zoneOpen = isUnlocked(loadGarden(), zone as ZoneId);
+    for (const spec of specsForBand(zoneCatalog(zone), band)) {
+      const unlocked = zoneOpen && tierUnlocked(spec.category, spec.baseTier);
+      const missing = unlocked ? 0 : tierMissing(spec.category, spec.baseTier);
+      entryGrid.append(
+        h(
+          'button',
+          {
+            class: `entry-game${unlocked ? '' : ' locked'}`,
+            type: 'button',
+            'data-spec': spec.id,
+            'aria-label': unlocked
+              ? `${displayNameFor(spec)} — שִׂחֲקוּ עַכְשָׁו`
+              : `${displayNameFor(spec)} — נָעוּל, עוֹד ${missing} הַשְׁלָמוֹת`,
+            style: `--sc: ${accent}`,
+            disabled: !unlocked,
+            onClick: () => {
+              if (!unlocked) return;
+              hideStationCard();
+              diary.notePick();
+              stopHeartbeat();
+              callbacks.onZonePick(zone, spec.id);
+            },
+          },
+          h('span', { class: 'entry-game-name' }, displayNameFor(spec)),
+          unlocked
+            ? h('span', { class: 'entry-game-go', 'aria-hidden': 'true' }, '▶')
+            : h('span', { class: 'entry-game-lock', 'aria-hidden': 'true' }, `🔒 עוֹד ${missing}`),
+        ),
+      );
+    }
   }
 
   /* ---------- stage 11: touch controls + desktop hint ----------
@@ -836,11 +937,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   function handleLandmarkNear(landmark: LandmarkDef): void {
     if (!foundIds.includes(landmark.id)) {
       foundIds = markFound(landmark.id);
-      foundCount.textContent = String(landmarkCount());
       app?.setFoundLandmarks(foundIds);
       showBubble(landmark.line);
       speak(landmark.line);
-      if (landmarkCount() === LANDMARKS.length) {
+      if (foundIds.filter((id) => !id.startsWith('region:')).length === LANDMARKS.length) {
         window.setTimeout(() => {
           showBubble(QUEST_TEXT.foundAll);
           speak(QUEST_TEXT.foundAll);
@@ -1134,7 +1234,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         onSparkle: (id, total) => {
           try {
             sparkleLedger = markSparkle(id);
-            sparkleCount.textContent = String(sparkleLedger.length);
             audio.play('star');
             void total;
           } catch {
@@ -1180,7 +1279,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             const isNew = !foundIds.includes(rid);
             if (isNew) {
               foundIds = markFound(rid);
-              regionCount.textContent = String(countRegionsFound(foundIds));
               showBubble(region.line);
               speak(region.line);
             } else {
@@ -1225,7 +1323,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             diary.noteShelfOpen();
             phase = 'shelf-open';
             root.dataset.worldPhase = 'shelf-open';
-            entryCard.classList.add('hidden');
+            hideStationCard();
             /* the shelf owns the keys now — walking away mid-shelf
                would be a confusing ghost (round C a11y) */
             app?.setKeyboardEnabled(false);
@@ -1295,8 +1393,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       app.refresh(data, growthDiff(data));
       app.setFoundLandmarks(foundIds);
       app.setScarf(wardrobe.wearing ? scarfById(wardrobe.wearing)?.color ?? null : null);
-      foundCount.textContent = String(landmarkCount());
-      regionCount.textContent = String(countRegionsFound(foundIds));
       refreshDaily();
       /* V7: celebrate REAL gate openings — the unlock queue is drained
          by whichever garden the child is actually in (world or classic),
@@ -1382,14 +1478,13 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     phase = 'closed';
     stage.replaceChildren();
     bubble.classList.add('hidden');
-    entryCard.classList.add('hidden');
-    wellPanel.classList.add('hidden');
+    hideStationCard();
+    closeWell();
     root.dataset.worldPhase = 'closed';
   }
 
   function refresh(): void {
     const data = loadGarden();
-    lightCount.textContent = String(data.lights || 0);
     /* the world re-reads progress too: unlock fog + bloom + lanterns */
     const litBefore = app?.lanterns() ?? 0;
     app?.refresh(data, growthDiff(data));
