@@ -1161,7 +1161,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     life: () => app?.life() ?? null,
     lanterns: () => app?.lanterns() ?? 0,
     landmarks: () =>
-      LANDMARKS.map((l) => ({ id: l.id, found: foundIds.includes(l.id), x: l.x, z: l.z })),
+      LANDMARKS.map((l) => ({ id: l.id, found: foundIds.includes(l.id), x: l.x, z: l.z, keep: l.keep })),
     regions: () =>
       REGIONS.map((r) => ({ id: r.id, name: r.name, x: r.x, z: r.z, found: foundIds.includes(`region:${r.id}`) })),
     daily: () => ({ targets: dailyTargetsNow, done: dailyDoneNow }),

@@ -76,7 +76,7 @@ async function dragOrbit(page: Page, dir: number): Promise<void> {
 async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number): Promise<void> {
   let orbitDir: number = 1;
   let orbitMiss = 0;
-  let orbitBudget = 12;
+  let orbitBudget = 16;
   try {
     for (let round = 0; round < 260; round++) {
       const steer = await page.evaluate(([x, z]) => {
@@ -90,14 +90,20 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
       if (!steer) throw new Error('world bridge gone (screenOf null — the world closed?)');
       if (steer.dist <= nearDist) return;
 
-      if ((!steer.on || Math.abs(steer.dx) > 0.45) && orbitBudget > 0) {
+      /* orbit ONLY when the target is truly off-screen — when it is
+         on the frame the child simply walks at it (camera-follow
+         closes the angle; orbiting a visible target just churns) */
+      if (!steer.on && orbitBudget > 0) {
         /* behind the camera or far off to one side — orbit until it
            enters the frame; flip the direction if two drags did nothing.
            Bounded: a bounded orbit can never eat the whole clock. */
         await dragOrbit(page, orbitDir);
         orbitBudget -= 1;
         orbitMiss += 1;
-        if (orbitMiss >= 2) {
+        /* a target behind the camera needs THREE-FOUR same-direction
+           drags — flipping after two just undoes the yaw (the
+           stage-15 continent churned here). Flip only after six. */
+        if (orbitMiss >= 6) {
           orbitDir = -orbitDir;
           orbitMiss = 0;
         }
@@ -113,7 +119,8 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
       if (steer.dx > 0.06) await page.keyboard.down('ArrowRight');
       else if (steer.dx < -0.06) await page.keyboard.down('ArrowLeft');
       await page.keyboard.down('ArrowUp');
-      await page.waitForTimeout(360);
+      /* short steps when close — a 360ms hold at 20fps overshoots the ring and the fox never reads as arrived */
+      await page.waitForTimeout(Math.round(Math.min(360, Math.max(120, steer.dist * 80))));
       for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
         await page.keyboard.up(k).catch(() => undefined);
       }
@@ -143,7 +150,8 @@ test('wayfinding: the child walks to the named place and the quest completes', a
   const landmarks = await page.evaluate(() => window.__lennyWorld?.landmarks());
   const target = landmarks!.find((l) => l.id === q!.target)!;
 
-  await walkToWorld(page, target.x, target.z, 1.9);
+  /* stop ON the discovery ring (keep + 0.75 — inside the world's own keep+0.8 discovery band): the exact center sits in the rim-slide zone where high-fps steps overshoot */
+  await walkToWorld(page, target.x, target.z, target.keep + 0.75);
 
   await expect
     .poll(() => page.evaluate(() => window.__lennyWorld?.quest()), { timeout: 6000 })
