@@ -174,8 +174,31 @@ export const FAR_STATIONS: StationSpot[] = [
   farSpot('far:star-stone', 'attention-stream', 1, 312, -938),
 ];
 
+/* ---------- stage 17: the MID-RING outposts ----------
+ *
+ * The distribution audit's verdict: between the home clearings
+ * (≤ ~27u) and the far ring (≥ ~730u) there was NOTHING — a child
+ * walking outward crossed a silent desert before the first far pad.
+ * Ten outposts now bridge the gap (radius ~100–540), one per
+ * octant, borrowing existing zone catalogs (the same shelf a pad
+ * of that zone+band opens anywhere) so the unlock fog and the
+ * shelves stay honest. Same clearances, pinned by the unit gate.
+ */
+const MID_STATIONS: StationSpot[] = [
+  farSpot('far:mid:word-e', 'words-valley', 1, 338, 86),
+  farSpot('far:mid:memory-ne', 'memory-hill', 0, 250, 360),
+  farSpot('far:mid:breath-n', 'breath-pool', 2, -80, 460),
+  farSpot('far:mid:attention-nw', 'attention-stream', 0, -400, 230),
+  farSpot('far:mid:creativity-w', 'creativity-meadow', 1, -440, -120),
+  farSpot('far:mid:thinking-sw', 'thinking-forest', 2, -230, -400),
+  farSpot('far:mid:rhythm-s', 'rhythm-square', 0, 120, -450),
+  farSpot('far:mid:feelings-se', 'feelings-garden', 1, 420, -240),
+  farSpot('far:mid:light-inner', 'light-path', 2, 110, 60),
+  farSpot('far:mid:memory-inner', 'memory-hill', 1, -90, -90),
+];
+
 /** All clearings (zone pads first, then the far ring), for every consumer. */
-export const ALL_STATIONS: StationSpot[] = [...STATIONS, ...FAR_STATIONS];
+export const ALL_STATIONS: StationSpot[] = [...STATIONS, ...MID_STATIONS, ...FAR_STATIONS];
 
 export function stationsOfZone(zone: ZoneId): StationSpot[] {
   return BY_ZONE[zone] ?? [];

@@ -819,51 +819,55 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   }
 
   function hideQuestPanel(): void {
+    if (questToastTimer !== null) {
+      window.clearTimeout(questToastTimer);
+      questToastTimer = null;
+    }
+    questPanel.classList.remove('toast-lift');
     questPanel.classList.add('hidden');
     root.classList.remove('quest-open');
-    /* stage 16: the soft auto-defer — on phones the offer is a
-       transient banner (the owner's verdict: messages pop and go,
-       nothing sits on the play space). Unanswered for 22s it quietly
-       steps aside (the same free "אַחֲרֵי כָּךְ" path) and re-asks
-       later. Desktop keeps the patient panel. */
-    if (questIdleTimer !== null) {
-      window.clearTimeout(questIdleTimer);
-      questIdleTimer = null;
-    }
   }
 
-  /* phones only: an offer that nobody touches drifts away on its own.
-     A child actively WALKING the journey keeps the banner (it is
-     thumb-free up top now); stillness for 22s quietly steps aside. */
-  let questIdleTimer: number | null = null;
-  const QUEST_IDLE_MS = 22_000;
-  const narrowViewport = (): boolean =>
-    typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 640px)').matches;
-  function armQuestIdle(): void {
-    if (questIdleTimer !== null) {
-      window.clearInterval(questIdleTimer);
-      questIdleTimer = null;
+  /* stage 17, the owner's verdict, final form: the fixed sign is GONE
+     from every viewport, portrait or landscape. A quest is a MESSAGE —
+     it descends under the top bar, stays while the child works, and
+     lifts away. The journey itself lives in the world (beacon, lit
+     road, signposts, Lenny's bubble), never in a bottom board. */
+  let questToastTimer: number | null = null;
+  const TOAST_MS_WAYFINDING = 7_000; /* the beacon points; the toast may go */
+  const TOAST_MS_COUNTING = 14_000; /* mid-count idle leaves politely */
+  const TOAST_MS_PARKED = 40_000; /* chips wait for taps, then leave too */
+  function liftQuestToast(afterMs: number): void {
+    if (questToastTimer !== null) window.clearTimeout(questToastTimer);
+    questToastTimer = window.setTimeout(() => {
+      questToastTimer = null;
+      if (questPanel.classList.contains('hidden')) return;
+      questPanel.classList.add('toast-lift');
+      window.setTimeout(() => {
+        questPanel.classList.add('hidden');
+        questPanel.classList.remove('toast-lift');
+        root.classList.remove('quest-open');
+      }, 430);
+    }, afterMs);
+  }
+  function showQuestToast(): void {
+    if (questToastTimer !== null) {
+      window.clearTimeout(questToastTimer);
+      questToastTimer = null;
     }
-    if (!narrowViewport()) return;
-    let stillFor = 0;
-    questIdleTimer = window.setInterval(() => {
-      if (!currentQuest) {
-        if (questIdleTimer !== null) window.clearInterval(questIdleTimer);
-        questIdleTimer = null;
-        return;
-      }
-      /* engaged sessions (counting taps, pattern chips, an active
-         walk) are never interrupted — only standing still counts */
-      const engaged =
-        questStage === 'counting' || questStage === 'pattern' || questStage === 'answering' || app?.errand();
-      if (engaged) stillFor = 0;
-      else stillFor += 5_000;
-      if (stillFor >= QUEST_IDLE_MS) {
-        if (questIdleTimer !== null) window.clearInterval(questIdleTimer);
-        questIdleTimer = null;
-        deferQuest();
-      }
-    }, 5_000);
+    /* a re-offer pops again — restart the descend animation */
+    questPanel.classList.remove('toast-lift');
+    questPanel.classList.add('hidden');
+    void questPanel.offsetWidth; /* flush so the animation restarts */
+    questPanel.classList.remove('hidden');
+    root.classList.add('quest-open');
+    const ms =
+      currentQuest?.family === 'wayfinding'
+        ? TOAST_MS_WAYFINDING
+        : questStage === 'answering' || questStage === 'pattern'
+          ? TOAST_MS_PARKED /* chips on screen: work, then it leaves */
+          : TOAST_MS_COUNTING;
+    liftQuestToast(ms);
   }
 
   function scheduleQuestOffer(ms: number): void {
@@ -890,13 +894,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     questCorrections = 0;
     questPicked = 0;
     pickedFlowers.clear();
-    questPanel.classList.remove('hidden');
-    /* stage 15-A: the quest owns the bottom-center — the compass
-       rests while an offer is live (one surface at a time) */
-    root.classList.add('quest-open');
-    /* stage 16: on phones the offer drifts away by itself (transient
-       message, never a fixed sign); on desktop it keeps waiting */
-    armQuestIdle();
 
     if (q.family === 'wayfinding') {
       /* a target away from where the child stands — a real LITTLE
@@ -924,6 +921,9 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       showBubble(line);
       speak(line);
       questStage = 'idle'; /* completion is driven by arrival, not chips */
+      /* stage 17: the offer is a toast under the top bar — pops in,
+         stays 7s, lifts away; the beacon + signposts keep pointing */
+      showQuestToast();
       return;
     }
 
@@ -934,6 +934,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       app.setQuestProps({ kind: 'counting', anchor: app.presencePos() ?? { x: 0, z: 0 }, count: questCount });
       setQuestPanel(QUEST_TEXT.countingOffer, `0/${questCount}`, []);
       speak(QUEST_TEXT.countingOffer);
+      showQuestToast();
       return;
     }
 
@@ -953,6 +954,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       })),
     );
     speak(QUEST_TEXT.patternOffer);
+    showQuestToast();
   }
 
   function completeQuest(): void {
@@ -1002,6 +1004,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     questStage = 'counting';
     app?.setQuestProps({ kind: 'counting', anchor: app.presencePos() ?? { x: 0, z: 0 }, count: questCount });
     setQuestPanel(QUEST_TEXT.countingOffer, `0/${questCount}`, []);
+    showQuestToast();
   }
 
   function onColorChip(c: PatternColor): void {
@@ -1016,6 +1019,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     quests.noteCorrection(currentQuest.family);
     showBubble(QUEST_TEXT.patternAgain);
     speak(QUEST_TEXT.patternAgain);
+    showQuestToast(); /* the board re-parks; nothing sits forever */
   }
 
   /* stage 12: the daily journey — targets refresh on open/boot */
@@ -1078,6 +1082,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       pickedFlowers.add(idx);
       questPicked = pickedFlowers.size;
       app.pickQuestFlower(idx);
+      showQuestToast(); /* every pick re-parks the message (stage 17) */
       if (questPicked < questCount) {
         setQuestPanel(QUEST_TEXT.countingOffer, `${questPicked}/${questCount}`, []);
       } else {
@@ -1088,6 +1093,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
           [questCount - 1, questCount, questCount + 1].map((n) => ({ label: String(n), value: n })),
         );
         speak(QUEST_TEXT.countingAsk);
+        showQuestToast(); /* the chips get their own fresh pop */
       }
       return;
     }

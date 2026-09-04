@@ -571,22 +571,36 @@
   }
 }
 
-/* ---------- the quest panel (bottom-center guidance slot) ---------- */
+/* ---------- the quest TOAST (stage 17: the sign is gone) ----------
+   The owner's verdict, twice: nothing fixed may live on the play
+   space — not bottom-center, not in ANY viewport, portrait or
+   landscape (a landscape phone lost the ≤640px override and the
+   old sign fell right onto the joystick). A quest is a message:
+   it descends under the top bar, stays while the child works, and
+   LIFTS away. The world itself (beacon, lit road, signposts,
+   Lenny's bubble) carries the journey. */
 
 .world-quest {
   position: absolute;
-  bottom: calc(64px + var(--wz-safe-bottom));
+  inset-block-start: calc(84px + var(--wz-safe-top));
+  inset-block-end: auto;
   left: 50%;
   transform: translateX(-50%);
-  width: min(92%, 420px);
+  width: min(92%, 440px);
   background: var(--wz-panel-bg);
   border: var(--wz-panel-border);
   border-radius: var(--wz-r-l);
   box-shadow: var(--wz-panel-shadow);
   backdrop-filter: var(--wz-panel-blur);
   padding: var(--wz-s3) var(--wz-s4) var(--wz-s3);
-  z-index: var(--wz-z-hud); /* above the touch controls — an offered quest is never covered */
-  animation: bubble-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: var(--wz-z-hud);
+  animation: quest-drop 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* the polite exit: the message rises and fades — עולה ויורד, but
+   always ends UP and gone, never parked over the thumbs */
+.world-quest.toast-lift {
+  animation: quest-lift 0.42s ease-in forwards;
 }
 
 .world-quest.hidden {
@@ -1299,25 +1313,16 @@
   }
 }
 
-/* phones (stage 16, the owner's verdict): the bottom-center is the
-   THUMB ZONE — nothing fixed lives there anymore.
-   - The wayfinding compass pill is OFF on phones: the in-world
-     signposts (arrows, totems) and the lit road do the pointing in
-     the scene itself; a DOM pill just crowded the play space.
-   - The quest offer is a compact banner that DESCENDS from under the
-     top bar, stays thumb-free, and LIFTS away when answered or
-     deferred — a message that pops, never a sign that sits. */
+/* phones: the toast is already top-anchored everywhere (stage 17);
+   the phone pass only tightens the footprint and the chips */
 @media (max-width: 640px) {
   .screen--world .zone-compass {
     display: none;
   }
 
   .screen--world .world-quest {
-    inset-block-end: auto;
-    inset-block-start: calc(88px + var(--wz-safe-top));
     width: min(94%, 400px);
     padding: var(--wz-s2) var(--wz-s3);
-    animation: quest-drop 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
   }
 
   .screen--world .world-quest-line {
@@ -1348,6 +1353,17 @@
   100% {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@keyframes quest-lift {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-26px) scale(0.97);
   }
 }
 
@@ -1421,10 +1437,11 @@
   }
 
   /* the offered quest: roomier panel, bigger answer chips —
-     a 4-7 year-old at a desk answers with the whole hand */
+     a 4-7 year-old at a desk answers with the whole hand.
+     (stage 17: top-anchored toast like every viewport — the
+     bottom-center is retired for good.) */
   .world-quest {
     width: min(92%, 560px);
-    bottom: calc(88px + var(--wz-safe-bottom));
   }
 
   .world-quest-line {

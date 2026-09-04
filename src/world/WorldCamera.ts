@@ -85,6 +85,25 @@ export function createWorldCamera(
 
   camera.attachControl();
 
+  /* stage 17, the owner's zoom verdict, round 2: "too much zoom
+     freedom makes everything very bad" — the radius band is already
+     calm (8.5..26), but two small fingers could still walk it wall
+     to wall in a second. On touch the pinch is switched OFF for
+     good: the pose stays the designed one, balloon rides still lift
+     the eye programmatically. Desktop keeps the gentle wheel. */
+  if (opts.steadyTouch) {
+    const pointers = camera.inputs.attached
+      .pointers as import('@babylonjs/core/Cameras/Inputs/arcRotateCameraPointersInput').ArcRotateCameraPointersInput;
+    if (pointers) {
+      /* pinchDeltaPercentage = 0 silently falls back to the
+         pinchPrecision path — which still zooms. A huge precision
+         divides the delta to ~0: the gesture is read but inert. */
+      pointers.pinchPrecision = 1e9;
+      pointers.pinchDeltaPercentage = 0;
+      pointers.useNaturalPinchZoom = false;
+    }
+  }
+
   return camera;
 }
 
