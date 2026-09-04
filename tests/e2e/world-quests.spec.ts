@@ -54,9 +54,22 @@ async function closeShelfIfOpen(page: Page): Promise<void> {
   }
 }
 
+
+/** Wait until the fox finishes her current errand — a moving fox can
+    never be "within 1.9" of anywhere (CI's slow rounds re-aim her
+    mid-stride forever). Mirrors the pad walkers' settle discipline. */
+async function settleWalker(page: Page): Promise<void> {
+  for (let i = 0; i < 20; i++) {
+    const busy = await page.evaluate(() => window.__lennyWorld?.errand?.() != null);
+    if (!busy) return;
+    await page.waitForTimeout(400);
+  }
+}
+
 async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number): Promise<void> {
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < 150; i++) {
     await closeShelfIfOpen(page);
+    await settleWalker(page);
     const p = await page.evaluate(() => window.__lennyWorld?.presencePos());
     if (p && Math.hypot(p.x - wx, p.z - wz) <= nearDist) return;
     /* stage 11: the world is journey-scale — a far errand is OFF-SCREEN.
