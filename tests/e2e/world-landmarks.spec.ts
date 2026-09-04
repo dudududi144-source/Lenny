@@ -25,10 +25,22 @@ async function openWorld(page: Page): Promise<void> {
 }
 
 
-/** Keyboard steering: the fox walks camera-relative, so the walker
-    steers by the target's SCREEN X (left/right keys + forward) — no
-    canvas taps, no pick rays, no overlay races. This is how a child
-    with arrows walks, and it survives CI's slow software GL. */
+/** Compass steering: the walker never guesses the camera. Each round
+    it probes eight WORLD directions through the bridge — the one that
+    projects at screen-center IS the camera's forward — then presses
+    the key combo whose angle best matches the bearing to the target.
+    No taps, no rays, no dithering, no spin state. */
+const WALK_DIRS: Array<{ keys: string[]; a: number }> = [
+  { keys: ['ArrowUp'], a: 0 },
+  { keys: ['ArrowUp', 'ArrowRight'], a: Math.PI / 4 },
+  { keys: ['ArrowRight'], a: Math.PI / 2 },
+  { keys: ['ArrowDown', 'ArrowRight'], a: (3 * Math.PI) / 4 },
+  { keys: ['ArrowDown'], a: Math.PI },
+  { keys: ['ArrowDown', 'ArrowLeft'], a: (-3 * Math.PI) / 4 },
+  { keys: ['ArrowLeft'], a: -Math.PI / 2 },
+  { keys: ['ArrowUp', 'ArrowLeft'], a: -Math.PI / 4 },
+];
+
 async function releaseWalkKeys(page: Page): Promise<void> {
   for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
     await page.keyboard.up(k).catch(() => undefined);
@@ -36,47 +48,72 @@ async function releaseWalkKeys(page: Page): Promise<void> {
 }
 
 async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number): Promise<void> {
-  let lastTurn: 'left' | 'right' = 'right';
+  let stuck = 0;
+  let lastX = NaN;
+  let lastZ = NaN;
   try {
-    for (let i = 0; i < 300; i++) {
-      const p = await page.evaluate(() => window.__lennyWorld?.presencePos());
-      if (p && Math.hypot(p.x - wx, p.z - wz) <= nearDist) return;
-      const steer = await page.evaluate(([x, z]) => {
+    for (let round = 0; round < 300; round++) {
+      const step = await page.evaluate(([x, z]) => {
         const w = window.__lennyWorld!;
-        const s = w.screenOf(x!, z!);
-        if (!s) return null;
-        if (!s.on) return { turn: 'spin' as const, fx: s.x };
-        return { turn: s.x > 0.6 ? ('right' as const) : s.x < 0.4 ? ('left' as const) : ('none' as const), fx: s.x };
+        const me = w.presencePos()!;
+        /* the bearing to the target, world-space */
+        const bt = Math.atan2(x! - me.x, z! - me.z);
+        /* probe eight world directions — the one projecting nearest the
+           screen center is the camera's forward */
+        let bestA = 0;
+        let bestScore = Infinity;
+        for (let k = 0; k < 8; k++) {
+          const a = (k * Math.PI) / 4;
+          const pr = w.screenOf(me.x + Math.sin(a) * 4, me.z + Math.cos(a) * 4);
+          if (!pr || !pr.on) continue;
+          const score = Math.abs(pr.x - 0.5) + Math.abs(pr.y - 0.6) * 0.4;
+          if (score < bestScore) {
+            bestScore = score;
+            bestA = a;
+          }
+        }
+        /* the relative angle target-vs-forward, quantized to 45° */
+        let d = bt - bestA;
+        while (d > Math.PI) d -= Math.PI * 2;
+        while (d < -Math.PI) d += Math.PI * 2;
+        const idx = Math.round(d / (Math.PI / 4));
+        const dir = WALK_DIRS[((idx % 8) + 8) % 8];
+        return { keys: dir.keys, dist: Math.hypot(x! - me.x, z! - me.z) };
       }, [wx, wz]);
-      if (!steer) throw new Error('world bridge gone (screenOf null — the world closed?)');
-      if (steer.turn === 'spin') {
-        /* the place is behind the camera — keep spinning one way until
-           it re-enters the frame (persisted so we never dither) */
-        await page.keyboard.down(lastTurn === 'right' ? 'ArrowRight' : 'ArrowLeft');
-        await page.keyboard.up('ArrowUp');
-        await page.waitForTimeout(320);
-        await page.keyboard.up('ArrowLeft');
-        await page.keyboard.up('ArrowRight');
-        continue;
+      if (!step) throw new Error('world bridge gone (screenOf null — the world closed?)');
+      if (step.dist <= nearDist) return;
+      for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
+        await page.keyboard.up(k).catch(() => undefined);
       }
-      if (steer.turn !== 'none') lastTurn = steer.turn;
-      await page.keyboard.up('ArrowLeft');
-      await page.keyboard.up('ArrowRight');
-      if (steer.turn === 'left') await page.keyboard.down('ArrowLeft');
-      if (steer.turn === 'right') await page.keyboard.down('ArrowRight');
-      await page.keyboard.down('ArrowUp');
-      await page.waitForTimeout(340);
-      await page.keyboard.up('ArrowUp');
+      for (const k of step.keys) await page.keyboard.down(k);
+      await page.waitForTimeout(360);
+      for (const k of step.keys) await page.keyboard.up(k);
+      /* a shelf or a surface can swallow the keys — Escape reclaims them */
+      const now = await page.evaluate(() => window.__lennyWorld?.presencePos());
+      if (now && Math.hypot(now.x - lastX, now.z - lastZ) < 0.15) {
+        stuck += 1;
+        if (stuck >= 3) {
+          stuck = 0;
+          await page.keyboard.press('Escape').catch(() => undefined);
+        }
+      } else {
+        stuck = 0;
+      }
+      if (now) {
+        lastX = now.x;
+        lastZ = now.z;
+      }
     }
     const end = await page.evaluate(() => {
-        const w = window.__lennyWorld;
-        return w ? { me: w.presencePos(), fps: Math.round(w.fps()), phase: w.phase?.() } : 'bridge-gone';
-      });
-      throw new Error(`never arrived near (${wx}, ${wz}) — fox at ${JSON.stringify(end)} after ${i} rounds`);
+      const w = window.__lennyWorld;
+      return w ? { me: w.presencePos(), fps: Math.round(w.fps()), phase: w.phase?.() } : 'bridge-gone';
+    });
+    throw new Error(`never arrived near (${wx}, ${wz}) — fox at ${JSON.stringify(end)} after 300 rounds`);
   } finally {
     await releaseWalkKeys(page);
   }
 }
+
 
 
 test('fifty landmarks exist and a fresh garden has found none', async ({ page }) => {
