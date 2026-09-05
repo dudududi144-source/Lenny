@@ -94,7 +94,17 @@ body {
   width: 100%;
   height: 100%;
   max-width: 100vw;
+  /* stage 18 — `clip`, not `hidden`: an overflow:hidden box is still
+     a scroll container (touch-drag + JS can move it). A landscape
+     phone scrolled the frame 203px to reach the hero CTA, and that
+     scroll state LEAKED into the world screen — the whole 3D garden
+     painted half off the top of the screen with a dead purple void
+     below. `clip` forbids scrolling itself; tall screens (hero)
+     scroll inside their own box instead. `hidden` stays as the
+     fallback for engines without clip. */
   overflow: hidden;
+  overflow: clip;
+  overscroll-behavior: none;
 }
 
 /* ---------- Screen system (fade + slide transitions) ---------- */
@@ -260,6 +270,20 @@ body {
   align-items: stretch;
   justify-content: space-between;
   padding: 0 0 clamp(20px, 3vh, 32px);
+  /* stage 18 — the hero scrolls INSIDE its own screen box now:
+     it used to overflow into the .frame, making the frame a real
+     (touch-scrollable!) scroll container whose stale scrollTop
+     dragged the next screen half off-screen. Same reachable CTA,
+     zero leaked scroll state. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.screen--hero::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .hero-center {

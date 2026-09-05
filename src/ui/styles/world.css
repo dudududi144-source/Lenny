@@ -1287,6 +1287,17 @@
   display: none;
 }
 
+/* stage 18 — the pill died EVERYWHERE, in every viewport. The old
+   hide-rule lived inside @media (max-width: 640px); a landscape
+   phone (CSS width 640–930px) missed it and the WASD pill sat
+   bottom-center on top of the joystick lane — the owner read it
+   (three times!) as "the central bubble that never left". A coarse
+   pointer never needs keyboard keys, at no width, in no lane:
+   the base rule itself is the safe shape now. */
+.screen--world .world-controls.world-touch .world-controls-hint {
+  display: none;
+}
+
 /* the grown-up corner rests too — the sheet's own close button is
    the way out (nothing stays clickable-but-covered) */
 .screen--world.entry-open .world-foot,
@@ -1336,13 +1347,9 @@
     font-size: 1.1rem;
   }
 
-  /* the key hint is a desktop instrument — a pre-literate thumb zone
-     reads the joystick itself, and the pill crowded the bottom-center
-     (and brushed the joystick at ≤375px). Touch loses nothing: the
-     wheel and the ⬆ button ARE the instruction. */
-  .screen--world .world-controls.world-touch .world-controls-hint {
-    display: none;
-  }
+  /* (stage 18: the touch hide-rule moved to the base layer — a
+     landscape phone missed this narrow media query and the pill
+     came back. No width query guards a touch rule anymore.) */
 }
 
 @keyframes quest-drop {
