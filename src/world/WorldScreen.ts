@@ -416,6 +416,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   }
 
   function openWell(): void {
+    closeMenuSheet();
     rebuildWell();
     wellPanel.classList.remove('hidden');
     root.classList.add('well-open');
@@ -472,6 +473,80 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     return wrap;
   };
 
+  /* stage 20 — ONE menu on a phone (the owner): the bar keeps only
+     the Lenny signature and a single ☰; the instruments (chips,
+     scarf wardrobe, sound, back) fold into one dropdown panel. On
+     desks (≥900px) the classic three-cluster row stays as it was. */
+  const statusEl = h('div', { class: 'world-status' }, acornChip, dailyChip);
+  const brandEl = h(
+    'div',
+    { class: 'world-brand', 'aria-hidden': 'true' },
+    starIcon(),
+    h('span', { class: 'brand-name' }, 'לני'),
+  );
+  const menuEl = h(
+    'div',
+    { class: 'world-menu' },
+    uiButton({
+      label: 'הַצָּעִיף',
+      variant: 'ghost',
+      id: 'world-wardrobe-btn',
+      ariaLabel: 'ארון הצעיפים של השועלה',
+      onPress: () => {
+        closeMenuSheet();
+        openWell();
+      },
+    }),
+    createSoundToggle('world-sound-toggle'),
+    back,
+  );
+  const headEl = h(
+    'header',
+    { class: 'world-head' },
+    statusEl,
+    brandEl,
+    menuEl,
+  );
+  const menuBtn = uiButton({
+    label: '☰',
+    variant: 'ghost',
+    id: 'world-menu-btn',
+    ariaLabel: 'פתיחת התפריט',
+    onPress: () => {
+      if (root.classList.contains('menu-open')) closeMenuSheet();
+      else openMenuSheet();
+    },
+  });
+  headEl.append(menuBtn);
+  const menuSheet = h('div', { class: 'world-menu-sheet hidden', id: 'world-menu-sheet', role: 'group', 'aria-label': 'תפריט הגן' });
+
+  function openMenuSheet(): void {
+    /* the REAL instruments move into the sheet (listeners survive a
+       move) — one source of truth, no mirrored state */
+    menuSheet.append(statusEl, menuEl);
+    menuSheet.classList.remove('hidden');
+    root.classList.add('menu-open');
+    menuBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeMenuSheet(): void {
+    if (menuSheet.classList.contains('hidden')) return;
+    menuSheet.classList.add('hidden');
+    headEl.insertBefore(statusEl, brandEl);
+    headEl.insertBefore(menuEl, menuBtn);
+    root.classList.remove('menu-open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  /* a desk never shows the sheet — if the viewport grows while it is
+     open, fold it back before the head loses its instruments */
+  const menuDesktop = window.matchMedia('(min-width: 900px)');
+  const onMenuDesktop = (): void => {
+    if (menuDesktop.matches) closeMenuSheet();
+  };
+  if (typeof menuDesktop.addEventListener === 'function') menuDesktop.addEventListener('change', onMenuDesktop);
+  else menuDesktop.addListener(onMenuDesktop);
+
   const root = h(
     'section',
     { class: 'screen screen--world hidden', id: 'world-screen', 'aria-label': 'הגן התלת-ממדי' },
@@ -485,34 +560,8 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     compass,
     loading,
     buildTouchControls(),
-    /* stage 14-B top bar, stage 15-A layout: ONE flex row — instruments
-       on the journey's side, the Lenny signature centered in the row
-       (a flex child, never absolutely stacked over the chips), actions
-       on the other edge. Nothing can overlap at any width. */
-    h(
-      'header',
-      { class: 'world-head' },
-      h('div', { class: 'world-status' }, acornChip, dailyChip),
-      h(
-        'div',
-        { class: 'world-brand', 'aria-hidden': 'true' },
-        starIcon(),
-        h('span', { class: 'brand-name' }, 'לני'),
-      ),
-      h(
-        'div',
-        { class: 'world-menu' },
-        uiButton({
-          label: 'הַצָּעִיף',
-          variant: 'ghost',
-          id: 'world-wardrobe-btn',
-          ariaLabel: 'ארון הצעיפים של השועלה',
-          onPress: () => openWell(),
-        }),
-        createSoundToggle('world-sound-toggle'),
-        back,
-      ),
-    ),
+    headEl,
+    menuSheet,
     h(
       'footer',
       { class: 'world-foot' },
@@ -601,6 +650,7 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
       journey order stays the spine of the garden). */
   function openStationShelf(zone: string, band: StationBand): void {
     if (shelf.isOpen()) return;
+    closeMenuSheet();
     const unlocked = isUnlocked(loadGarden(), zone as ZoneId);
     if (!unlocked) return;
     shelfZone = zone;

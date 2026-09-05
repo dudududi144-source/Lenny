@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+/* stage 20: on a phone the back button lives inside the ONE menu —
+   open the folded bar's sheet first when the direct button is hidden */
+async function tapWorldBack(page: Page): Promise<void> {
+  const back = page.locator('#world-back');
+  if (await back.isVisible().catch(() => false)) {
+    await back.click();
+    return;
+  }
+  await page.locator('#world-menu-btn').click();
+  await back.click();
+}
+
 /* Stage 7, commit 4 — the garden lives:
  *   - the painted sky follows the real hour (lenny-hour-override)
  *   - finished games bloom as flowers on their islands (bridge bloom)
@@ -26,7 +38,7 @@ test('the painted sky follows the real hour override', async ({ page }) => {
 
   await page.evaluate(() => localStorage.setItem('lenny-hour-override', '23'));
   /* the day-turn check runs every 30s — force the path by re-entering */
-  await page.locator('#world-back').click();
+  await tapWorldBack(page);
   await expect(page.locator('#hero-screen')).toBeVisible();
   await page.getByRole('button', { name: /נַתְחִיל|לְהַמְשֵׁךְ/ }).first().click();
   await page.waitForFunction(() => window.__lennyWorld?.phase() === 'exploring', null, { timeout: 25000 });

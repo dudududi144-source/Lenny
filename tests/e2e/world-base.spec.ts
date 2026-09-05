@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+/* stage 20: on a phone the back button lives inside the ONE menu —
+   open the folded bar's sheet first when the direct button is hidden */
+async function tapWorldBack(page: Page): Promise<void> {
+  const back = page.locator('#world-back');
+  if (await back.isVisible().catch(() => false)) {
+    await back.click();
+    return;
+  }
+  await page.locator('#world-menu-btn').click();
+  await back.click();
+}
+
 /* Stage 7, commit 1 — the world's render foundation:
  *   - classic stays the untouched default (lazy: no Babylon bytes)
  *   - mode=world boots the engine, the bridge reports honestly
@@ -89,7 +101,7 @@ test('open → hero → open again re-boots the world cleanly', async ({ page })
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
   await expect(page.locator('.world-canvas')).toBeVisible({ timeout: 20000 });
 
-  await page.locator('#world-back').click();
+  await tapWorldBack(page);
   await expect(page.locator('#hero-screen')).toBeVisible();
   /* leaving disposes the engine — the canvas is gone */
   await expect(page.locator('.world-canvas')).toHaveCount(0);

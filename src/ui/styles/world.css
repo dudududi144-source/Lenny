@@ -329,6 +329,91 @@
   transform: scale(0.96);
 }
 
+/* ---- stage 20: ONE menu on a phone ----
+   ≤899px the bar hides its clusters and shows a single ☰; tapping
+   it moves the REAL instruments into the dropdown sheet (the DOM
+   nodes move — one source of truth). ≥900px everything is as the
+   stage 15-A row designed. */
+.world-menu-btn {
+  display: none;
+}
+
+.world-menu-sheet {
+  position: absolute;
+  top: calc(var(--wz-s2) + var(--wz-safe-top) + 56px);
+  inset-inline-end: var(--wz-s2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wz-s3);
+  width: min(78vw, 300px);
+  padding: var(--wz-s3);
+  background: var(--wz-panel-bg);
+  border: var(--wz-panel-border);
+  border-radius: var(--wz-r-l);
+  box-shadow: var(--wz-panel-shadow);
+  backdrop-filter: var(--wz-panel-blur);
+  z-index: calc(var(--wz-z-hud) + 6);
+  animation: sheet-up 0.24s ease-out;
+  max-height: calc(100% - 120px - var(--wz-safe-top));
+  overflow-y: auto;
+}
+
+.world-menu-sheet.hidden {
+  display: none;
+}
+
+.world-menu-sheet .world-status,
+.world-menu-sheet .world-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  max-width: none;
+}
+
+.world-menu-sheet .light-chip {
+  justify-content: center;
+}
+
+.world-menu-sheet .world-menu .ui-btn,
+.world-menu-sheet .world-menu button.ui-btn--ghost,
+.world-menu-sheet .sound-toggle {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 899px) {
+  /* the folded bar: only the signature + one ☰ */
+  .world-head > .world-status,
+  .world-head > .world-menu {
+    display: none;
+  }
+
+  .world-menu-btn {
+    display: inline-flex;
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    min-height: 46px;
+    min-width: 46px;
+    padding: 8px 12px;
+    border-radius: var(--wz-r-full);
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--wz-ink);
+    background: var(--wz-panel-bg);
+    border: 1px solid rgba(58, 43, 18, 0.16);
+    box-shadow: 0 4px 14px rgba(20, 40, 30, 0.14);
+    backdrop-filter: var(--wz-panel-blur);
+  }
+}
+
+@media (min-width: 900px) {
+  .world-menu-sheet {
+    display: none !important;
+  }
+}
+
 .screen--world .sound-toggle {
   min-height: 44px;
   min-width: 44px;
@@ -741,35 +826,39 @@
 
 /* ============================================================
    THE STATION ENTRY CARD — the store front of 30 clearings.
-   Phone: a bottom sheet (full-width, thumb-reachable, slides
-   up). ≥768px: a centered floating card. ≥1024px (stage 15-A):
-   a SIDE card on the inline-end edge — the world stays visible
-   beside it, the compass/hint never fight it for the bottom.
-   The sheet BODY takes no pointers — the world stays walkable
-   under it; only the real controls respond.
+   Stage 20 (the owner, verdict after four rounds): the card lives
+   ON THE SIDE at every width — never again a bottom sheet over
+   the thumb lanes. It hangs from under the top bar on the
+   inline-end edge (left in RTL, away from the joystick), the
+   world stays visible and WALKABLE beside it, and its body takes
+   no pointers — only the real controls respond.
    Accent = the zone's own color via --sc.
    ============================================================ */
 
 .world-entry {
   position: absolute;
-  inset-inline: 0;
-  bottom: 0;
+  inset-inline: auto var(--wz-s2);
+  inset-block-start: calc(84px + var(--wz-safe-top));
+  inset-block-end: auto;
   display: flex;
   flex-direction: column;
   gap: var(--wz-s2);
-  padding: var(--wz-s2) var(--wz-s4) calc(var(--wz-s4) + var(--wz-safe-bottom));
+  padding: var(--wz-s2) var(--wz-s3) var(--wz-s3);
   background: var(--wz-panel-bg);
   border: var(--wz-panel-border);
-  border-bottom: none;
-  border-radius: var(--wz-r-l) var(--wz-r-l) 0 0;
-  box-shadow: 0 -10px 34px rgba(20, 40, 30, 0.24);
+  border-radius: var(--wz-r-l);
+  box-shadow: var(--wz-panel-shadow);
   backdrop-filter: var(--wz-panel-blur);
-  max-height: min(64vh, 460px);
-  width: min(100%, 420px);
-  margin-inline: auto;
+  /* a phone's short landscape: the card may never reach down to
+     the jump button's lane (~142px from the bottom) — on tiny
+     viewports the grid scrolls INSIDE the card */
+  width: min(74vw, 320px);
+  max-height: max(120px, calc(100% - 84px - var(--wz-safe-top) - 150px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: var(--wz-z-sheet);
-  animation: entry-sheet-up 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none; /* the world stays walkable under the sheet body */
+  animation: entry-side-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none; /* the world stays walkable under the card body */
 }
 
 .world-entry.hidden {
@@ -780,8 +869,9 @@
   pointer-events: auto; /* only the real controls respond */
 }
 
+/* a side card has no sheet grip */
 .entry-grip {
-  display: block;
+  display: none;
   width: 40px;
   height: 4px;
   border-radius: var(--wz-r-full);
@@ -936,7 +1026,20 @@
   font-weight: 800;
 }
 
-@keyframes entry-sheet-up {
+@keyframes entry-side-in {
+  0% {
+    transform: translateX(-14px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* the well's shop stays a real modal bottom sheet (an intentional
+   purchase moment) — it keeps the slide-up entrance */
+@keyframes sheet-up {
   0% {
     transform: translateY(28px);
     opacity: 0;
@@ -947,31 +1050,19 @@
   }
 }
 
-/* desktop: the same surface as a centered card, off the bottom edge */
+/* mid widths: the same side card, a little roomier */
 @media (min-width: 768px) {
   .world-entry {
-    bottom: calc(var(--wz-s4) + var(--wz-safe-bottom));
-    border-bottom: var(--wz-panel-border);
-    border-radius: var(--wz-r-l);
-    padding: var(--wz-s3) var(--wz-s4) var(--wz-s4);
-    box-shadow: var(--wz-panel-shadow);
-  }
-
-  .entry-grip {
-    display: none;
+    width: min(46vw, 360px);
   }
 }
 
-/* true desktop (≥1024px): the entry becomes a SIDE card on the
-   inline-end edge — a station panel, not a bottom sheet. It grows
-   downward from under the top bar and can never collide with the
-   bottom-center guidance slot or the grown-up corner. */
+/* true desktop (≥1024px): the side card gets the desk's room — it
+   grows downward from under the top bar and can never collide with
+   the bottom-center guidance slot or the grown-up corner. */
 @media (min-width: 1024px) {
   .world-entry {
-    inset-inline-start: auto;
     inset-inline-end: var(--wz-s5);
-    inset-block-start: calc(84px + var(--wz-safe-top));
-    inset-block-end: auto;
     width: clamp(340px, 30vw, 440px);
     max-height: calc(100% - 152px - var(--wz-safe-top) - var(--wz-safe-bottom));
     margin-inline: 0;
@@ -1001,7 +1092,7 @@
   max-height: min(62vh, 440px);
   display: flex;
   flex-direction: column;
-  animation: entry-sheet-up 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: sheet-up 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .world-well.hidden {

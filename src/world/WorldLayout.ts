@@ -120,10 +120,36 @@ export function clampToWalkArea(x: number, z: number): { x: number; z: number } 
 
 /* ---------- calm walking (critic round B, W4) ---------- */
 
-/** Peak walk speed — brisk enough that a region-to-region journey is an
-    adventure (30–60s of scenery), never a chore on a continent this big
-    (14-C: the continent doubled, so the stride did too). */
-export const MAX_WALK_SPEED = 9.6;
+/** Peak walk speed — a child's jog. Stage 20 (the owner): 9.6 read as
+    "fast and weird, not fun" — the legs now take their time (6.2 keeps
+    a region journey an adventure without the frantic sprint). */
+export const MAX_WALK_SPEED = 6.2;
+
+/** How fast the legs spin UP (units/s each second): 0→6.2 in ~0.30s.
+    The old build snapped to full speed on the first frame — the owner
+    felt a lurch, not a walk. */
+export const WALK_ACCEL = 21;
+
+/** How fast the legs spin DOWN: 6.2→0 in ~0.42s — a small glide that
+    reads as momentum, not a freeze-frame. */
+export const WALK_DECEL = 15;
+
+/**
+ * The walk speed for this frame (pure): while the stick (or keys) is
+ * engaged the speed grows toward the peak; when released it fades out.
+ * `current` is last frame's speed — feed it back each frame.
+ */
+export function kidWalkSpeed(current: number, moving: boolean, dt: number, max = MAX_WALK_SPEED): number {
+  const safeDt = Math.max(0, Math.min(dt, 0.1));
+  if (moving) return Math.min(max, Math.max(0, current) + WALK_ACCEL * safeDt);
+  return Math.max(0, Math.max(0, current) - WALK_DECEL * safeDt);
+}
+
+/** A tap may order at most a STROLL (stage 20, the owner): beyond this
+    distance a ground/pad tap is ignored as a walk order — a child's
+    random tap must never send Lenny sprinting across the continent
+    (the old "a pad is a door" send). 40u ≈ 6–7s of walking. */
+export const TAP_STROLL_MAX = 40;
 
 /** Distance at which a walk target counts as reached. */
 export const WALK_ARRIVE_EPS = 0.09;
