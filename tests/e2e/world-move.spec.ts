@@ -53,6 +53,23 @@ test('a short tap walks the presence point to the grass', async ({ page }) => {
     .toBeGreaterThan(0.35);
 });
 
+test('a far tap is no longer a sprint order (stage 20 stroll bound)', async ({ page }) => {
+  await openWorld(page);
+  const start = await page.evaluate(() => window.__lennyWorld?.presencePos());
+
+  /* the upper frame is FAR ground — the old build sent the fox
+     sprinting to whatever the tap ray hit (60u+). Stage 20 bounds a
+     tap errand to a stroll (TAP_STROLL_MAX = 40u); whatever the fox
+     does, it can never cross more than that one bound. */
+  await tapAt(page, 0.5, 0.18);
+
+  /* enough clock for the WORST allowed stroll (40u at ~6u/s + the
+     ease-in) to finish completely */
+  await page.waitForTimeout(9000);
+  const after = await page.evaluate(() => window.__lennyWorld?.presencePos());
+  expect(Math.hypot(after!.x - start!.x, after!.z - start!.z)).toBeLessThan(41);
+});
+
 test('a drag only orbits — the presence never moves', async ({ page }) => {
   await openWorld(page);
   const start = await page.evaluate(() => window.__lennyWorld?.presencePos());

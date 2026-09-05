@@ -14,6 +14,11 @@ async function openWorld(page: Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('lenny-garden-mode', 'world');
     localStorage.setItem('lenny-world-onboarded', '1');
+    /* the documented e2e hold (stage 14): these specs WALK the world
+       for minutes on CI's software GL — exactly the legitimate slow
+       boot the fps-distress safety net must not punish. Real children
+       never set this; a real weak device still gets its fallback. */
+    localStorage.setItem('lenny-world-hold', '1');
   });
   await page.goto('/');
   await page.getByRole('button', { name: /נַתְחִיל/ }).click();
@@ -161,62 +166,77 @@ test('stepping onto a pad shows the entry card; the big button opens the band sh
   await expect(page.locator('#world-shelf')).toBeHidden();
 });
 
-test('a far pad tap is a walk errand, not a teleport', async ({ page }) => {
+test('a pad tap walks at most a stroll away — never a sprint (stage 20)', async ({ page }) => {
   test.setTimeout(120_000);
   await openWorld(page);
-  const station = (await page.evaluate(() => window.__lennyWorld?.stations()))!.find(
-    (s) => s.id === 'light-path:1',
-  )!;
-  /* from the spawn the pad may be off-screen; a couple of visible-ground
-     steps bring it into the frame, then one tap on the pad walks */
+  /* stage 20: pick a pad that the boot camera can actually SEE —
+     the contract under test is the tap distance bands, not one
+     hardcoded pad's geometry (a boot pose can park any given pad
+     under the frame). Nearest on-screen pad, or a couple of probe
+     steps until one shows. */
+  let station: { id: string; x: number; z: number } | null = null;
   let tapped: { fx: number; fy: number } | null = null;
-  for (let i = 0; i < 14 && !tapped; i++) {
-    tapped = await page.evaluate(([x, z]) => {
+  for (let round = 0; round < 8 && !station; round++) {
+    const found = await page.evaluate(() => {
       const w = window.__lennyWorld!;
       const me = w.presencePos()!;
-      const s = w.screenOf(x!, z!)!;
-      if (s.on) return { fx: s.x, fy: s.y };
-      /* walk along the visible probe closest to the pad's bearing */
-      const bear = Math.atan2(x! - me.x, z! - me.z);
-      let best: { fx: number; fy: number } | null = null;
-      let bestDiff = Infinity;
-      for (let a2 = 0; a2 < 12; a2++) {
-        const a = bear + (a2 - 6) * 0.45;
-        const probe = w.screenOf(me.x + Math.sin(a) * 8, me.z + Math.cos(a) * 8);
-        if (!probe || !probe.on) continue;
-        const diff = Math.abs(((a - bear + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          best = { fx: probe.x, fy: probe.y };
-        }
+      let best: { id: string; x: number; z: number; fx: number; fy: number; d: number } | null = null;
+      for (const s of w.stations()) {
+        const sc = w.screenOf(s.x, s.z);
+        if (!sc || !sc.on) continue;
+        const d = Math.hypot(s.x - me.x, s.z - me.z);
+        if (!best || d < best.d) best = { id: String(s.id), x: s.x, z: s.z, fx: sc.x, fy: sc.y, d };
       }
       return best;
-    }, [station.x, station.z]);
-    if (!tapped) break;
-    await tapAt(page, tapped.fx, tapped.fy);
-    await page.waitForTimeout(700);
-    await closeOverlays(page);
-    tapped = null;
-    const check = await page.evaluate(([x, z]) => {
+    });
+    if (found) {
+      station = { id: found.id, x: found.x, z: found.z };
+      tapped = { fx: found.fx, fy: found.fy };
+      break;
+    }
+    /* nothing on-screen: stroll once toward the compass target to
+       swing the camera, then re-scan */
+    const probe = await page.evaluate(() => {
       const w = window.__lennyWorld!;
-      const s = w.screenOf(x!, z!)!;
-      return s.on ? { fx: s.x, fy: s.y } : null;
-    }, [station.x, station.z]);
-    if (check) tapped = check;
+      const me = w.presencePos()!;
+      for (let a2 = 0; a2 < 12; a2++) {
+        const a = (a2 / 12) * Math.PI * 2;
+        const p = w.screenOf(me.x + Math.sin(a) * 8, me.z + Math.cos(a) * 8);
+        if (p && p.on) return { fx: p.x, fy: p.y };
+      }
+      return null;
+    });
+    if (!probe) break;
+    await tapAt(page, probe.fx, probe.fy);
+    await page.waitForTimeout(900);
+    await closeOverlays(page);
   }
-  if (!tapped) throw new Error('pad never became visible');
-  /* far away the tap SENDS the walker; close enough, it IS the door
-     (the shelf opens) — both are the honest pad contract */
+  if (!station || !tapped) throw new Error('no on-screen pad to test the tap contract with');
+  await closeOverlays(page);
+  await settleWalker(page);
   const dist = await page.evaluate(([x, z]) => {
     const me = window.__lennyWorld!.presencePos()!;
     return Math.hypot(me.x - x!, me.z - z!);
   }, [station.x, station.z]);
-  if (dist > 2.5) {
-    /* far away the tap SENDS the walker — the errand must land AT the
-       pad (a walk, never a teleport). Small hands tap again when a tap
-       misses; the test earns the same grace: settle, re-aim, up to 3
-       rounds (an overlay-covered pixel or a grazing ray is a miss,
-       not a broken contract). */
+
+  /* stage 20 — the owner's verdict on "קפיצה ממקום למקום בנגיעה":
+     a tap orders at most a STROLL (≤40u). Close enough, the tap
+     walks to the pad (errand aimed at it); nearer still, the pad IS
+     the door (the shelf opens); beyond the stroll bound a tap sends
+     NOTHING — a child's random tap on the horizon can never sprint
+     the fox across the continent. */
+  if (dist > 40) {
+    const before = await page.evaluate(() => window.__lennyWorld!.presencePos()!);
+    const landed = await tapClearAt(page, tapped!.fx, tapped!.fy);
+    if (landed) {
+      await page.waitForTimeout(600);
+      const errand = await page.evaluate(() => window.__lennyWorld?.errand());
+      expect(errand ?? null).toBeNull(); /* no sprint order */
+      const after = await page.evaluate(() => window.__lennyWorld!.presencePos()!);
+      expect(Math.hypot(after.x - before.x, after.z - before.z)).toBeLessThan(0.6);
+    }
+  } else if (dist > 2.5) {
+    /* the stroll: ONE tap, and the errand aims at the pad */
     let settled = false;
     for (let round = 0; round < 3 && !settled; round++) {
       await closeOverlays(page);
@@ -236,12 +256,11 @@ test('a far pad tap is a walk errand, not a teleport', async ({ page }) => {
         settled = true;
         const shelf = page.locator('#world-shelf:not(.hidden)');
         await expect(shelf).toBeVisible({ timeout: 6000 });
-        await expect(page.locator('#world-shelf .shelf-title')).toContainText('הַמִּשְׂחָקִים הַבָּאִים');
         await page.locator('#world-shelf-close').click();
         await expect(page.locator('#world-shelf')).toBeHidden();
         break;
       }
-      /* a walk errand: honest only if it points at the pad */
+      /* a stroll errand: honest only if it points at the pad */
       const miss = Math.hypot(errand.x - station.x, errand.z - station.z);
       expect(miss).toBeLessThan(30); /* sanity: it walks TOWARD the pad */
       if (miss < 2.0) settled = true;

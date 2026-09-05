@@ -90,11 +90,12 @@ import {
   islandCenter,
   isInsideIsland,
   isInsideLandmark,
+  kidWalkSpeed,
   LANDMARKS,
-  MAX_WALK_SPEED,
   nearestLandmark,
   nearestZone,
   slideAroundLandmark,
+  TAP_STROLL_MAX,
   walkStepToward,
   type LandmarkDef,
   WORLD_ISLANDS,
@@ -798,6 +799,10 @@ export async function createWorldApp(
   /* movement state */
   const presencePos = { x: home.x, z: home.z };
   let walkTarget: { x: number; z: number } | null = null;
+  /* stage 20 — the legs' momentum: the eased speed (units/s) and the
+     heading it glides along when the stick lets go */
+  let walkVel = 0;
+  const glideDir = { x: 0, z: 1 };
   let near: ZoneId | null = null;
 
   const NEAR_DIST = 1.35;
@@ -848,7 +853,12 @@ export async function createWorldApp(
 
   /* ---------- fps governor (spec: soften below 25, distress below 15×5s) ---------- */
   const baseScale = 1 / Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, 2);
-  const governor = new FpsGovernor({ baseScale });
+  /* stage 20 (the owner): on a phone the pixels may soften only a
+     LITTLE — the old phone ladder (standard 2.4, weak up to 3.6)
+     painted a quarter-resolution mush ("מטושטש לגמרי"). 1.5 keeps a
+     DPR-3 screen at ~2× physical pixels — clearly readable — while
+     desktops keep the full ladder for their giant viewports. */
+  const governor = new FpsGovernor({ baseScale, maxScale: phoneClass ? 1.5 : 3.6 });
   let currentScale = baseScale;
   engine.setHardwareScalingLevel(currentScale);
 
@@ -905,11 +915,12 @@ export async function createWorldApp(
 
     /* ---------- movement, stage 11: direct control ----------
        Joystick or keyboard = the fox's legs (camera-relative, the
-       platformer contract). A tap still sends a walk errand — but
-       a held direction always wins the very next frame. */
+       platformer contract). A tap may order only a stroll — but
+       a held direction always wins the very next frame.
+       stage 20 (the owner): the legs EASE in and glide out — the old
+       snap-to-full-speed read as "fast and weird, not fun". */
     const mv = onboard.active() || rideStart !== null ? null : worldInput.moveVector();
     const isLocked = (zone: ZoneId): boolean => islands.zones().some((z) => z.id === zone && !z.unlocked);
-    let moved = false;
 
     if (mv) {
       /* camera-relative: forward = where the eye looks, right = its side */
@@ -923,9 +934,11 @@ export async function createWorldApp(
       const wz = fz * mv.z - fx * mv.x;
       const wl = Math.hypot(wx, wz) || 1;
 
-      presencePos.x += (wx / wl) * MAX_WALK_SPEED * dt;
-      presencePos.z += (wz / wl) * MAX_WALK_SPEED * dt;
-      moved = true;
+      walkVel = kidWalkSpeed(walkVel, true, dt);
+      glideDir.x = wx / wl;
+      glideDir.z = wz / wl;
+      presencePos.x += glideDir.x * walkVel * dt;
+      presencePos.z += glideDir.z * walkVel * dt;
       facing = yawFor(wx, wz);
 
       /* a direct step cancels any standing tap errand */
@@ -944,6 +957,29 @@ export async function createWorldApp(
           presencePos.z = p.z + Math.sin(ang) * (p.radius - 0.1);
         }
       }
+    } else if (walkVel > 0) {
+      /* the glide: the stick let go but the legs are still spinning —
+         a short momentum step in the last heading (never through a
+         locked island: the same soft walls apply) */
+      walkVel = kidWalkSpeed(walkVel, false, dt);
+      if (walkVel <= 0.01) {
+        walkVel = 0;
+      } else {
+        presencePos.x += glideDir.x * walkVel * dt;
+        presencePos.z += glideDir.z * walkVel * dt;
+        const clampedGlide = clampToWanderArea(presencePos.x, presencePos.z);
+        presencePos.x = clampedGlide.x;
+        presencePos.z = clampedGlide.z;
+        for (const p of WORLD_ISLANDS) {
+          const d = Math.hypot(presencePos.x - p.x, presencePos.z - p.z);
+          if (d < p.radius - 0.12 && isLocked(p.zone)) {
+            const ang = d < 0.01 ? Math.atan2(-p.z, -p.x) : Math.atan2(presencePos.z - p.z, presencePos.x - p.x);
+            presencePos.x = p.x + Math.cos(ang) * (p.radius - 0.1);
+            presencePos.z = p.z + Math.sin(ang) * (p.radius - 0.1);
+            walkVel = 0; /* a wall stops the glide honestly */
+          }
+        }
+      }
     }
 
     /* the tap errand (walkStepToward keeps its soft landing) */
@@ -954,7 +990,7 @@ export async function createWorldApp(
       if (Math.hypot(step.x - presencePos.x, step.z - presencePos.z) > 1e-6) {
         facing = yawFor(step.x - prevPresence.x, step.z - prevPresence.z);
       }
-      moved = !step.arrived;
+
       destMat.alpha = Math.max(0.25, destMat.alpha - dt * 0.1);
       if (step.arrived) {
         walkTarget = null;
@@ -1028,7 +1064,7 @@ export async function createWorldApp(
       presencePos.z = p.z;
       facing = p.facing;
       rideAlt = p.alt;
-      moved = false;
+      walkVel = 0; /* the ride carries the legs — no momentum */
       walkTarget = null;
       destMat.alpha = 0;
     } else {
@@ -1052,7 +1088,9 @@ export async function createWorldApp(
     governor.setSpectacle(rideK !== null);
     balloon.update(now, dt, rideK);
 
-    const speed = moved ? MAX_WALK_SPEED : 0;
+    /* the fox's legs animate at the REAL eased speed — a glide reads
+       as a trot winding down, never as a frozen full sprint */
+    const speed = walkVel;
     const gy = groundY();
     fox.update(now / 1000, dt, {
       pos: presencePos,
@@ -1359,6 +1397,10 @@ export async function createWorldApp(
     {
       onWalkTarget: (resolved) => {
         if (onboard.active() || rideStart !== null) return;
+        /* stage 20 (the owner): a tap orders at most a STROLL — a
+           child's random tap on the horizon must never send Lenny
+           flying across the continent ("קפיצה ממקום למקום"). */
+        if (Math.hypot(resolved.x - presencePos.x, resolved.z - presencePos.z) > TAP_STROLL_MAX) return;
         walkTarget = { x: resolved.x, z: resolved.z };
         /* the destination ring rides the land (platforms lift it higher) */
         const onIsland = isInsideIsland(resolved.x, resolved.z);
@@ -1375,8 +1417,11 @@ export async function createWorldApp(
       },
       onBalloonTap: () => {
         /* one tap on any part of the balloon = one errand: the deck.
-           From there the pad itself lifts the child into the ride. */
+           From there the pad itself lifts the child into the ride.
+           (stage 20: only from a honest distance — never a cross-world
+           send from an accidental tap.) */
         if (onboard.active() || rideStart !== null) return;
+        if (Math.hypot(balloonPadSpot.x - presencePos.x, balloonPadSpot.z - presencePos.z) > TAP_STROLL_MAX) return;
         walkTarget = { x: balloonPadSpot.x, z: balloonPadSpot.z };
         destRing.position.set(balloonPadSpot.x, terrainHeight(balloonPadSpot.x, balloonPadSpot.z) + 0.14, balloonPadSpot.z);
         destMat.alpha = 0.75;
@@ -1401,9 +1446,16 @@ export async function createWorldApp(
         if (!spot) return;
         const d = Math.hypot(presencePos.x - spot.x, presencePos.z - spot.z);
         if (d > STATION_NEAR_RADIUS * 0.95) {
-          walkTarget = { x: spot.x, z: spot.z };
-          destRing.position.set(spot.x, terrainHeight(spot.x, spot.z) + 0.14, spot.z);
-          destMat.alpha = 0.75;
+          /* stage 20 (the owner): a far pad is no longer a sprint
+             order — a tap walks there only when it is a stroll away;
+             farther than that the child WALKS (joystick) with the
+             compass and the signposts pointing the way. Random taps
+             can no longer teleport-sprint the fox across the map. */
+          if (d <= TAP_STROLL_MAX) {
+            walkTarget = { x: spot.x, z: spot.z };
+            destRing.position.set(spot.x, terrainHeight(spot.x, spot.z) + 0.14, spot.z);
+            destMat.alpha = 0.75;
+          }
           return;
         }
         try {

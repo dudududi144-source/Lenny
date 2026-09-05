@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+/* stage 20: on a phone the back button lives inside the ONE menu —
+   open the folded bar's sheet first when the direct button is hidden */
+async function tapWorldBack(page: Page): Promise<void> {
+  const back = page.locator('#world-back');
+  if (await back.isVisible().catch(() => false)) {
+    await back.click();
+    return;
+  }
+  await page.locator('#world-menu-btn').click();
+  await back.click();
+}
+
 /* Stage 7, commit 6 — the performance contract:
  *   - CI floor: ≥20fps sustained for 10 seconds (the spec's blocker)
  *   - world↔shell round trips stay clean: zero errors, engine gone
@@ -78,7 +90,7 @@ test('three world round trips stay clean (dispose discipline)', async ({ page })
     await page.waitForFunction(() => window.__lennyWorld?.phase() === 'exploring', null, { timeout: 25000 });
     expect(await page.evaluate(() => window.__lennyWorld?.zones()?.length ?? 0)).toBe(10);
 
-    await page.locator('#world-back').click();
+    await tapWorldBack(page);
     await expect(page.locator('#hero-screen')).toBeVisible();
     await expect(page.locator('.world-canvas')).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => window.__lennyWorld?.phase() ?? 'missing')).toBe('closed');

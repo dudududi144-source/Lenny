@@ -179,22 +179,27 @@ export const FAR_STATIONS: StationSpot[] = [
  * The distribution audit's verdict: between the home clearings
  * (≤ ~27u) and the far ring (≥ ~730u) there was NOTHING — a child
  * walking outward crossed a silent desert before the first far pad.
- * Ten outposts now bridge the gap (radius ~100–540), one per
- * octant, borrowing existing zone catalogs (the same shelf a pad
- * of that zone+band opens anywhere) so the unlock fog and the
- * shelves stay honest. Same clearances, pinned by the unit gate.
+ * Ten outposts now bridge the gap. Stage 20 (the owner, the eighth
+ * request): the first ladder (100–540) still READ as a cluster —
+ * nine pads at spawn, then a desert until ~460. The outposts now
+ * form an EVEN LADDER (75/108/141/174/207/240/273/305/334/360) on
+ * a golden-angle spiral — from the spawn meadow a station is always
+ * a short stroll away, in every direction. Borrowing existing zone
+ * catalogs (the same shelf a pad of that zone+band opens anywhere)
+ * so the unlock fog and the shelves stay honest. Same clearances,
+ * pinned by the unit gate.
  */
 const MID_STATIONS: StationSpot[] = [
-  farSpot('far:mid:word-e', 'words-valley', 1, 338, 86),
-  farSpot('far:mid:memory-ne', 'memory-hill', 0, 250, 360),
-  farSpot('far:mid:breath-n', 'breath-pool', 2, -80, 460),
-  farSpot('far:mid:attention-nw', 'attention-stream', 0, -400, 230),
-  farSpot('far:mid:creativity-w', 'creativity-meadow', 1, -440, -120),
-  farSpot('far:mid:thinking-sw', 'thinking-forest', 2, -230, -400),
-  farSpot('far:mid:rhythm-s', 'rhythm-square', 0, 120, -450),
-  farSpot('far:mid:feelings-se', 'feelings-garden', 1, 420, -240),
-  farSpot('far:mid:light-inner', 'light-path', 2, 110, 60),
-  farSpot('far:mid:memory-inner', 'memory-hill', 1, -90, -90),
+  farSpot('far:mid:light-inner', 'light-path', 2, 70, 26),
+  farSpot('far:mid:memory-inner', 'memory-hill', 1, -100, 41),
+  farSpot('far:mid:word-e', 'words-valley', 1, 60, -128),
+  farSpot('far:mid:memory-ne', 'memory-hill', 0, 52, 166),
+  farSpot('far:mid:breath-n', 'breath-pool', 2, -179, -104),
+  farSpot('far:mid:attention-nw', 'attention-stream', 0, 234, -52),
+  farSpot('far:mid:creativity-w', 'creativity-meadow', 1, -157, 223),
+  farSpot('far:mid:thinking-sw', 'thinking-forest', 2, -39, -303),
+  farSpot('far:mid:rhythm-s', 'rhythm-square', 0, 255, 215),
+  farSpot('far:mid:feelings-se', 'feelings-garden', 1, -360, 15),
 ];
 
 /** All clearings (zone pads first, then the far ring), for every consumer. */
