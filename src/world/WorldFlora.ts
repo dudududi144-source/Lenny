@@ -27,7 +27,7 @@ import { Mesh } from '@babylonjs/core/Meshes/mesh';
 import type { Scene } from '@babylonjs/core/scene';
 import { mulberry32 } from './worldAcorns';
 import { LANDMARKS, WORLD_ISLANDS } from './WorldLayout';
-import { STATIONS } from './WorldStations';
+import { ALL_STATIONS } from './WorldStations';
 import { nearestRegion, REGION_ROADS, terrainHeight } from './WorldRegions';
 
 /* ---------- painted textures ---------- */
@@ -142,7 +142,7 @@ function clearSpot(x: number, z: number, minRoad: number): boolean {
   for (const p of WORLD_ISLANDS) {
     if (Math.hypot(x - p.x, z - p.z) < p.radius + 0.8) return false;
   }
-  for (const s of STATIONS) {
+  for (const s of ALL_STATIONS) {
     if (Math.hypot(x - s.x, z - s.z) < 1.6) return false;
   }
   return true;
@@ -328,6 +328,65 @@ export function buildFlora(scene: Scene): FloraHandle {
     flowerMaster.useVertexColors = true;
   }
 
+  /* ---------- stones + shrubs (stage 17, Kenney-nature-kit school) ----------
+     The trusted-source pass: Kenney's CC0 Nature Kit (330+ objects,
+     the industry's reference for low-poly garden dressing) reads as
+     "terrain furniture" — stones, boulders, little bushes BETWEEN
+     the set pieces. The garden had grass and flowers to ~296u and
+     then went bare across the whole mid-ring the walker crosses.
+     Two more thin-instance masters (two draw calls total) carry the
+     detail across the continent: rounded stone clusters that catch
+     the hour light, and small shrubs. Zero per-frame cost, same
+     deterministic scatter, same clearances. */
+  const stoneMat = new StandardMaterial('flora-stone-mat', scene);
+  stoneMat.diffuseColor = new Color3(0.62, 0.6, 0.56);
+  stoneMat.specularColor = new Color3(0.05, 0.05, 0.05);
+
+  const stones = scatter(230, 0xf1077, 18, 640, 2.2, 12000);
+  const stoneMaster = MeshBuilder.CreatePolyhedron('flora-stone-master', { type: 1, size: 0.32 }, scene);
+  stoneMaster.material = stoneMat;
+  stoneMaster.parent = root;
+  stoneMaster.isPickable = false;
+  {
+    const matrices: Float32Array = new Float32Array(stones.length * 16);
+    stones.forEach((s, i) => {
+      const y = terrainHeight(s.x, s.z);
+      /* squashed a little: a stone sits, it doesn't float */
+      const m = Matrix.Compose(
+        new Vector3(s.scale * 1.15, s.scale * 0.62, s.scale),
+        Quaternion.RotationYawPitchRoll(s.rot, 0, 0),
+        new Vector3(s.x, y + 0.1 * s.scale, s.z),
+      );
+      m.copyToArray(matrices, i * 16);
+    });
+    stoneMaster.thinInstanceSetBuffer('matrix', matrices, 16, true);
+    stoneMaster.thinInstanceRefreshBoundingInfo();
+  }
+
+  const shrubMat = new StandardMaterial('flora-shrub-mat', scene);
+  shrubMat.diffuseColor = new Color3(0.3, 0.52, 0.26);
+  shrubMat.specularColor = new Color3(0.03, 0.05, 0.03);
+
+  const shrubs = scatter(170, 0xf1088, 20, 660, 2.4, 12000);
+  const shrubMaster = MeshBuilder.CreateSphere('flora-shrub-master', { diameter: 0.78, segments: 4, slice: 0.72 }, scene);
+  shrubMaster.material = shrubMat;
+  shrubMaster.parent = root;
+  shrubMaster.isPickable = false;
+  {
+    const matrices: Float32Array = new Float32Array(shrubs.length * 16);
+    shrubs.forEach((s, i) => {
+      const y = terrainHeight(s.x, s.z);
+      const m = Matrix.Compose(
+        new Vector3(s.scale, s.scale * 0.8, s.scale),
+        Quaternion.RotationYawPitchRoll(s.rot, 0, 0),
+        new Vector3(s.x, y + 0.24 * s.scale, s.z),
+      );
+      m.copyToArray(matrices, i * 16);
+    });
+    shrubMaster.thinInstanceSetBuffer('matrix', matrices, 16, true);
+    shrubMaster.thinInstanceRefreshBoundingInfo();
+  }
+
   /* the hour's cloud tint (null = the historical white) — a repaint
      only when the tint actually changes, never per frame */
   let cloudTint: string | null = null;
@@ -368,6 +427,8 @@ export function buildFlora(scene: Scene): FloraHandle {
       grassTex.dispose();
       flowerMat.dispose();
       flowerTex.dispose();
+      stoneMat.dispose();
+      shrubMat.dispose();
     },
   };
 }
