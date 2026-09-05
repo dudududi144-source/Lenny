@@ -30,14 +30,24 @@ async function openWorld(page: Page): Promise<void> {
 async function tapAt(page: Page, fx: number, fy: number): Promise<void> {
   const box = await page.locator('.world-canvas').boundingBox();
   const x = box!.x + box!.width * fx;
-  const y = box!.y + box!.height * fy;
+  let y = box!.y + box!.height * fy;
+  /* stage 21: the thumb controls grew (joy 136px, jump 88px) — a
+     walk tap that lands on them must ride ABOVE the control instead
+     (the errand direction barely changes; the loop re-aims anyway) */
+  for (const sel of ['#world-joy', '#world-jump-btn']) {
+    const c = await page.locator(sel).boundingBox().catch(() => null);
+    if (!c) continue;
+    if (x >= c.x - 4 && x <= c.x + c.width + 4 && y >= c.y - 4 && y <= c.y + c.height + 4) {
+      y = c.y - 26;
+    }
+  }
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.up();
 }
 
 /** Tap a canvas point that is NOT covered by a DOM overlay (quest
-    panel, entry card, compass…) — probe small offsets around the TRUE
+    panel, well sheet, compass…) — probe small offsets around the TRUE
     pixel and let elementFromPoint decide (a fixed clamp would bend
     far pads' pixels into near ground — stage-14 camera keeps distant
     places high in the frame). */
@@ -143,7 +153,7 @@ test('the bridge reports the full station ledger; the hub is open, the far map i
   }
 });
 
-test('stepping onto a pad shows the entry card; the big button opens the band shelf', async ({ page }) => {
+test('a pad shows NO card at all — the pad tap itself is the door (stage 21)', async ({ page }) => {
   test.setTimeout(90_000);
   await openWorld(page);
   const station = (await page.evaluate(() => window.__lennyWorld?.stations()))!.find(
@@ -151,19 +161,27 @@ test('stepping onto a pad shows the entry card; the big button opens the band sh
   )!;
   await walkToWorld(page, station.x, station.z, 1.0);
 
-  /* the card names the band and the zone, and offers ONE big button */
-  const card = page.locator('#world-entry');
-  await expect(card).toBeVisible({ timeout: 6000 });
-  await expect(card).toContainText('הַמִּשְׂחָקִים הָרִאשׁוֹנִים');
-  await expect(card).toContainText('שְׁבִיל הָאוֹר');
+  /* stage 21: the entry card is REMOVED from the world — five owner
+     rounds of "remove this card" ended it. Standing on a clearing
+     pops NOTHING over the thumb lanes. */
+  await page.waitForTimeout(1500);
+  expect(await page.locator('#world-entry').count()).toBe(0);
 
-  await page.locator('#world-entry-play').click();
-  const shelf = page.locator('#world-shelf:not(.hidden)');
-  await expect(shelf).toBeVisible({ timeout: 6000 });
-  await expect(page.locator('#world-shelf .shelf-title')).toContainText('הַמִּשְׂחָקִים הָרִאשׁוֹנִים');
-  await expect(page.locator('#world-shelf-row .shelf-card:not(.locked)').first()).toBeVisible();
-  await page.locator('#world-shelf-close').click();
-  await expect(page.locator('#world-shelf')).toBeHidden();
+  /* the pad itself is the door: a tap on the station opens that
+     band's shelf directly */
+  const spot = await page.evaluate(() => {
+    const w = window.__lennyWorld!;
+    const st = w.stations().find((x) => x.id === 'light-path:0')!;
+    return w.screenOf(st.x, st.z);
+  });
+  if (spot && spot.on) {
+    await tapAt(page, spot.x, spot.y);
+    const shelf = page.locator('#world-shelf:not(.hidden)');
+    await expect(shelf).toBeVisible({ timeout: 6000 });
+    await expect(page.locator('#world-shelf-row .shelf-card:not(.locked)').first()).toBeVisible();
+    await page.locator('#world-shelf-close').click();
+    await expect(page.locator('#world-shelf')).toBeHidden();
+  }
 });
 
 test('a pad tap walks at most a stroll away — never a sprint (stage 20)', async ({ page }) => {
