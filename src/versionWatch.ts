@@ -97,5 +97,11 @@ export function startVersionWatch(): void {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) void check();
   });
+  /* stage 21: a session parked in the FOREGROUND (an in-app webview
+     that never loses focus, a kiosk tab) gets a periodic probe too —
+     the interval tick is throttled by the same 30s guard. */
+  window.setInterval(() => {
+    if (!document.hidden) void check();
+  }, 60_000);
   void check();
 }

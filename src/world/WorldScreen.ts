@@ -30,8 +30,7 @@ import {
   SCARF_ITEMS,
   type WardrobeState,
 } from './worldWardrobe';
-import { BAND_NAMES, specsForBand, type StationBand } from './WorldStations';
-import { zoneCatalog, tierUnlocked, tierMissing, displayNameFor } from '../content/catalog';
+import { type StationBand } from './WorldStations';
 import {
   WorldQuests,
   buildPatternQuest,
@@ -298,50 +297,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     h('div', { class: 'world-quest-row' }, questCounter, questChips, questLater),
   );
 
-  /* stage 14-B: the clearing's entry card — the store front of the
-     thirty clearings. The band's games offer THEMSELVES here (a
-     2-column grid of big buttons, locked states honest, the zone's
-     own color on the accent), one obvious close affordance, and one
-     primary action that opens the band's full shelf. On a phone it
-     slides up as a bottom sheet; on a desk it is a centered card. */
-  const entryTitle = h('strong', { class: 'entry-title' }, '');
-  const entrySub = h('span', { class: 'entry-sub' }, '');
-  const entryGrid = h('div', { class: 'entry-grid', role: 'group', 'aria-label': 'משחקי התחנה' });
-  const entryCard = h(
-    'section',
-    { class: 'world-entry hidden', id: 'world-entry', role: 'region', 'aria-label': 'כניסה למשחקי התחנה' },
-    h('span', { class: 'entry-grip', 'aria-hidden': 'true' }),
-    h(
-      'header',
-      { class: 'entry-head' },
-      h('div', { class: 'entry-id' }, entryTitle, entrySub),
-      h(
-        'button',
-        {
-          class: 'entry-close',
-          id: 'world-entry-close',
-          type: 'button',
-          'aria-label': 'סגירת כרטיס התחנה',
-          onClick: () => hideStationCard(),
-        },
-        '✕',
-      ),
-    ),
-    entryGrid,
-    h(
-      'div',
-      { class: 'entry-actions' },
-      uiButton({
-        label: 'לְשַׂחֵק!',
-        variant: 'primary',
-        id: 'world-entry-play',
-        ariaLabel: 'לשחק את משחקי התחנה',
-        onPress: () => {
-          if (nearStation) openStationShelf(nearStation.zone, nearStation.band);
-        },
-      }),
-    ),
-  );
+  /* stage 21 — the card is GONE for good. Five rounds of the owner
+     asking "remove this card" ends here: nothing pops over the world
+     when the fox steps onto a clearing. The pad itself is the door —
+     a tap on a station opens that band's shelf (onStationTap). */
 
   /* stage 14: the well's shop — acorns become scarves, scarves become
      the fox's look. Local, honest, no timers, no scarcity pressure. */
@@ -420,8 +379,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     rebuildWell();
     wellPanel.classList.remove('hidden');
     root.classList.add('well-open');
-    /* one primary surface at a time — the shop outranks the clearing */
-    hideStationCard();
   }
 
   function closeWell(): void {
@@ -555,7 +512,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     ...plates,
     shelf.root,
     questPanel,
-    entryCard,
     wellPanel,
     compass,
     loading,
@@ -632,22 +588,11 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   let phase: WorldPhase = 'closed';
   let shelfZone: string | null = null;
 
-  /* stage 14: the clearing the child stands on (the entry card lives here) */
-  let nearStation: { zone: string; band: StationBand } | null = null;
-  let entryShownFor: string | null = null;
-
-  /** The station card leaves — the child walked off, closed it, or a
-      bigger surface (shelf / well) took over. State stays honest. */
-  function hideStationCard(): void {
-    nearStation = null;
-    entryShownFor = null;
-    entryCard.classList.add('hidden');
-    root.classList.remove('entry-open');
-  }
-
-  /** The clearing's door opens: the shelf slides in with ONLY that
+    /** The clearing's door opens: the shelf slides in with ONLY that
       band's games. The island's own shelf keeps every game (the
-      journey order stays the spine of the garden). */
+      journey order stays the spine of the garden). Stage 21: the
+      pad itself is the door - no card offers itself first; a tap
+      on a station opens the shelf directly. */
   function openStationShelf(zone: string, band: StationBand): void {
     if (shelf.isOpen()) return;
     closeMenuSheet();
@@ -659,74 +604,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     phase = 'shelf-open';
     root.dataset.worldPhase = 'shelf-open';
     app?.setKeyboardEnabled(false);
-    hideStationCard();
     closeWell();
   }
 
-  /** The child stepped onto (or off) a clearing pad — the card leans in
-      with THAT band's games. One primary surface at a time: the card
-      outranks the quest guidance and rests while the shelf is open. */
-  function handleStationNear(station: { zone: string; band: StationBand } | null): void {
-    nearStation = station;
-    if (!station || phase !== 'exploring' || shelf.isOpen()) {
-      entryCard.classList.add('hidden');
-      root.classList.remove('entry-open');
-      return;
-    }
-    const key = `${station.zone}:${station.band}`;
-    if (entryShownFor !== key) {
-      entryShownFor = key;
-      const zone = getZone(station.zone as ZoneId);
-      entryTitle.textContent = BAND_NAMES[station.band];
-      entrySub.textContent = zone ? zone.name : '';
-      rebuildEntryGrid(station.zone, station.band);
-    }
-    entryCard.classList.remove('hidden');
-    root.classList.add('entry-open');
-    /* the clearing outranks the well — one offer, never a pile-up */
-    closeWell();
-  }
-
-  /** The band's games, dressed in the zone's own color: unlocked ones
-      launch straight away, locked ones say honestly what is missing. */
-  function rebuildEntryGrid(zone: string, band: StationBand): void {
-    entryGrid.replaceChildren();
-    const accent = getZone(zone as ZoneId)?.uiColor ?? '#ffd76a';
-    entryCard.style.setProperty('--sc', accent);
-    const zoneOpen = isUnlocked(loadGarden(), zone as ZoneId);
-    for (const spec of specsForBand(zoneCatalog(zone), band)) {
-      const unlocked = zoneOpen && tierUnlocked(spec.category, spec.baseTier);
-      const missing = unlocked ? 0 : tierMissing(spec.category, spec.baseTier);
-      entryGrid.append(
-        h(
-          'button',
-          {
-            class: `entry-game${unlocked ? '' : ' locked'}`,
-            type: 'button',
-            'data-spec': spec.id,
-            'aria-label': unlocked
-              ? `${displayNameFor(spec)} — שִׂחֲקוּ עַכְשָׁו`
-              : `${displayNameFor(spec)} — נָעוּל, עוֹד ${missing} הַשְׁלָמוֹת`,
-            style: `--sc: ${accent}`,
-            disabled: !unlocked,
-            onClick: () => {
-              if (!unlocked) return;
-              hideStationCard();
-              diary.notePick();
-              stopHeartbeat();
-              callbacks.onZonePick(zone, spec.id);
-            },
-          },
-          h('span', { class: 'entry-game-name' }, displayNameFor(spec)),
-          unlocked
-            ? h('span', { class: 'entry-game-go', 'aria-hidden': 'true' }, '▶')
-            : h('span', { class: 'entry-game-lock', 'aria-hidden': 'true' }, `🔒 עוֹד ${missing}`),
-        ),
-      );
-    }
-  }
-
-  /* ---------- stage 11: touch controls + desktop hint ----------
+/* ---------- stage 11: touch controls + desktop hint ----------
      The touch child walks like a platformer hero: a thumb-stick
      bottom-left, a jump button bottom-right (both ≥64px — small
      fingers, big targets). The desktop child gets a one-line hint
@@ -735,7 +616,15 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
   function buildTouchControls(): HTMLElement {
     const touch =
       typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
-    const joyBase = h('div', { class: 'world-joy', id: 'world-joy', 'aria-hidden': 'true' }, h('div', { class: 'world-joy-knob', id: 'world-joy-knob' }));
+    /* stage 21: the hit area is the visible DISC, not the bounding
+       square — a ground tap in the square's dead corners must walk,
+       never yank the stick (the owner: bigger stick, zero weirdness) */
+    const joyBase = h(
+      'div',
+      { class: 'world-joy', id: 'world-joy', 'aria-hidden': 'true' },
+      h('span', { class: 'world-joy-hit' }),
+      h('div', { class: 'world-joy-knob', id: 'world-joy-knob' }),
+    );
     const jumpBtn = h(
       'button',
       { class: 'world-jump-btn', id: 'world-jump-btn', type: 'button', 'aria-label': 'קפיצה' },
@@ -1436,13 +1325,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             /* an acorn never crashes the garden */
           }
         },
-        onStationNear: (station) => {
-          try {
-            handleStationNear(station);
-          } catch {
-            /* a clearing hello never crashes the garden */
-          }
-        },
         onStationTap: (station) => {
           try {
             openStationShelf(station.zone, station.band);
@@ -1508,7 +1390,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
             diary.noteShelfOpen();
             phase = 'shelf-open';
             root.dataset.worldPhase = 'shelf-open';
-            hideStationCard();
             /* the shelf owns the keys now — walking away mid-shelf
                would be a confusing ghost (round C a11y) */
             app?.setKeyboardEnabled(false);
@@ -1668,7 +1549,6 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
     phase = 'closed';
     stage.replaceChildren();
     bubble.classList.add('hidden');
-    hideStationCard();
     closeWell();
     root.dataset.worldPhase = 'closed';
   }

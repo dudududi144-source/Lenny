@@ -1438,14 +1438,17 @@ body {
    The base reads as a recessed dish (inner shade at the top, soft
    rim of light below), floating on a layered drop shadow that stays
    visible on grass, road and dark clearing alike. */
+/* stage 21 — the owner said the stick is still too short for small
+   thumbs: 108 → 136px dish, knob 52 → 66px. Same recessed dish +
+   layered drop shadow (stage 19's צל), just a bigger hand-hold. */
 .world-joy {
   position: absolute;
   inset-inline-start: max(18px, env(safe-area-inset-left, 0px));
   /* above the grown-up corner (world-foot ~48px) — never cover the
      parents' links (a control that hides the exit is a trap) */
   inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 66px);
-  width: 108px;
-  height: 108px;
+  width: 136px;
+  height: 136px;
   border-radius: 50%;
   background: rgba(12, 26, 17, 0.5);
   border: 2px solid rgba(255, 215, 106, 0.55);
@@ -1454,9 +1457,19 @@ body {
     inset 0 -1px 0 rgba(255, 248, 232, 0.14),
     0 12px 28px rgba(0, 0, 0, 0.4),
     0 3px 8px rgba(0, 0, 0, 0.32);
-  pointer-events: auto;
+  pointer-events: none; /* the hit span below re-arms the visible disc */
   touch-action: none;
   display: none;
+}
+
+/* stage 21: only the visible circle answers the thumb — the square's
+   dead corners pass ground taps straight through to the world */
+.world-joy-hit {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 /* the knob is a raised ball: sheen on top, shaded belly underneath,
@@ -1465,9 +1478,9 @@ body {
   position: absolute;
   inset-inline-start: 50%;
   inset-block-start: 50%;
-  width: 52px;
-  height: 52px;
-  margin: -26px 0 0 -26px;
+  width: 66px;
+  height: 66px;
+  margin: -33px 0 0 -33px;
   border-radius: 50%;
   background: radial-gradient(circle at 34% 30%, #ffe9a6, #ffd76a 62%, #d9a83a);
   box-shadow:
@@ -1481,10 +1494,10 @@ body {
   position: absolute;
   inset-inline-end: max(18px, env(safe-area-inset-right, 0px));
   inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 70px);
-  width: 72px;
-  height: 72px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
-  font-size: 1.5rem;
+  font-size: 1.8rem;
   font-weight: 800;
   color: #4a3220;
   background: radial-gradient(circle at 34% 30%, #ffe9a6, #ffd76a 62%, #d9a83a);
