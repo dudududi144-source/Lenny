@@ -455,16 +455,32 @@
   display: none;
 }
 
-/* ============ the bottom-center guidance slot ============
-   ONE surface at a time owns the bottom-center: the compass in
-   plain exploring, the offered quest while one is live, the
-   clearing sheet on a pad. Mutual exclusion lives in the state
-   classes the shell toggles (entry-open / well-open / shelf-open). */
+/* ============ the guidance slot law (stage 18) ============
+   The bottom-center is the THUMBS' — no resident surface may live
+   there. The compass used to own it while exploring (a persistent
+   rounded pill at 88px above the bottom edge, exactly over the
+   joystick lane — the owner's "central bubble", three rounds
+   running); it guides from under the top bar now. The offered
+   quest is a top toast (stage 17), the clearing sheet is a pad-
+   anchored surface, the bubble is capped to the top third.
+   Mutual exclusion lives in the state classes the shell toggles
+   (entry-open / well-open / shelf-open). */
 
 /* the wayfinding compass — guidance under the eye, above thumbs */
 .screen--world .zone-compass {
-  inset-block-start: auto;
-  inset-block-end: calc(88px + var(--wz-safe-bottom));
+  /* stage 18 — the compass LIVES AT THE TOP now. It used to anchor
+     to the bottom-center (88px up from the bottom edge), a rounded
+     persistent pill hovering over the joystick lane — the owner
+     asked three rounds to remove "the central bubble at the bottom
+     center" and meant THIS (its wayfinding text is the quest's
+     twin: ברכת הנשימה · עוד ~29 צעדים). The narrow-screen hide was
+     media-scoped, so a landscape phone (640-930px) kept it parked
+     low forever. Same law as the toast and the bubble: messages
+     live under the top bar, thumbs own everything below. While a
+     quest toast is up the compass already yields (quest-open hides
+     it) — one message lane at a time. */
+  inset-block-start: calc(84px + var(--wz-safe-top));
+  inset-block-end: auto;
   padding: 6px 14px;
   border-radius: var(--wz-r-full);
   background: rgba(24, 34, 28, 0.6);
