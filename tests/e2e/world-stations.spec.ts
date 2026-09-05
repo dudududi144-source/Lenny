@@ -119,12 +119,14 @@ async function walkToWorld(page: Page, wx: number, wz: number, nearDist: number)
   throw new Error(`never arrived near (${wx}, ${wz})`);
 }
 
-test('the bridge reports thirty clearings; the hub is open, the far map is fogged', async ({ page }) => {
+test('the bridge reports the full station ledger; the hub is open, the far map is fogged', async ({ page }) => {
   await openWorld(page);
   const stations = await page.evaluate(() => window.__lennyWorld?.stations());
-  expect(stations!.length).toBe(30);
+  /* stage 17 planted the mid-ring outposts (10) beside the base
+     thirty and the far ring — the bridge reports the WHOLE ledger */
+  expect(stations!.length).toBe(52);
   const ids = new Set(stations!.map((s) => s.id));
-  expect(ids.size).toBe(30);
+  expect(ids.size).toBe(52);
   /* only the 'open' zones start unlocked — their clearings are open,
      every fogged zone's clearings are fogged with it */
   for (const s of stations!) {
