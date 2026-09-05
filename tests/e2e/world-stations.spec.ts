@@ -29,7 +29,7 @@ async function openWorld(page: Page): Promise<void> {
 
 async function tapAt(page: Page, fx: number, fy: number): Promise<void> {
   const box = await page.locator('.world-canvas').boundingBox();
-  let x = box!.x + box!.width * fx;
+  const x = box!.x + box!.width * fx;
   let y = box!.y + box!.height * fy;
   /* stage 21: the thumb controls grew (joy 136px, jump 88px) — a
      walk tap that lands on them must ride ABOVE the control instead
