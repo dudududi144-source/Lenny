@@ -158,6 +158,18 @@ function showScreen(name: ScreenName): void {
   for (const [key, el] of Object.entries(screens)) {
     el.classList.toggle('hidden', key !== name);
   }
+  /* stage 18 — the frame never carries scroll state between screens.
+     The frame is `overflow: clip` now (scrolling forbidden at the
+     CSS level), but engines without `clip` fall back to `hidden` —
+     a still-scrollable box. A landscape phone once scrolled the
+     frame 203px to reach the hero CTA and that stale scroll dragged
+     the ENTIRE world screen half off the top of the display. So:
+     every switch lands on a zeroed frame. */
+  const frame = document.querySelector('.frame');
+  if (frame instanceof HTMLElement && (frame.scrollTop !== 0 || frame.scrollLeft !== 0)) {
+    frame.scrollTop = 0;
+    frame.scrollLeft = 0;
+  }
   /* Stage 6: the day's hello counts only when the garden is SEEN */
   if (name === 'garden') {
     try {

@@ -13,11 +13,20 @@ test.describe('stage 17 touch verdict', () => {
   });
 
   test('toast stays top-anchored in landscape; pinch cannot move the radius', async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(90_000);
+    /* stage 18 honesty: the world must be OPEN — the old run measured
+       the hidden screen's DOM (scale-0.985 geometry) and passed on a
+       technicality. World mode + visible canvas before any measure. */
+    await page.addInitScript(() => {
+      localStorage.setItem('lenny-garden-mode', 'world');
+      localStorage.setItem('lenny-world-onboarded', '1');
+    });
     await page.goto('/');
     await page.waitForTimeout(2500);
     await page.locator('#start-btn').click();
-    await page.waitForTimeout(9000); /* world boot + first quest offer */
+    await page.locator('#world-screen').waitFor({ state: 'visible', timeout: 30_000 });
+    await page.locator('canvas').waitFor({ state: 'visible', timeout: 30_000 });
+    await page.waitForTimeout(6000); /* engine settles + first quest offer */
 
     const state = await page.evaluate(async () => {
       const w = window as unknown as {

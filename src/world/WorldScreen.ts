@@ -42,6 +42,7 @@ import {
 } from './worldQuests';
 import { WorldDiary } from './worldDiary';
 import { bubbleLineFor } from './LennyStar';
+import { bubbleAnchorY } from './bubbleAnchor';
 import { audio } from '../games/engine/AudioEngine';
 import { music } from '../audio/MusicEngine';
 import { createGameShelf, type GameShelfHandle } from '../ui/components/GameShelf';
@@ -245,6 +246,10 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
 
   function showBubble(line: string): void {
     if (!line) return;
+    /* stage 18 — one message lane at a time: while the quest toast
+       is on screen the bubble keeps quiet. Two overlapping messages
+       in one lane is exactly the pile-up the owner banned. */
+    if (!questPanel.classList.contains('hidden')) return;
     bubble.querySelector('.lenny-bubble-text')!.textContent = line;
     bubble.classList.remove('hidden');
     if (bubbleTimer !== null) window.clearTimeout(bubbleTimer);
@@ -254,12 +259,13 @@ export function createWorldScreen(callbacks: WorldScreenCallbacks): WorldScreenH
         if (!app || bubble.classList.contains('hidden')) return;
         const p = app.lennyScreen();
         bubble.style.left = `${Math.round(p.x * 100)}%`;
-        /* stage 16: also bounded from below — a bubble chasing Lenny
-           toward the screen's bottom edge used to dive into the
-           bottom band (thumb controls, quest slot, foot links). The
-           bubble parks at 60% height and points down at her. */
-        const top = Math.min(0.6, Math.max(0.04, p.y - 0.075));
-        bubble.style.top = `${Math.round(top * 100)}%`;
+        /* stage 18 — the bubble may follow Lenny when she is HIGH
+           on screen, but it may NEVER drop low: the old park-at-60%
+           put a speech bubble dead-center above the joystick lane,
+           and the owner read it as the sign that never left. The
+           upper third is message country (pure math in
+           bubbleAnchor.ts, pinned by tests). */
+        bubble.style.top = `${Math.round(bubbleAnchorY(p.y) * 100)}%`;
       }, 120);
     }
   }
