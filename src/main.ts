@@ -34,6 +34,7 @@ import {
   writeGardenMode,
 } from './world/worldMode';
 import { createWorldScreen } from './world/WorldScreen';
+import { startVersionWatch } from './versionWatch';
 
 declare global {
   interface Window {
@@ -56,6 +57,11 @@ declare global {
 }
 
 const appRoot = document.querySelector<HTMLDivElement>('#app');
+
+/* stage 19 — the site keeps itself fresh: a stale session (old PWA
+   suspend, cached shell) notices a newer deployed build and reloads
+   into it on its own. Silent on every failure. */
+startVersionWatch();
 
 /* ---------- the 144-game catalog (validated at boot) ---------- */
 
